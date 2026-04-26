@@ -1,3 +1,11 @@
+"""Multi-seed, multi-dataset robustness benchmark for KL vs Fisher-Rao t-SNE.
+
+The headline contribution of this benchmark is a paired comparison of the KL and Fisher-Rao
+t-SNE objectives across three datasets, five corruption levels, and five random seeds.
+A small VAE preliminary is preserved for completeness but is not the main focus of the
+paper anymore.
+"""
+
 from __future__ import annotations
 
 import argparse
@@ -7,7 +15,8 @@ from pathlib import Path
 
 import numpy as np
 import torch
-from sklearn.datasets import make_blobs
+from sklearn.datasets import load_digits, make_blobs
+from sklearn.preprocessing import StandardScaler
 from torch.nn import functional as F
 from torch.utils.data import DataLoader, Subset
 from torchvision import datasets, transforms
@@ -30,16 +39,35 @@ from fisher_rao_ml.vae import SmallMnistVAE, vae_loss
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Run compact paper benchmarks.")
+    parser = argparse.ArgumentParser(description="Run multi-seed t-SNE robustness benchmarks.")
     parser.add_argument("--output-dir", default="reports/results")
-    parser.add_argument("--seed", type=int, default=101)
-    parser.add_argument("--tsne-steps", type=int, default=150)
-    parser.add_argument("--tsne-samples", type=int, default=160)
+    parser.add_argument("--tsne-steps", type=int, default=300)
+    parser.add_argument("--tsne-samples", type=int, default=200)
+    parser.add_argument("--tsne-seeds", type=int, nargs="+", default=[101, 202, 303, 404, 505])
+    parser.add_argument(
+        "--tsne-noise-levels",
+        type=float,
+        nargs="+",
+        default=[0.0, 0.25, 0.5, 0.75, 1.0],
+    )
+    parser.add_argument(
+        "--datasets",
+        nargs="+",
+        default=["blobs", "digits", "mnist"],
+        choices=["blobs", "digits", "mnist"],
+    )
     parser.add_argument("--vae-epochs", type=int, default=1)
     parser.add_argument("--vae-train-samples", type=int, default=2048)
     parser.add_argument("--vae-eval-samples", type=int, default=512)
     parser.add_argument("--batch-size", type=int, default=128)
-    parser.add_argument("--log-every", type=int, default=25)
+    parser.add_argument("--log-every", type=int, default=50)
+    parser.add_argument("--skip-vae", action="store_true", help="Skip preliminary VAE benchmark")
+    parser.add_argument(
+        "--save-embeddings-for",
+        type=str,
+        default="digits",
+        help="Save raw 2D embeddings for this dataset to enable qualitative figures",
+    )
     return parser.parse_args()
 
 
@@ -47,8 +75,13 @@ def write_rows(path: Path, rows: list[dict[str, float | int | str]]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     if not rows:
         return
+    fieldnames: list[str] = []
+    for row in rows:
+        for key in row:
+            if key not in fieldnames:
+                fieldnames.append(key)
     with path.open("w", newline="") as handle:
-        writer = csv.DictWriter(handle, fieldnames=list(rows[0].keys()))
+        writer = csv.DictWriter(handle, fieldnames=fieldnames)
         writer.writeheader()
         writer.writerows(rows)
 
@@ -57,20 +90,67 @@ def has_nonfinite_metrics(metrics: dict[str, float]) -> bool:
     return any(not math.isfinite(value) for value in metrics.values())
 
 
+def load_dataset(
+    name: str,
+    n_samples: int,
+    seed: int,
+) -> tuple[np.ndarray, np.ndarray, str]:
+    """Return a standardized feature matrix, integer labels, and a human-readable name."""
+    if name == "blobs":
+        x, y = make_blobs(
+            n_samples=n_samples,
+            n_features=8,
+            centers=5,
+            cluster_std=1.6,
+            random_state=seed,
+        )
+        pretty = "5-cluster Gaussian blobs (8d)"
+    elif name == "digits":
+        bundle = load_digits()
+        rng = np.random.default_rng(seed)
+        idx = rng.choice(len(bundle.data), size=n_samples, replace=False)
+        x = bundle.data[idx]
+        y = bundle.target[idx]
+        pretty = "sklearn digits (64d, 10 classes)"
+    elif name == "mnist":
+        transform = transforms.ToTensor()
+        bundle = datasets.MNIST(root="data", train=True, download=True, transform=transform)
+        rng = np.random.default_rng(seed)
+        idx = rng.choice(len(bundle), size=n_samples, replace=False)
+        x = np.stack([bundle[i][0].numpy().reshape(-1) for i in idx]).astype(np.float32)
+        y = np.array([int(bundle[i][1]) for i in idx])
+        pretty = "MNIST flat (784d, 10 classes)"
+    else:
+        raise ValueError(f"Unknown dataset: {name}")
+
+    x = StandardScaler().fit_transform(x).astype(np.float32)
+    return x, y.astype(np.int64), pretty
+
+
+def median_distance(x: np.ndarray) -> float:
+    """Median pairwise Euclidean distance, used as a t-SNE bandwidth heuristic."""
+    diffs = x[:, None, :] - x[None, :, :]
+    distances = np.sqrt(np.maximum((diffs * diffs).sum(axis=-1), 0.0))
+    triu_idx = np.triu_indices(len(x), k=1)
+    return float(np.median(distances[triu_idx]))
+
+
 def train_tsne_embedding(
     x_for_affinities: torch.Tensor,
     objective: str,
     steps: int,
     seed: int,
+    bandwidth: float,
     log_every: int,
+    verbose: bool = False,
 ) -> tuple[np.ndarray, list[tuple[int, float]]]:
     torch.manual_seed(seed)
     embedding = torch.nn.Parameter(
         torch.randn(x_for_affinities.shape[0], 2, device=x_for_affinities.device) * 1e-3
     )
     optimizer = torch.optim.Adam([embedding], lr=5e-2)
-    p = symmetric_gaussian_affinities(x_for_affinities, bandwidth=5.0)
-    history = []
+    p = symmetric_gaussian_affinities(x_for_affinities, bandwidth=bandwidth)
+    history: list[tuple[int, float]] = []
 
     for step in range(steps):
         optimizer.zero_grad(set_to_none=True)
@@ -81,63 +161,108 @@ def train_tsne_embedding(
         if step % log_every == 0 or step == steps - 1:
             loss_value = float(loss.detach().cpu())
             history.append((step, loss_value))
-            print(f"[paper:t-SNE] objective={objective} step={step:04d} loss={loss_value:.6f}")
+            if verbose:
+                print(f"[paper:t-SNE] objective={objective} step={step:04d} loss={loss_value:.6f}")
 
     return embedding.detach().cpu().numpy(), history
 
 
 def run_tsne_benchmark(args: argparse.Namespace, device: torch.device) -> None:
-    rng = np.random.default_rng(args.seed)
-    x_clean, labels = make_blobs(
-        n_samples=args.tsne_samples,
-        n_features=8,
-        centers=5,
-        cluster_std=1.6,
-        random_state=args.seed,
-    )
-    x_scale = float(np.std(x_clean))
-    noise_levels = [0.0, 0.5, 1.0]
     objectives = ["kl", "fisher_rao"]
     metric_rows: list[dict[str, float | int | str]] = []
     dynamics_rows: list[dict[str, float | int | str]] = []
+    embedding_rows: list[dict[str, float | int | str]] = []
 
-    print("\n[paper:t-SNE] Benchmarking representation quality and feature-noise robustness")
-    for noise in noise_levels:
-        perturbation = rng.normal(size=x_clean.shape) * x_scale * noise
-        x_noisy = x_clean + perturbation
-        x_tensor = torch.tensor(x_noisy, dtype=torch.float32, device=device)
-        for objective in objectives:
-            embedding, history = train_tsne_embedding(
-                x_tensor,
-                objective=objective,
-                steps=args.tsne_steps,
-                seed=args.seed,
-                log_every=args.log_every,
-            )
-            metrics = evaluate_embedding(x_clean, embedding, labels, n_neighbors=10, seed=args.seed)
-            metric_rows.append(
-                {
-                    "task": "tsne",
-                    "objective": objective,
-                    "noise_std_fraction": noise,
-                    **metrics,
-                }
-            )
-            for step, loss_value in history:
-                dynamics_rows.append(
-                    {
-                        "task": "tsne",
-                        "objective": objective,
-                        "noise_std_fraction": noise,
-                        "step": step,
-                        "loss": loss_value,
-                    }
-                )
-            print(f"[paper:t-SNE] objective={objective} noise={noise} {format_metrics(metrics)}")
+    print("\n[paper:t-SNE] Multi-seed, multi-dataset robustness benchmark")
+    print(
+        "[paper:t-SNE] datasets="
+        f"{args.datasets} noise={args.tsne_noise_levels} seeds={args.tsne_seeds}"
+    )
+
+    for dataset_name in args.datasets:
+        x_clean, labels, pretty = load_dataset(dataset_name, args.tsne_samples, seed=0)
+        bandwidth = max(median_distance(x_clean) / math.sqrt(2.0), 1e-3)
+        print(
+            f"\n[paper:t-SNE] dataset={dataset_name} ({pretty}) "
+            f"shape={x_clean.shape} bandwidth={bandwidth:.4f}"
+        )
+
+        for noise in args.tsne_noise_levels:
+            for seed in args.tsne_seeds:
+                noise_rng = np.random.default_rng(1000 * seed + int(noise * 1000))
+                perturbation = noise_rng.normal(size=x_clean.shape).astype(np.float32) * noise
+                x_noisy = (x_clean + perturbation).astype(np.float32)
+                x_tensor = torch.tensor(x_noisy, device=device)
+
+                for objective in objectives:
+                    embedding, history = train_tsne_embedding(
+                        x_tensor,
+                        objective=objective,
+                        steps=args.tsne_steps,
+                        seed=seed,
+                        bandwidth=bandwidth,
+                        log_every=args.log_every,
+                    )
+                    metrics = evaluate_embedding(
+                        x_clean,
+                        embedding,
+                        labels,
+                        n_neighbors=10,
+                        seed=seed,
+                    )
+                    final_loss = history[-1][1] if history else float("nan")
+                    metric_rows.append(
+                        {
+                            "task": "tsne",
+                            "dataset": dataset_name,
+                            "objective": objective,
+                            "noise_std_fraction": noise,
+                            "seed": seed,
+                            "final_loss": final_loss,
+                            **metrics,
+                        }
+                    )
+                    for step, loss_value in history:
+                        dynamics_rows.append(
+                            {
+                                "task": "tsne",
+                                "dataset": dataset_name,
+                                "objective": objective,
+                                "noise_std_fraction": noise,
+                                "seed": seed,
+                                "step": step,
+                                "loss": loss_value,
+                            }
+                        )
+
+                    if dataset_name == args.save_embeddings_for and seed == args.tsne_seeds[0]:
+                        for i in range(embedding.shape[0]):
+                            embedding_rows.append(
+                                {
+                                    "dataset": dataset_name,
+                                    "objective": objective,
+                                    "noise_std_fraction": noise,
+                                    "seed": seed,
+                                    "index": i,
+                                    "x": float(embedding[i, 0]),
+                                    "y": float(embedding[i, 1]),
+                                    "label": int(labels[i]),
+                                }
+                            )
+
+                    print(
+                        f"[paper:t-SNE] dataset={dataset_name} noise={noise:.2f} "
+                        f"seed={seed} objective={objective} "
+                        f"trust={metrics['eval_trustworthiness']:.4f} "
+                        f"recall={metrics['eval_neighborhood_recall']:.4f} "
+                        f"sil={metrics['eval_silhouette']:.4f} "
+                        f"knn={metrics['eval_knn_accuracy']:.4f}"
+                    )
 
     output_dir = Path(args.output_dir)
-    write_rows(output_dir / "tsne_robustness_metrics.csv", metric_rows)
+    write_rows(output_dir / "tsne_robustness_full.csv", metric_rows)
     write_rows(output_dir / "tsne_training_dynamics.csv", dynamics_rows)
+    write_rows(output_dir / "tsne_qualitative_embeddings.csv", embedding_rows)
 
 
 @torch.no_grad()
@@ -174,8 +299,8 @@ def run_vae_training(
     train_loader: DataLoader,
     device: torch.device,
     args: argparse.Namespace,
-) -> tuple[SmallMnistVAE, list[dict[str, float | int | str]]]:
-    torch.manual_seed(args.seed)
+) -> tuple[SmallMnistVAE, list[dict[str, float | int | str]], bool]:
+    torch.manual_seed(args.tsne_seeds[0])
     model = SmallMnistVAE(latent_dim=8).to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
     rows: list[dict[str, float | int | str]] = []
@@ -201,7 +326,7 @@ def run_vae_training(
             if not torch.isfinite(loss):
                 stable = False
                 print(
-                    "[paper:VAE] non-finite loss detected; "
+                    "[paper:VAE] non-finite loss; "
                     f"regularizer={regularizer} beta={beta} step={global_step}"
                 )
                 break
@@ -214,13 +339,6 @@ def run_vae_training(
                     {name: float(value.cpu()) for name, value in metrics.items()}
                 )
                 progress.set_postfix(compact)
-                print(
-                    "[paper:VAE] "
-                    f"regularizer={regularizer} beta={beta} step={global_step:04d} "
-                    f"loss={compact['loss']:.6f} "
-                    f"reconstruction={compact['reconstruction']:.6f} "
-                    f"regularization={compact['regularization']:.6f}"
-                )
                 rows.append(
                     {
                         "task": "vae",
@@ -234,7 +352,7 @@ def run_vae_training(
         if not stable:
             break
 
-    return model, rows
+    return model, rows, stable
 
 
 def run_vae_benchmark(args: argparse.Namespace, device: torch.device) -> None:
@@ -265,9 +383,9 @@ def run_vae_benchmark(args: argparse.Namespace, device: torch.device) -> None:
     metric_rows: list[dict[str, float | int | str]] = []
     dynamics_rows: list[dict[str, float | int | str]] = []
 
-    print("\n[paper:VAE] Benchmarking reconstruction, latent geometry, and input-noise robustness")
+    print("\n[paper:VAE] Preliminary VAE benchmark (out of paper main scope)")
     for regularizer, beta in configs:
-        model, rows = run_vae_training(regularizer, beta, train_loader, device, args)
+        model, rows, _ = run_vae_training(regularizer, beta, train_loader, device, args)
         dynamics_rows.extend(rows)
         eval_metrics = evaluate_vae_loader(model, eval_loader, device, regularizer, beta)
         train_latents, train_labels = collect_latents(model, train_eval_loader, device)
@@ -307,11 +425,12 @@ def main() -> None:
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
     device = get_device()
-    np.random.seed(args.seed)
-    torch.manual_seed(args.seed)
+    np.random.seed(args.tsne_seeds[0])
+    torch.manual_seed(args.tsne_seeds[0])
     print(f"[paper] device={device} output_dir={output_dir}")
     run_tsne_benchmark(args, device)
-    run_vae_benchmark(args, device)
+    if not args.skip_vae:
+        run_vae_benchmark(args, device)
     print("[paper] Benchmark complete")
 
 
