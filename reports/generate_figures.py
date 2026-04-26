@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import csv
+from collections import defaultdict
 from pathlib import Path
 
 import matplotlib.pyplot as plt
@@ -9,50 +10,20 @@ import numpy as np
 FIGURE_DIR = Path(__file__).resolve().parent / "figures"
 RESULT_DIR = Path(__file__).resolve().parent / "results"
 
+DATASET_LABELS = {
+    "blobs": "Blobs (8d)",
+    "digits": "Digits (64d)",
+    "mnist": "MNIST (784d)",
+}
+
+OBJECTIVE_LABELS = {"kl": "KL", "fisher_rao": "Fisher-Rao"}
+OBJECTIVE_COLORS = {"kl": "tab:blue", "fisher_rao": "tab:red"}
+OBJECTIVE_MARKERS = {"kl": "o", "fisher_rao": "s"}
+
 
 def read_csv_rows(path: Path) -> list[dict[str, str]]:
     with path.open() as handle:
         return list(csv.DictReader(handle))
-
-
-def save_tsne_loss_curves() -> None:
-    steps = np.array([0, 25, 50, 100, 150, 199])
-    kl = np.array([1.613072, 0.642285, 0.298945, 0.182499, 0.141878, 0.119724])
-    fisher_rao = np.array([4.565233, 1.897354, 0.896415, 0.527659, 0.406908, 0.339899])
-
-    fig, ax = plt.subplots(figsize=(6.0, 3.8))
-    ax.plot(steps, kl / kl[0], marker="o", label="KL, normalized")
-    ax.plot(steps, fisher_rao / fisher_rao[0], marker="s", label="Fisher-Rao squared, normalized")
-    ax.set_xlabel("optimization step")
-    ax.set_ylabel("objective / initial objective")
-    ax.set_title("t-SNE objective decrease")
-    ax.grid(alpha=0.25)
-    ax.legend()
-    fig.tight_layout()
-    fig.savefig(FIGURE_DIR / "tsne_loss_curves.pdf")
-    plt.close(fig)
-
-
-def save_vae_training_components() -> None:
-    labels = ["KL", "Fisher-Rao"]
-    reconstruction = np.array([216.819153, 219.285187])
-    regularization = np.array([7.706926, 9.214247])
-    total = np.array([224.526077, 228.499435])
-
-    x = np.arange(len(labels))
-    width = 0.24
-    fig, ax = plt.subplots(figsize=(6.0, 3.8))
-    ax.bar(x - width, reconstruction, width, label="reconstruction")
-    ax.bar(x, regularization, width, label="regularization")
-    ax.bar(x + width, total, width, label="total")
-    ax.set_xticks(x, labels)
-    ax.set_ylabel("loss at step 25")
-    ax.set_title("VAE smoke-run training components")
-    ax.grid(axis="y", alpha=0.25)
-    ax.legend()
-    fig.tight_layout()
-    fig.savefig(FIGURE_DIR / "vae_training_components.pdf")
-    plt.close(fig)
 
 
 def save_categorical_objective_shape() -> None:
@@ -63,9 +34,14 @@ def save_categorical_objective_shape() -> None:
     affinity = np.sum(np.sqrt(p * q), axis=1)
     fisher_rao_squared = (2.0 * np.arccos(np.clip(affinity, -1.0, 1.0))) ** 2
 
-    fig, ax = plt.subplots(figsize=(6.0, 3.8))
-    ax.plot(p0, kl, label=r"$\mathrm{KL}(p\,||\,q)$")
-    ax.plot(p0, fisher_rao_squared, label=r"$d_{\mathrm{FR}}(p,q)^2$")
+    fig, ax = plt.subplots(figsize=(6.0, 3.6))
+    ax.plot(p0, kl, label=r"$\mathrm{KL}(p\,||\,q)$", color="tab:blue")
+    ax.plot(
+        p0,
+        fisher_rao_squared,
+        label=r"$d_{\mathrm{FR}}(p,q)^2$",
+        color="tab:red",
+    )
     ax.set_xlabel(r"$p(y=0)$")
     ax.set_ylabel("objective value")
     ax.set_title("Categorical two-class objective shape")
@@ -76,37 +52,263 @@ def save_categorical_objective_shape() -> None:
     plt.close(fig)
 
 
-def save_tsne_robustness_metrics() -> None:
-    path = RESULT_DIR / "tsne_robustness_metrics.csv"
-    if not path.exists():
-        print(f"Skipping robustness figure; missing {path}")
-        return
+def save_bounded_codomain_figure() -> None:
+    """Show that FR squared distance is bounded on the simplex while KL is not.
 
+    For a binary categorical with q fixed at the uniform distribution, plot
+    KL(p || q) and d_FR(p, q)^2 as p sweeps the simplex. KL diverges at the
+    boundary; d_FR^2 is bounded above by pi^2.
+    """
+    p0 = np.linspace(1e-4, 1 - 1e-4, 1000)
+    p = np.stack([p0, 1.0 - p0], axis=1)
+    q = np.array([0.5, 0.5])
+    kl = np.sum(p * (np.log(p) - np.log(q)), axis=1)
+    affinity = np.sum(np.sqrt(p * q), axis=1)
+    fr_squared = (2.0 * np.arccos(np.clip(affinity, -1.0, 1.0))) ** 2
+
+    fig, axes = plt.subplots(1, 2, figsize=(8.0, 3.4))
+    axes[0].plot(p0, kl, color="tab:blue")
+    axes[0].set_title(r"$\mathrm{KL}(p\,||\,q)$ (unbounded)")
+    axes[0].set_xlabel(r"$p(y=0)$")
+    axes[0].set_ylabel("nats")
+    axes[0].grid(alpha=0.25)
+
+    axes[1].plot(p0, fr_squared, color="tab:red")
+    axes[1].axhline(np.pi**2, color="black", linestyle="--", linewidth=0.8, label=r"$\pi^2$")
+    axes[1].set_title(r"$d_{\mathrm{FR}}(p,q)^2$ (bounded by $\pi^2$)")
+    axes[1].set_xlabel(r"$p(y=0)$")
+    axes[1].set_ylabel("squared geodesic length")
+    axes[1].grid(alpha=0.25)
+    axes[1].legend()
+    fig.suptitle("Categorical objective scale (q is uniform)")
+    fig.tight_layout()
+    fig.savefig(FIGURE_DIR / "bounded_codomain.pdf")
+    plt.close(fig)
+
+
+def save_robustness_lines() -> None:
+    path = RESULT_DIR / "tsne_robustness_aggregated.csv"
+    if not path.exists():
+        print(f"Skipping robustness lines; missing {path}")
+        return
     rows = read_csv_rows(path)
-    objectives = ["kl", "fisher_rao"]
-    labels = {"kl": "KL", "fisher_rao": "Fisher-Rao"}
+
     metrics = [
         ("eval_trustworthiness", "trustworthiness"),
         ("eval_neighborhood_recall", "neighborhood recall"),
         ("eval_silhouette", "silhouette"),
+        ("eval_knn_accuracy", "kNN accuracy"),
     ]
+    datasets = sorted({row["dataset"] for row in rows})
+    objectives = ["kl", "fisher_rao"]
 
-    fig, axes = plt.subplots(1, 3, figsize=(11.0, 3.3), sharex=True)
-    for ax, (metric, title) in zip(axes, metrics, strict=True):
-        for objective in objectives:
-            selected = [row for row in rows if row["objective"] == objective]
-            selected = sorted(selected, key=lambda row: float(row["noise_std_fraction"]))
-            noise = [float(row["noise_std_fraction"]) for row in selected]
-            values = [float(row[metric]) for row in selected]
-            ax.plot(noise, values, marker="o", label=labels[objective])
-        ax.set_title(title)
-        ax.set_xlabel("feature noise / data std")
-        ax.grid(alpha=0.25)
-    axes[0].set_ylabel("metric value")
-    axes[-1].legend()
-    fig.suptitle("t-SNE final embedding quality under feature noise", y=1.04)
+    fig, axes = plt.subplots(
+        len(datasets),
+        len(metrics),
+        figsize=(3.0 * len(metrics), 2.5 * len(datasets)),
+        sharex=True,
+    )
+    if len(datasets) == 1:
+        axes = np.array([axes])
+
+    for row_idx, dataset in enumerate(datasets):
+        for col_idx, (metric, title) in enumerate(metrics):
+            ax = axes[row_idx, col_idx]
+            for objective in objectives:
+                selected = [
+                    row
+                    for row in rows
+                    if row["dataset"] == dataset and row["objective"] == objective
+                ]
+                selected.sort(key=lambda row: float(row["noise_std_fraction"]))
+                noise = np.array([float(row["noise_std_fraction"]) for row in selected])
+                mean = np.array([float(row[f"{metric}_mean"]) for row in selected])
+                std = np.array([float(row[f"{metric}_std"]) for row in selected])
+                ax.plot(
+                    noise,
+                    mean,
+                    label=OBJECTIVE_LABELS[objective],
+                    color=OBJECTIVE_COLORS[objective],
+                    marker=OBJECTIVE_MARKERS[objective],
+                )
+                ax.fill_between(
+                    noise,
+                    mean - std,
+                    mean + std,
+                    color=OBJECTIVE_COLORS[objective],
+                    alpha=0.18,
+                )
+            if row_idx == 0:
+                ax.set_title(title)
+            if col_idx == 0:
+                ax.set_ylabel(DATASET_LABELS.get(dataset, dataset))
+            if row_idx == len(datasets) - 1:
+                ax.set_xlabel("feature noise / data std")
+            ax.grid(alpha=0.25)
+
+    handles, labels = axes[0, 0].get_legend_handles_labels()
+    fig.legend(handles, labels, loc="lower center", ncol=2, bbox_to_anchor=(0.5, -0.02))
+    fig.suptitle("Final t-SNE embedding quality vs feature noise (mean $\\pm$ std over seeds)")
+    fig.tight_layout(rect=(0, 0.03, 1, 0.96))
+    fig.savefig(FIGURE_DIR / "tsne_robustness_grid.pdf", bbox_inches="tight")
+    plt.close(fig)
+
+
+def save_robustness_deltas() -> None:
+    """Bar plot of mean (FR - KL) per dataset per metric, averaged over noise levels."""
+    path = RESULT_DIR / "tsne_robustness_significance.csv"
+    if not path.exists():
+        print(f"Skipping robustness deltas; missing {path}")
+        return
+    rows = read_csv_rows(path)
+    if not rows:
+        return
+
+    metrics = [
+        "eval_trustworthiness",
+        "eval_neighborhood_recall",
+        "eval_silhouette",
+        "eval_knn_accuracy",
+    ]
+    metric_labels = ["trust.", "recall", "silhouette", "kNN acc."]
+    datasets = sorted({row["dataset"] for row in rows})
+
+    accumulated: dict[tuple[str, str], list[float]] = defaultdict(list)
+    for row in rows:
+        for metric in metrics:
+            key = (row["dataset"], metric)
+            value = float(row[f"{metric}_mean_diff"])
+            if np.isfinite(value):
+                accumulated[key].append(value)
+
+    width = 0.18
+    x = np.arange(len(metrics))
+    fig, ax = plt.subplots(figsize=(7.0, 3.4))
+    for i, dataset in enumerate(datasets):
+        means = [
+            float(np.mean(accumulated[(dataset, metric)]))
+            if accumulated[(dataset, metric)]
+            else 0.0
+            for metric in metrics
+        ]
+        ax.bar(
+            x + (i - (len(datasets) - 1) / 2) * width,
+            means,
+            width,
+            label=DATASET_LABELS.get(dataset, dataset),
+        )
+    ax.axhline(0.0, color="black", linewidth=0.8)
+    ax.set_xticks(x, metric_labels)
+    ax.set_ylabel(r"mean Fisher-Rao $-$ KL across noise levels")
+    ax.set_title("Average paired improvement of Fisher-Rao over KL")
+    ax.grid(axis="y", alpha=0.25)
+    ax.legend()
     fig.tight_layout()
-    fig.savefig(FIGURE_DIR / "tsne_robustness_metrics.pdf", bbox_inches="tight")
+    fig.savefig(FIGURE_DIR / "tsne_paired_deltas.pdf")
+    plt.close(fig)
+
+
+def save_qualitative_embeddings() -> None:
+    path = RESULT_DIR / "tsne_qualitative_embeddings.csv"
+    if not path.exists():
+        print(f"Skipping qualitative figure; missing {path}")
+        return
+    rows = read_csv_rows(path)
+    if not rows:
+        return
+
+    chosen_noise = [0.0, 0.5, 1.0]
+    objectives = ["kl", "fisher_rao"]
+
+    grouped: dict[tuple[float, str], list[dict[str, str]]] = defaultdict(list)
+    for row in rows:
+        noise = float(row["noise_std_fraction"])
+        if noise in chosen_noise:
+            grouped[(noise, row["objective"])].append(row)
+
+    if not grouped:
+        return
+
+    fig, axes = plt.subplots(
+        len(objectives),
+        len(chosen_noise),
+        figsize=(3.0 * len(chosen_noise), 3.0 * len(objectives)),
+    )
+
+    for col_idx, noise in enumerate(chosen_noise):
+        for row_idx, objective in enumerate(objectives):
+            ax = axes[row_idx, col_idx]
+            entries = grouped.get((noise, objective), [])
+            if not entries:
+                ax.set_axis_off()
+                continue
+            xs = np.array([float(entry["x"]) for entry in entries])
+            ys = np.array([float(entry["y"]) for entry in entries])
+            labels = np.array([int(entry["label"]) for entry in entries])
+            ax.scatter(xs, ys, c=labels, cmap="tab10", s=12, alpha=0.9)
+            ax.set_title(f"{OBJECTIVE_LABELS[objective]}, noise={noise}")
+            ax.set_xticks([])
+            ax.set_yticks([])
+
+    fig.suptitle("t-SNE embeddings of digits dataset under increasing feature noise (single seed)")
+    fig.tight_layout(rect=(0, 0, 1, 0.94))
+    fig.savefig(FIGURE_DIR / "tsne_qualitative.pdf", bbox_inches="tight")
+    plt.close(fig)
+
+
+def save_loss_curves() -> None:
+    path = RESULT_DIR / "tsne_training_dynamics.csv"
+    if not path.exists():
+        print(f"Skipping loss curves; missing {path}")
+        return
+    rows = read_csv_rows(path)
+    if not rows:
+        return
+
+    target_dataset = "digits" if any(row["dataset"] == "digits" for row in rows) else (
+        rows[0]["dataset"]
+    )
+    target_noise = 0.5
+    matching = [
+        row
+        for row in rows
+        if row["dataset"] == target_dataset
+        and abs(float(row["noise_std_fraction"]) - target_noise) < 1e-6
+    ]
+    if not matching:
+        return
+
+    grouped: dict[str, dict[int, list[float]]] = defaultdict(lambda: defaultdict(list))
+    for row in matching:
+        objective = row["objective"]
+        step = int(row["step"])
+        grouped[objective][step].append(float(row["loss"]))
+
+    fig, ax = plt.subplots(figsize=(6.0, 3.6))
+    for objective, per_step in grouped.items():
+        steps = sorted(per_step.keys())
+        means = np.array([np.mean(per_step[s]) for s in steps])
+        if len(means) == 0 or means[0] == 0:
+            continue
+        normalized = means / means[0]
+        ax.plot(
+            steps,
+            normalized,
+            label=OBJECTIVE_LABELS[objective],
+            color=OBJECTIVE_COLORS[objective],
+            marker=OBJECTIVE_MARKERS[objective],
+            markevery=max(len(steps) // 8, 1),
+        )
+    ax.set_xlabel("optimization step")
+    ax.set_ylabel("objective / initial objective")
+    ax.set_title(
+        f"Normalized t-SNE objective curves ({DATASET_LABELS[target_dataset]}, "
+        f"noise={target_noise})"
+    )
+    ax.grid(alpha=0.25)
+    ax.legend()
+    fig.tight_layout()
+    fig.savefig(FIGURE_DIR / "tsne_loss_curves.pdf")
     plt.close(fig)
 
 
@@ -117,6 +319,8 @@ def save_vae_final_metrics() -> None:
         return
 
     rows = read_csv_rows(path)
+    if not rows:
+        return
     labels = [
         f"{row['regularizer'].replace('_', '-')}\n$\\beta={float(row['beta']):g}$"
         for row in rows
@@ -146,7 +350,7 @@ def save_vae_final_metrics() -> None:
     for ax in axes:
         ax.set_xticks(x, labels)
         ax.grid(axis="y", alpha=0.25)
-    fig.suptitle("VAE final representation and robustness metrics", y=1.04)
+    fig.suptitle("VAE preliminary final metrics (single seed)", y=1.04)
     fig.tight_layout()
     fig.savefig(FIGURE_DIR / "vae_final_metrics.pdf", bbox_inches="tight")
     plt.close(fig)
@@ -154,10 +358,12 @@ def save_vae_final_metrics() -> None:
 
 def main() -> None:
     FIGURE_DIR.mkdir(parents=True, exist_ok=True)
-    save_tsne_loss_curves()
-    save_vae_training_components()
     save_categorical_objective_shape()
-    save_tsne_robustness_metrics()
+    save_bounded_codomain_figure()
+    save_robustness_lines()
+    save_robustness_deltas()
+    save_qualitative_embeddings()
+    save_loss_curves()
     save_vae_final_metrics()
     print(f"Wrote figures to {FIGURE_DIR}")
 
