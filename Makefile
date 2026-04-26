@@ -1,4 +1,4 @@
-.PHONY: install test lint tsne-fr tsne-kl tsne-compare vae-fr vae-kl vae-compare paper-benchmark paper-aggregate report-figures report-pdf paper-all mlflow-ui marimo
+.PHONY: install test lint tsne-fr tsne-kl tsne-compare vae-fr vae-kl vae-compare paper-benchmark vae-benchmark vae-aggregate paper-aggregate report-figures report-pdf paper-all mlflow-ui marimo
 
 install:
 	uv sync --project . --extra dev
@@ -30,18 +30,24 @@ vae-compare:
 	uv run --project . python experiments/vae_fisher_rao.py --regularizer fisher_rao
 
 paper-benchmark:
-	uv run --project . python experiments/paper_benchmark.py
+	uv run --project . python experiments/paper_benchmark.py --skip-vae
+
+vae-benchmark:
+	uv run --project . python experiments/vae_benchmark.py
 
 paper-aggregate:
 	uv run --project . python experiments/aggregate_results.py
 
-report-figures: paper-aggregate
+vae-aggregate:
+	uv run --project . python experiments/aggregate_vae_results.py
+
+report-figures: paper-aggregate vae-aggregate
 	uv run --project . python reports/generate_figures.py
 
 report-pdf: report-figures
 	cd reports && pdflatex fisher_rao_vs_kl_arxiv.tex && bibtex fisher_rao_vs_kl_arxiv && pdflatex fisher_rao_vs_kl_arxiv.tex && pdflatex fisher_rao_vs_kl_arxiv.tex
 
-paper-all: paper-benchmark paper-aggregate report-pdf
+paper-all: paper-benchmark vae-benchmark paper-aggregate vae-aggregate report-pdf
 
 mlflow-ui:
 	uv run --project . mlflow ui --backend-store-uri ./mlruns

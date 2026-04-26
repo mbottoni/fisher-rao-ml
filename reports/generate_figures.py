@@ -14,6 +14,8 @@ DATASET_LABELS = {
     "blobs": "Blobs (8d)",
     "digits": "Digits (64d)",
     "mnist": "MNIST (784d)",
+    "fashion_mnist": "Fashion-MNIST",
+    "kmnist": "KMNIST",
 }
 
 OBJECTIVE_LABELS = {"kl": "KL", "fisher_rao": "Fisher-Rao"}
@@ -313,46 +315,178 @@ def save_loss_curves() -> None:
 
 
 def save_vae_final_metrics() -> None:
-    path = RESULT_DIR / "vae_final_metrics.csv"
+    path = RESULT_DIR / "vae_by_beta_aggregated.csv"
     if not path.exists():
-        print(f"Skipping VAE final metrics figure; missing {path}")
+        print(f"Skipping VAE beta trade-off figure; missing {path}")
         return
 
     rows = read_csv_rows(path)
     if not rows:
         return
-    labels = [
-        f"{row['regularizer'].replace('_', '-')}\n$\\beta={float(row['beta']):g}$"
-        for row in rows
+
+    datasets = sorted({row["dataset"] for row in rows})
+    metrics = [
+        ("eval_bce_per_pixel_mean", "BCE / pixel", "lower"),
+        ("eval_latent_knn_accuracy_mean", "latent kNN", "higher"),
+        ("eval_active_units_mean", "active units", "higher"),
     ]
-    x = np.arange(len(rows))
+    fig, axes = plt.subplots(len(datasets), len(metrics), figsize=(10.5, 2.7 * len(datasets)))
+    if len(datasets) == 1:
+        axes = np.array([axes])
 
-    fig, axes = plt.subplots(1, 3, figsize=(11.0, 3.3))
-    clean_bce = [float(row["eval_bce_per_pixel"]) for row in rows]
-    noisy_bce = [float(row["eval_noisy_bce_per_pixel"]) for row in rows]
-    latent_knn = [float(row["eval_latent_knn_accuracy"]) for row in rows]
-    active_units = [float(row["eval_active_units"]) for row in rows]
+    for row_idx, dataset in enumerate(datasets):
+        subset = [row for row in rows if row["dataset"] == dataset]
+        for col_idx, (metric, title, direction) in enumerate(metrics):
+            ax = axes[row_idx, col_idx]
+            for regularizer in ["kl", "fisher_rao"]:
+                selected = [row for row in subset if row["regularizer"] == regularizer]
+                selected.sort(key=lambda row: float(row["beta"]))
+                if not selected:
+                    continue
+                betas = np.array([float(row["beta"]) for row in selected])
+                means = np.array([float(row[metric]) for row in selected])
+                stds = np.array([float(row[metric.replace("_mean", "_std")]) for row in selected])
+                ax.errorbar(
+                    betas,
+                    means,
+                    yerr=stds,
+                    label=OBJECTIVE_LABELS.get(regularizer, regularizer),
+                    color=OBJECTIVE_COLORS.get(regularizer, "black"),
+                    marker=OBJECTIVE_MARKERS.get(regularizer, "o"),
+                    capsize=2,
+                )
+            ax.set_xscale("log")
+            if row_idx == 0:
+                ax.set_title(f"{title} ({direction} is better)")
+            if col_idx == 0:
+                ax.set_ylabel(DATASET_LABELS.get(dataset, dataset))
+            if row_idx == len(datasets) - 1:
+                ax.set_xlabel(r"$\beta$")
+            ax.grid(alpha=0.25)
 
-    width = 0.36
-    axes[0].bar(x - width / 2, clean_bce, width, label="clean")
-    axes[0].bar(x + width / 2, noisy_bce, width, label="noisy input")
-    axes[0].set_title("held-out BCE / pixel")
-    axes[0].legend()
-
-    axes[1].bar(x, latent_knn, color="tab:green")
-    axes[1].set_title("latent kNN accuracy")
-    axes[1].set_ylim(0.0, max(0.6, max(latent_knn) + 0.05))
-
-    axes[2].bar(x, active_units, color="tab:purple")
-    axes[2].set_title("active latent units")
-    axes[2].set_ylim(0.0, 8.5)
-
-    for ax in axes:
-        ax.set_xticks(x, labels)
-        ax.grid(axis="y", alpha=0.25)
-    fig.suptitle("VAE preliminary final metrics (single seed)", y=1.04)
-    fig.tight_layout()
+    handles, labels = axes[0, 0].get_legend_handles_labels()
+    fig.legend(handles, labels, loc="lower center", ncol=2, bbox_to_anchor=(0.5, -0.02))
+    fig.suptitle("VAE beta trade-offs (mean $\\pm$ std over seeds)")
+    fig.tight_layout(rect=(0, 0.04, 1, 0.96))
     fig.savefig(FIGURE_DIR / "vae_final_metrics.pdf", bbox_inches="tight")
+    plt.close(fig)
+
+
+def save_vae_best_beta_deltas() -> None:
+    path = RESULT_DIR / "vae_best_beta_significance.csv"
+    if not path.exists():
+        print(f"Skipping VAE paired deltas; missing {path}")
+        return
+    rows = read_csv_rows(path)
+    if not rows:
+        return
+    metrics = [
+        ("eval_bce_per_pixel", "BCE/pix", -1.0),
+        ("eval_latent_knn_accuracy", "latent kNN", 1.0),
+        ("eval_aggregated_posterior_mmd", "posterior MMD", -1.0),
+        ("eval_noise_0.25_dropout_0_bce_per_pixel", "noise BCE", -1.0),
+        ("eval_noise_0_dropout_0.25_bce_per_pixel", "dropout BCE", -1.0),
+    ]
+    x = np.arange(len(metrics))
+    width = 0.8 / max(len(rows), 1)
+    fig, ax = plt.subplots(figsize=(8.0, 3.6))
+    for i, row in enumerate(rows):
+        values = [
+            float(row[f"{metric}_mean_diff_fr_minus_kl"]) * sign
+            for metric, _label, sign in metrics
+        ]
+        ax.bar(x + (i - (len(rows) - 1) / 2) * width, values, width, label=row["dataset"])
+    ax.axhline(0.0, color="black", linewidth=0.8)
+    ax.set_xticks(x, [label for _metric, label, _sign in metrics])
+    ax.set_ylabel("oriented Fisher-Rao improvement over KL")
+    ax.set_title("Best-beta VAE paired deltas")
+    ax.grid(axis="y", alpha=0.25)
+    ax.legend()
+    fig.tight_layout()
+    fig.savefig(FIGURE_DIR / "vae_best_beta_deltas.pdf")
+    plt.close(fig)
+
+
+def save_vae_training_curves() -> None:
+    path = RESULT_DIR / "vae_training_dynamics.csv"
+    if not path.exists():
+        print(f"Skipping VAE training curves; missing {path}")
+        return
+    rows = read_csv_rows(path)
+    if not rows:
+        return
+    target_dataset = (
+        "mnist" if any(row.get("dataset") == "mnist" for row in rows) else rows[0]["dataset"]
+    )
+    grouped: dict[tuple[str, float, int], list[dict[str, str]]] = defaultdict(list)
+    for row in rows:
+        if row.get("dataset") == target_dataset:
+            grouped[(row["regularizer"], float(row["beta"]), int(row["step"]))].append(row)
+    if not grouped:
+        return
+    fig, axes = plt.subplots(1, 2, figsize=(9.0, 3.5), sharex=True)
+    for regularizer in ["kl", "fisher_rao"]:
+        beta_candidates = sorted({beta for reg, beta, _step in grouped if reg == regularizer})
+        if not beta_candidates:
+            continue
+        beta = 1.0 if 1.0 in beta_candidates else beta_candidates[0]
+        steps = sorted({step for reg, b, step in grouped if reg == regularizer and b == beta})
+        reconstruction = [
+            np.mean([float(row["reconstruction"]) for row in grouped[(regularizer, beta, step)]])
+            for step in steps
+        ]
+        regularization = [
+            np.mean([float(row["regularization"]) for row in grouped[(regularizer, beta, step)]])
+            for step in steps
+        ]
+        label = f"{OBJECTIVE_LABELS[regularizer]}, beta={beta:g}"
+        axes[0].plot(steps, reconstruction, label=label, color=OBJECTIVE_COLORS[regularizer])
+        axes[1].plot(steps, regularization, label=label, color=OBJECTIVE_COLORS[regularizer])
+    axes[0].set_title("reconstruction")
+    axes[1].set_title("regularization")
+    for ax in axes:
+        ax.set_xlabel("step")
+        ax.grid(alpha=0.25)
+        ax.legend()
+    fig.suptitle(f"VAE training dynamics ({DATASET_LABELS.get(target_dataset, target_dataset)})")
+    fig.tight_layout()
+    fig.savefig(FIGURE_DIR / "vae_training_dynamics.pdf")
+    plt.close(fig)
+
+
+def save_vae_latent_embeddings() -> None:
+    path = RESULT_DIR / "vae_latent_embeddings.csv"
+    if not path.exists():
+        print(f"Skipping VAE latent embeddings; missing {path}")
+        return
+    rows = read_csv_rows(path)
+    if not rows:
+        return
+    configs = []
+    for row in rows:
+        key = (row["regularizer"], float(row["beta"]))
+        if key not in configs:
+            configs.append(key)
+    configs = configs[:4]
+    fig, axes = plt.subplots(1, len(configs), figsize=(3.1 * len(configs), 3.0))
+    if len(configs) == 1:
+        axes = np.array([axes])
+    for ax, (regularizer, beta) in zip(axes, configs, strict=True):
+        selected = [
+            row
+            for row in rows
+            if row["regularizer"] == regularizer and abs(float(row["beta"]) - beta) < 1e-12
+        ]
+        xs = np.array([float(row["x"]) for row in selected])
+        ys = np.array([float(row["y"]) for row in selected])
+        labels = np.array([int(row["label"]) for row in selected])
+        ax.scatter(xs, ys, c=labels, cmap="tab10", s=10, alpha=0.85)
+        ax.set_title(f"{OBJECTIVE_LABELS[regularizer]}\n$\\beta={beta:g}$")
+        ax.set_xticks([])
+        ax.set_yticks([])
+    fig.suptitle("Representative VAE latent means projected with PCA")
+    fig.tight_layout()
+    fig.savefig(FIGURE_DIR / "vae_latent_geometry.pdf", bbox_inches="tight")
     plt.close(fig)
 
 
@@ -365,6 +499,9 @@ def main() -> None:
     save_qualitative_embeddings()
     save_loss_curves()
     save_vae_final_metrics()
+    save_vae_best_beta_deltas()
+    save_vae_training_curves()
+    save_vae_latent_embeddings()
     print(f"Wrote figures to {FIGURE_DIR}")
 
 

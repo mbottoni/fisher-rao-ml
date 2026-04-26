@@ -1,21 +1,25 @@
 # Fisher-Rao ML
 
-A rigorous empirical study of the Fisher-Rao geodesic distance as a replacement for KL
-divergence in t-SNE-style affinity matching. The repository contains:
+A rigorous empirical study of the Fisher-Rao geodesic distance as a replacement or complement
+to KL divergence in t-SNE-style affinity matching and variational autoencoders. The repository
+contains:
 
 - a differentiable PyTorch implementation of categorical and diagonal-Gaussian
   Fisher-Rao distances (`src/fisher_rao_ml/losses.py`);
 - t-SNE and VAE training scripts that toggle between KL and Fisher-Rao objectives;
-- a multi-seed, multi-dataset, multi-noise robustness benchmark
+- a multi-seed, multi-dataset t-SNE robustness benchmark
   (`experiments/paper_benchmark.py`);
-- a paired-comparison statistical aggregation pipeline
-  (`experiments/aggregate_results.py`);
+- a multi-seed, multi-dataset VAE beta-sweep benchmark
+  (`experiments/vae_benchmark.py`);
+- paired-comparison statistical aggregation pipelines
+  (`experiments/aggregate_results.py`, `experiments/aggregate_vae_results.py`);
 - an arXiv-style LaTeX report (`reports/fisher_rao_vs_kl_arxiv.tex`).
 
-The headline empirical finding is that, across $3$ datasets, $5$ noise levels, and
-$10$ seeds, KL has a small but consistent and statistically significant advantage in
-silhouette-based cluster separation, and Fisher-Rao does not significantly outperform
-KL on any cell. See the paper for full details.
+The t-SNE result is negative-leaning: KL has a small but consistent advantage in
+silhouette-based cluster separation. The VAE workflow asks a different question: whether
+Fisher-Rao's intrinsic diagonal-Gaussian geometry changes reconstruction, latent usefulness,
+posterior matching, generation, and corruption robustness after each objective receives its own
+beta tuning.
 
 ## Setup
 
@@ -31,17 +35,34 @@ PyTorch device selection prefers Apple Silicon MPS when available, then CUDA, th
 make paper-all
 ```
 
-This runs the multi-seed benchmark, aggregates the results, regenerates figures, and
-recompiles the LaTeX report. End-to-end runtime is approximately $2$--$3$ minutes on Apple
-Silicon MPS plus a few seconds for the LaTeX build.
+This runs the t-SNE benchmark, the VAE benchmark, aggregation, figure generation, and the
+LaTeX report build. The default VAE grid is much larger than the t-SNE grid; use the smoke
+command below while iterating.
 
 Individual stages:
 
 ```bash
-make paper-benchmark       # 150 paired t-SNE runs + 3-config VAE preliminary
-make paper-aggregate       # mean/std + paired Wilcoxon + Cliff's delta
-make report-figures        # paper-aggregate followed by figure regeneration
+make paper-benchmark       # paired t-SNE runs
+make vae-benchmark         # multi-dataset, multi-seed VAE beta sweep
+make paper-aggregate       # t-SNE mean/std + paired Wilcoxon + Cliff's delta
+make vae-aggregate         # VAE best-beta selection + paired tests
+make report-figures        # aggregate followed by figure regeneration
 make report-pdf            # report-figures followed by pdflatex/bibtex
+```
+
+Quick VAE smoke run:
+
+```bash
+uv run --project . python experiments/vae_benchmark.py \
+  --datasets mnist \
+  --seeds 101 \
+  --kl-betas 1.0 \
+  --fr-betas 0.3 1.0 \
+  --epochs 1 \
+  --train-samples 256 \
+  --eval-samples 128
+uv run --project . python experiments/aggregate_vae_results.py
+uv run --project . python reports/generate_figures.py
 ```
 
 ## Single-objective experiments (with MLflow tracking)
@@ -85,8 +106,10 @@ src/fisher_rao_ml/
 experiments/
   tsne_fisher_rao.py       # individual t-SNE runs (MLflow logged)
   vae_fisher_rao.py        # individual VAE runs (MLflow logged)
-  paper_benchmark.py       # full multi-seed multi-dataset paper sweep
-  aggregate_results.py     # paired Wilcoxon + Cliff's delta + mean/std
+  paper_benchmark.py       # multi-seed t-SNE robustness sweep
+  vae_benchmark.py         # multi-seed VAE beta-sweep study
+  aggregate_results.py     # t-SNE paired Wilcoxon + Cliff's delta + mean/std
+  aggregate_vae_results.py # VAE best-beta selection + paired tests
 reports/
   generate_figures.py      # figures consumed by the LaTeX report
   fisher_rao_vs_kl_arxiv.tex

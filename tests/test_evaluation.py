@@ -3,10 +3,15 @@ import torch
 from torch.utils.data import DataLoader, TensorDataset
 
 from fisher_rao_ml.evaluation import (
+    collect_vae_arrays,
     evaluate_embedding,
+    evaluate_latent_geometry,
+    evaluate_vae_generation,
     evaluate_vae_loader,
+    evaluate_vae_reconstruction_corruption,
     latent_knn_accuracy,
     neighborhood_recall,
+    rbf_mmd,
 )
 from fisher_rao_ml.vae import SmallMnistVAE
 
@@ -64,8 +69,47 @@ def test_vae_evaluation_metrics_are_finite() -> None:
         "eval_reconstruction",
         "eval_regularization",
         "eval_bce_per_pixel",
+        "eval_mse",
         "eval_mean_norm",
         "eval_variance_mean",
+        "eval_posterior_entropy_proxy",
         "eval_active_units",
     }
     assert all(np.isfinite(value) for value in metrics.values())
+
+
+def test_vae_extended_metrics_are_finite() -> None:
+    model = SmallMnistVAE(latent_dim=2, hidden_dim=8)
+    x = torch.rand(8, 1, 28, 28)
+    y = torch.tensor([0, 0, 1, 1, 0, 0, 1, 1])
+    loader = DataLoader(TensorDataset(x, y), batch_size=4)
+
+    images, _reconstructions, latents, _logvars, labels = collect_vae_arrays(
+        model,
+        loader,
+        torch.device("cpu"),
+    )
+    geometry = evaluate_latent_geometry(latents, labels, latents, labels)
+    generation = evaluate_vae_generation(
+        model,
+        images,
+        torch.device("cpu"),
+        n_samples=8,
+        latent_dim=2,
+    )
+    corruption = evaluate_vae_reconstruction_corruption(
+        model,
+        loader,
+        torch.device("cpu"),
+        noise_std=0.25,
+    )
+
+    assert all(np.isfinite(value) for value in geometry.values())
+    assert all(np.isfinite(value) for value in generation.values())
+    assert all(np.isfinite(value) for value in corruption.values())
+
+
+def test_rbf_mmd_is_near_zero_for_identical_samples() -> None:
+    x = np.array([[0.0, 0.0], [1.0, 1.0], [2.0, 2.0]])
+
+    assert rbf_mmd(x, x) < 1e-12
