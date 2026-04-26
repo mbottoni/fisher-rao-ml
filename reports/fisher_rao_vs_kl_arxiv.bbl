@@ -1,4 +1,4 @@
-\begin{thebibliography}{5}
+\begin{thebibliography}{10}
 \providecommand{\natexlab}[1]{#1}
 \providecommand{\url}[1]{\texttt{#1}}
 \expandafter\ifx\csname urlstyle\endcsname\relax
@@ -10,16 +10,35 @@ Shun-ichi Amari.
 \newblock \emph{Information Geometry and Its Applications}.
 \newblock Springer, 2016.
 
-\bibitem[Fisher(1925)]{fisher1925theory}
-Ronald~A. Fisher.
-\newblock Theory of statistical estimation.
-\newblock \emph{Mathematical Proceedings of the Cambridge Philosophical
-  Society}, 22\penalty0 (5):\penalty0 700--725, 1925.
+\bibitem[Cliff(1993)]{cliff1993dominance}
+Norman Cliff.
+\newblock Dominance statistics: Ordinal analyses to answer ordinal questions.
+\newblock \emph{Psychological Bulletin}, 114\penalty0 (3):\penalty0 494--509,
+  1993.
 
-\bibitem[Kingma and Welling(2014)]{kingma2014auto}
-Diederik~P. Kingma and Max Welling.
-\newblock Auto-encoding variational bayes.
-\newblock In \emph{International Conference on Learning Representations}, 2014.
+\bibitem[Kullback and Leibler(1951)]{kullback1951information}
+S.~Kullback and R.~A. Leibler.
+\newblock On information and sufficiency.
+\newblock \emph{The Annals of Mathematical Statistics}, 22\penalty0
+  (1):\penalty0 79--86, 1951.
+
+\bibitem[LeCun et~al.(1998)LeCun, Bottou, Bengio, and
+  Haffner]{lecun1998gradient}
+Yann LeCun, L{\'e}on Bottou, Yoshua Bengio, and Patrick Haffner.
+\newblock Gradient-based learning applied to document recognition.
+\newblock \emph{Proceedings of the IEEE}, 86\penalty0 (11):\penalty0
+  2278--2324, 1998.
+
+\bibitem[Nielsen(2020)]{nielsen2020elementary}
+Frank Nielsen.
+\newblock An elementary introduction to information geometry.
+\newblock \emph{Entropy}, 22\penalty0 (10):\penalty0 1100, 2020.
+
+\bibitem[Nielsen(2023)]{nielsen2023fishrao}
+Frank Nielsen.
+\newblock A simple approximation method for the {Fisher--Rao} distance between
+  multivariate normal distributions.
+\newblock \emph{Entropy}, 25\penalty0 (4):\penalty0 654, 2023.
 
 \bibitem[Rao(1945)]{rao1945information}
 C.~R. Rao.
@@ -33,5 +52,18 @@ Laurens van~der Maaten and Geoffrey Hinton.
 \newblock Visualizing data using t-sne.
 \newblock \emph{Journal of Machine Learning Research}, 9:\penalty0 2579--2605,
   2008.
+
+\bibitem[Venna et~al.(2010)Venna, Peltonen, Nybo, Aidos, and
+  Kaski]{venna2010information}
+Jarkko Venna, Jaakko Peltonen, Kristian Nybo, Helena Aidos, and Samuel Kaski.
+\newblock Information retrieval perspective to nonlinear dimensionality
+  reduction for data visualization.
+\newblock \emph{Journal of Machine Learning Research}, 11:\penalty0 451--490,
+  2010.
+
+\bibitem[Wilcoxon(1945)]{wilcoxon1945individual}
+Frank Wilcoxon.
+\newblock Individual comparisons by ranking methods.
+\newblock \emph{Biometrics Bulletin}, 1\penalty0 (6):\penalty0 80--83, 1945.
 
 \end{thebibliography}
