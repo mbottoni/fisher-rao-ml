@@ -10,3 +10,8 @@ artifacts/
 *.pyc
 *.egg-info/
 .DS_Store
+
+reports/*.aux
+reports/*.blg
+reports/*.log
+reports/*.out

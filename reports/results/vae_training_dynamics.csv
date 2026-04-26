@@ -1,0 +1,4 @@
+task,regularizer,beta,step,loss,reconstruction,regularization
+vae,kl,1.0,0,552.118896,552.085999,0.032879
+vae,fisher_rao,1.0,0,552.151367,552.085999,0.065368
+vae,fisher_rao,0.3,0,552.105591,552.085999,0.065368

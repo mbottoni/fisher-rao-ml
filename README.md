@@ -52,6 +52,20 @@ Open the marimo playground:
 uv run --project . marimo edit notebooks/fisher_rao_playground.py
 ```
 
+## Paper Report
+
+Generate figures and compile the arXiv-style report:
+
+```bash
+make report-pdf
+```
+
+Outputs:
+
+- `reports/fisher_rao_vs_kl_arxiv.tex`
+- `reports/fisher_rao_vs_kl_arxiv.pdf`
+- `reports/figures/*.pdf`
+
 ## Research Questions
 
 This codebase is designed to test whether Fisher-Rao geometry is a useful replacement for KL
