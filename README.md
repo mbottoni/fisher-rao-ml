@@ -65,6 +65,14 @@ uv run --project . python experiments/aggregate_vae_results.py
 uv run --project . python reports/generate_figures.py
 ```
 
+The VAE benchmark has a lightweight CSV cache. Existing
+`(dataset, seed, regularizer, beta)` cells in `reports/results/vae_full_metrics.csv` are
+skipped automatically; pass `--force` to recompute them.
+
+MLflow is used by the single-objective scripts (`experiments/tsne_fisher_rao.py` and
+`experiments/vae_fisher_rao.py`). The paper-scale grid benchmarks write CSV artifacts directly
+so they can be aggregated and versioned reproducibly.
+
 ## Single-objective experiments (with MLflow tracking)
 
 ```bash

@@ -139,7 +139,8 @@ def rbf_mmd(
     x: np.ndarray,
     y: np.ndarray,
     gamma: float | None = None,
-    max_samples: int = 512,
+    max_samples: int = 128,
+    max_features: int = 64,
 ) -> float:
     """Biased RBF-kernel MMD estimate for compact generative-quality diagnostics."""
     if len(x) == 0 or len(y) == 0:
@@ -150,8 +151,14 @@ def rbf_mmd(
     if len(y) > max_samples:
         rng = np.random.default_rng(2)
         y = y[rng.choice(len(y), size=max_samples, replace=False)]
-    x = x.astype(np.float64, copy=False)
-    y = y.astype(np.float64, copy=False)
+    if x.shape[1] > max_features:
+        rng = np.random.default_rng(5)
+        projection = rng.normal(size=(x.shape[1], max_features)).astype(np.float32)
+        projection /= np.sqrt(float(max_features))
+        x = x @ projection
+        y = y @ projection
+    x = x.astype(np.float32, copy=False)
+    y = y.astype(np.float32, copy=False)
     if gamma is None:
         gamma = 1.0 / median_pairwise_squared_distance(np.vstack([x, y]), max_samples=max_samples)
 

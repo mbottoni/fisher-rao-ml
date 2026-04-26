@@ -13,7 +13,8 @@
 \newtheorem{proposition}{Proposition}
 \newtheorem{lemma}{Lemma}
 
-\title{Is the Fisher--Rao Geodesic Distance a Better Replacement for KL Divergence in t-SNE?\\ A Rigorous Empirical Study}
+\title{Can Fisher--Rao Geometry Replace KL Divergence in Representation Learning?\\
+A Joint Study of t-SNE and Variational Autoencoders}
 
 \author{
   Maruano T.\ Bottoni \\
@@ -28,25 +29,21 @@
 
 \begin{abstract}
 The Kullback--Leibler (KL) divergence is the dominant primitive for comparing probability
-distributions in modern representation-learning objectives, including t-SNE and variational
-autoencoders. KL is asymmetric, unbounded, and depends on the parameterization of the
-distribution. The \emph{Fisher--Rao} geodesic distance, derived from the Fisher information
-metric, addresses all three concerns: it is symmetric, bounded by $\pi$ on the simplex, and
-invariant to smooth reparameterizations. Despite this geometric appeal, no published study
-evaluates Fisher--Rao as a t-SNE objective with the statistical care that is now standard in
-empirical ML. We close that gap. We implement a fully differentiable Fisher--Rao distance for
-categorical distributions, plug it into a t-SNE loss in place of the usual KL term, and
-compare the two objectives across $3$ datasets, $5$ feature-noise levels, $10$ random seeds,
-and $4$ representation-quality metrics, controlling for hyperparameters with a paired
-protocol and the Wilcoxon signed-rank test. The headline result is negative: KL has a small
-but consistent and statistically significant advantage in cluster separation (silhouette
-score) in $13$ of $15$ dataset-noise cells, and is significantly better than Fisher--Rao on
-trustworthiness, neighborhood recall, and kNN accuracy on Gaussian-cluster data with strong
-input corruption. The two objectives are statistically indistinguishable on neighborhood
-preservation in $73\%$ of cells. Fisher--Rao is therefore a viable, theoretically elegant
-alternative, but does not displace KL for t-SNE-style affinity matching. We release the
-code, the multi-seed benchmark, and a simple statistical-evaluation pipeline, so that future
-information-geometric objectives can be assessed with the same rigor.
+distributions in representation-learning objectives, including t-SNE and variational
+autoencoders. KL is asymmetric, unbounded, and parameterization-sensitive. The
+\emph{Fisher--Rao} geodesic distance is symmetric and intrinsic; on the simplex it is also
+bounded. We implement differentiable Fisher--Rao objectives for categorical t-SNE affinities
+and diagonal-Gaussian VAE posteriors, then evaluate them with paired multi-seed protocols. For
+t-SNE, KL remains stronger: across $3$ datasets, $5$ corruption levels, $10$ seeds, and $4$
+metrics, Fisher--Rao never significantly outperforms KL and KL wins $13$ metric cells. For
+VAEs, the result is more nuanced but still conservative. In a beta-tuned study on MNIST and
+Fashion-MNIST ($80$ trained models), Fisher--Rao is competitive after independent beta
+selection but does not show a statistically significant advantage on reconstruction, latent
+classification, posterior matching, generation, or corruption robustness. Its main practical
+effect is to expose different posterior-geometry trade-offs and occasional instability at
+aggressive settings. We release the benchmark CSVs, figures, and paired Wilcoxon/Cliff's-delta
+analysis pipeline so future information-geometric objectives can be evaluated with the same
+rigor.
 \end{abstract}
 
 \section{Introduction}
@@ -105,9 +102,9 @@ explicit significance tests \citep{wilcoxon1945individual,cliff1993dominance}. W
         across three datasets (Gaussian blobs, sklearn \texttt{digits}, MNIST), five feature-noise
         corruption levels, ten random seeds, and four objective-independent embedding-quality
         metrics, with Wilcoxon signed-rank tests and Cliff's delta as the effect size.
-  \item A discussion of when, and why, Fisher--Rao does not improve over KL in this setting,
-        and when it might still be preferable for other objectives such as variational
-        autoencoders. The VAE preliminary is reported as Appendix~\ref{app:vae}.
+  \item A beta-tuned VAE benchmark on MNIST and Fashion-MNIST, evaluating reconstruction,
+        latent classification, posterior geometry, sample quality, corruption robustness, and
+        training stability after independent beta selection for each regularizer.
 \end{enumerate}
 
 \paragraph{Headline finding.}
@@ -117,7 +114,10 @@ Gaussian-blobs setting under strong noise, and ties Fisher--Rao on most neighbor
 preservation metrics. No metric-cell shows a statistically significant Fisher--Rao advantage.
 We therefore recommend KL for t-SNE-style affinity matching despite Fisher--Rao's geometric
 elegance, and explain in Section~\ref{sec:discussion} why the geometric advantages of
-Fisher--Rao do not translate into measurable improvements in this setting.
+Fisher--Rao do not translate into measurable improvements in this setting. For VAEs,
+Fisher--Rao is a viable regularizer after beta tuning, but the current evidence is best read
+as a controlled negative result: it changes posterior geometry without yielding a reliable
+quality or robustness improvement over KL.
 
 \section{Background}
 
@@ -195,6 +195,26 @@ profile.
   $d_{\mathrm{FR}}^2$ saturates near $\pi^2$.}
   \label{fig:shape}
 \end{figure}
+
+\subsection{Fisher--Rao distance for diagonal Gaussian VAE posteriors}
+
+The VAE setting is geometrically different from the categorical simplex. The encoder produces
+a diagonal Gaussian posterior $q_\phi(z|x)=\mathcal{N}(\mu_\phi(x),\mathrm{diag}(\sigma^2_\phi(x)))$
+and the prior is $p(z)=\mathcal{N}(0,I)$. The usual VAE regularizer is the closed-form
+$\mathrm{KL}(q_\phi(z|x)\,\|\,p(z))$. Our Fisher--Rao replacement treats each latent coordinate
+as a univariate Gaussian manifold and sums squared coordinate-wise geodesic lengths. For
+univariate Gaussians, this geometry is hyperbolic:
+\begin{equation}
+  d_{\mathrm{FR}}(\mu,\sigma;\mu_0,\sigma_0)
+  =
+  \sqrt{2}\,\mathrm{arcosh}\!\left(
+  1 + \frac{(\mu-\mu_0)^2 + 2(\sigma-\sigma_0)^2}{4\sigma\sigma_0}
+  \right).
+\end{equation}
+Unlike the categorical simplex distance, this Gaussian Fisher--Rao distance is not bounded.
+The VAE motivation is therefore not bounded codomain; it is the intrinsic geometry of the
+Gaussian family and a different coupling of posterior mean and variance deviations from the
+prior.
 
 \section{Methods}
 \label{sec:methods}
@@ -280,6 +300,34 @@ metric. We report
 Following standard practice we mark $p<0.05$ as significant. We do not apply Bonferroni
 across all $60$ cells, but we report all $p$-values, so the reader can apply any preferred
 correction.
+
+\subsection{VAE protocol}
+\label{sec:vae-methods}
+
+We train a fully connected VAE with one hidden layer of width $400$, latent dimension $8$,
+Adam at learning rate $10^{-3}$, batch size $128$, and gradient clipping at norm $10$. Each
+run uses $1024$ training examples and $512$ held-out examples. We evaluate two datasets whose
+downloads completed reproducibly in the local environment: MNIST and Fashion-MNIST. The code
+also supports KMNIST, but the KMNIST server timed out during the paper run; the script records
+this as dataset-unavailable rather than failing the analysis pipeline.
+
+Because KL and Gaussian Fisher--Rao have different scales, beta is tuned separately. KL uses
+$\beta\in\{0.1,0.3,1.0,3.0\}$ and Fisher--Rao uses
+$\beta\in\{0.03,0.1,0.3,1.0\}$ over five seeds
+($101,202,303,404,505$), producing $80$ trained models. For each
+$(\text{dataset},\text{regularizer},\text{seed})$ we select beta using
+\[
+  \mathrm{score} = \mathrm{BCE/pixel} - 0.05\,\mathrm{latent\ kNN},
+\]
+so the selected model must reconstruct well without ignoring representation usefulness.
+
+VAE metrics are objective-independent: BCE/pixel and MSE for reconstruction; latent kNN,
+linear-probe accuracy, and latent silhouette for representation quality; active units,
+posterior variance, entropy proxy, and RBF-MMD between aggregated posterior means and a
+standard normal sample for posterior geometry; sample-test MMD, sample pixel variance, and
+nearest-neighbor distance for generation; and reconstruction BCE after Gaussian input noise
+or random pixel dropout for robustness. Non-finite training is recorded as
+\texttt{eval\_stable}=0 and excluded from best-beta selection.
 
 \section{Results}
 \label{sec:results}
@@ -438,6 +486,67 @@ relative rate, consistent with its bounded codomain.
   \label{fig:loss-curves}
 \end{figure}
 
+\section{VAE Results}
+\label{sec:vae-results}
+
+Figure~\ref{fig:vae-beta} shows the beta trade-off surface. The dominant pattern is that both
+regularizers trace similar reconstruction--representation frontiers. KL tends to achieve
+slightly lower BCE/pixel after best-beta selection: Fisher--Rao minus KL is $+0.0018$ on MNIST
+and $+0.0025$ on Fashion-MNIST, where positive means worse reconstruction. These differences
+are small and not significant at $p<0.05$ under the paired Wilcoxon test. Fisher--Rao has a
+small positive latent-kNN delta on Fashion-MNIST ($+0.013$), but a near-zero negative delta on
+MNIST ($-0.002$); neither effect is significant.
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=\linewidth]{figures/vae_final_metrics.pdf}
+  \caption{VAE beta trade-offs across reconstruction, latent kNN accuracy, and active units.
+  Curves show mean $\pm1$ standard deviation across five seeds for each dataset and
+  regularizer.}
+  \label{fig:vae-beta}
+\end{figure}
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=0.85\linewidth]{figures/vae_best_beta_deltas.pdf}
+  \caption{Best-beta paired VAE deltas. Values are oriented so positive means Fisher--Rao is
+  better: lower BCE/MMD is multiplied by $-1$, while higher latent accuracy is left positive.}
+  \label{fig:vae-deltas}
+\end{figure}
+
+Figure~\ref{fig:vae-deltas} summarizes best-beta paired deltas. Fisher--Rao does not dominate
+any metric family. On Fashion-MNIST it slightly improves latent kNN on average but slightly
+worsens BCE and corruption BCE. On MNIST it slightly worsens reconstruction and noise
+robustness, while posterior-MMD differences also favor KL. The most favorable Fisher--Rao
+signal is therefore representational rather than generative, and even that signal is small in
+this compact fully connected model.
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=0.85\linewidth]{figures/vae_training_dynamics.pdf}
+  \caption{VAE training dynamics on MNIST for the representative $\beta=1$ setting. Raw KL and
+  Fisher--Rao regularization values are not directly comparable in scale, but both optimize
+  smoothly under Adam after gradient clipping.}
+  \label{fig:vae-dynamics}
+\end{figure}
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=\linewidth]{figures/vae_latent_geometry.pdf}
+  \caption{Representative VAE latent means projected to two dimensions with PCA. The plots
+  visualize posterior geometry rather than serving as a quantitative metric; paired numerical
+  metrics are reported in the CSV tables.}
+  \label{fig:vae-latents}
+\end{figure}
+
+The stability diagnostics are also informative. All selected best-beta rows are stable in the
+completed MNIST and Fashion-MNIST runs. During development, aggressive Fisher--Rao settings
+could produce non-finite latents; the final benchmark records such cells as unstable instead
+of allowing them to crash the run. This matters practically: Fisher--Rao is not merely a
+drop-in scalar replacement for KL. It changes the geometry of the mean/variance penalty, so
+beta tuning and gradient clipping are part of the experimental protocol rather than optional
+implementation details.
+
 \section{Discussion}
 \label{sec:discussion}
 
@@ -469,21 +578,23 @@ deviations does this naturally; Fisher--Rao's bounded penalty does not push as h
 high-dimensional, less cleanly clustered settings (\texttt{digits}, MNIST), there is less
 sharp block structure to recover, so this advantage attenuates.
 
-\paragraph{Where might Fisher--Rao still be the right tool?}
-The bounded codomain that hurts t-SNE in our setting can help in other settings where KL's
-unboundedness is precisely the problem. Two natural candidates are:
-\begin{enumerate}
-  \item \textbf{Variational autoencoders with rare-event posteriors}: KL can dominate the
-        objective when $q_\phi(z|x)$ assigns near-zero mass under the prior at some latent
-        coordinates, leading to vanishing posterior collapse pressure or, at the other
-        extreme, blow-ups during training. Fisher--Rao caps this contribution.
-  \item \textbf{Distribution matching with mass-mismatch}: when the two distributions being
-        matched are known to have non-overlapping support (e.g., generative-model objectives
-        comparing samples with different supports), KL is undefined or infinite while
-        Fisher--Rao is finite.
-\end{enumerate}
-We provide a small VAE preliminary in Appendix~\ref{app:vae} that supports the first
-direction qualitatively, although a full VAE study is beyond the scope of this paper.
+\paragraph{What did the VAE study add?}
+The VAE results test a different hypothesis from t-SNE. For Gaussian posteriors, the
+categorical bounded-codomain argument does not apply; Fisher--Rao is unbounded on the Gaussian
+manifold. The relevant question is whether intrinsic Gaussian geometry gives a better
+regularization trade-off after beta tuning. In our compact fully connected VAE, the answer is
+again mostly negative: Fisher--Rao is competitive, but it does not reliably improve
+reconstruction, latent classification, posterior matching, generation, or robustness. Its
+practical value is diagnostic. It exposes how much of a claimed improvement comes from
+regularizer geometry versus beta scale, and it makes posterior-geometry trade-offs visible.
+
+\paragraph{When could Fisher--Rao still matter?}
+The current VAE experiment is small: two image datasets, five seeds, two epochs, and a fully
+connected architecture. Fisher--Rao may still be useful in settings where the Gaussian
+posterior geometry is more central: hierarchical VAEs, high-dimensional latents, annealed
+regularization schedules, or models where posterior variance dynamics are unstable under KL.
+The benchmark code now supports that follow-up directly through beta sweeps, stability
+tracking, corruption evaluation, and cached resumable runs.
 
 \paragraph{Methodological takeaway.}
 The wider methodological point is that information-geometric replacements for KL should be
@@ -513,44 +624,42 @@ does not outperform KL: across $3$ datasets, $5$ corruption levels, and $10$ see
 significantly wins $13$ out of $60$ metric-cells (mostly silhouette and the strong-noise
 regime on simple Gaussian clusters), Fisher--Rao significantly wins zero, and the remaining
 $44$ are statistical ties. Practitioners should continue to use KL for t-SNE-style affinity
-matching. The bounded-codomain property of Fisher--Rao remains attractive in settings where
-KL's unboundedness is itself the problem, especially in VAE-like objectives where rare-event
-posteriors can destabilize the training signal; we leave a rigorous evaluation of those
-settings to follow-up work in the same framework.
+matching. In VAEs, Fisher--Rao is competitive after separate beta tuning but does not produce
+a reliable improvement in the compact study reported here. Practitioners should therefore
+treat Fisher--Rao as an experimental regularizer and diagnostic geometry, not as a default
+replacement for KL.
 
 \appendix
 
-\section{VAE Preliminary}
+\section{VAE Benchmark Details}
 \label{app:vae}
 
-We trained a small fully connected MNIST VAE with latent dimension $8$, batch size $128$,
-$2048$ training points, $512$ held-out points, Adam at learning rate $10^{-3}$, gradient
-clipping at norm $10$, for one epoch, with three regularizers: KL at $\beta=1$, Fisher--Rao
-squared at $\beta=1$, and Fisher--Rao squared at $\beta=0.3$. This is a single-seed
-preliminary, not a paired benchmark, and is included here only to give a directional sense of
-the trade-offs.
+The VAE benchmark is implemented in the dedicated VAE benchmark script and aggregated by the
+matching VAE aggregation script. It writes raw per-configuration metrics, mean/std beta
+summaries, selected best-beta rows, and paired tests under \texttt{reports/results}. The
+benchmark is resumable: completed $(\text{dataset},\text{seed},\text{regularizer},\beta)$
+cells are skipped unless \texttt{--force} is passed.
 
 \begin{table}[h]
   \centering
-  \caption{VAE preliminary on MNIST, single seed.}
+  \caption{Best-beta VAE paired differences, Fisher--Rao minus KL. Positive BCE means
+  Fisher--Rao reconstructs worse; positive latent kNN means Fisher--Rao has better latent
+  classification.}
   \label{tab:vae}
   \scriptsize
-  \begin{tabular}{llrrrrrr}
+  \begin{tabular}{lrrrr}
     \toprule
-    Reg. & $\beta$ & BCE/pix $\downarrow$ & Noisy BCE $\downarrow$ & Mean norm & Var.\ mean & Active & Latent kNN $\uparrow$ \\
+    Dataset & BCE/pix & Latent kNN & Posterior MMD & Noise BCE \\
     \midrule
-    KL          & 1.0 & 0.290 & 0.286 & 5.59 & 1.75 & 7 & 0.439 \\
-    Fisher--Rao & 1.0 & 0.293 & 0.291 & 5.59 & 2.66 & 8 & 0.455 \\
-    Fisher--Rao & 0.3 & 0.292 & 0.294 & 7.12 & 2.45 & 8 & 0.479 \\
+    MNIST         & $+0.0018$ & $-0.0016$ & $+0.0327$ & $+0.0042$ \\
+    Fashion-MNIST & $+0.0025$ & $+0.0133$ & $-0.0002$ & $+0.0026$ \\
     \bottomrule
   \end{tabular}
 \end{table}
 
-The directional pattern is that Fisher--Rao activates more latent units (8 vs 7) and yields
-slightly better latent-mean kNN accuracy, at the cost of marginally higher reconstruction
-error. Lowering $\beta$ for Fisher--Rao further improves latent kNN accuracy but slightly
-degrades noisy-input reconstruction. A proper multi-seed VAE benchmark would be needed to
-verify whether this is a real effect.
+The table reports mean paired deltas across five seeds after beta selection. None of the
+listed effects reaches $p<0.05$ in the two-sided Wilcoxon signed-rank test, so the evidence
+does not support a claim that Fisher--Rao improves the VAE objective in this setting.
 
 \section{Dataset and Corruption Details}
 \label{app:datasets}
@@ -566,6 +675,12 @@ digits, $10$ classes, and $64$ raw features. Z-scored to zero mean and unit vari
 \subsection{MNIST}
 A $200$-point random subsample (numpy default RNG seeded $0$) from the MNIST training split,
 each image flattened to $784$ raw pixel features and z-scored.
+
+\subsection{VAE datasets}
+The VAE benchmark uses torchvision MNIST and Fashion-MNIST with raw pixel intensities in
+$[0,1]$. For each seed, $1024$ training images and $512$ test images are sampled without
+replacement. KMNIST support is implemented in the benchmark script, but the KMNIST download
+timed out during this run and is therefore not included in the reported VAE tables.
 
 \subsection{Robustness corruption}
 For each noise level $\alpha\in\{0.0, 0.25, 0.5, 0.75, 1.0\}$ and each seed
@@ -590,6 +705,12 @@ two and a half minutes on Apple Silicon MPS using the script
 \texttt{experiments/aggregate\_results.py}, with figures regenerated by
 \texttt{reports/generate\_figures.py}. End-to-end the paper can be rebuilt with
 \texttt{make paper-all}.
+
+The VAE benchmark uses \texttt{experiments/vae\_benchmark.py}. The full default CLI supports
+ten seeds and ten epochs; the reported local run used five seeds and two epochs to keep the
+experiment interactive on Apple Silicon while still providing paired beta-tuned comparisons.
+The command is recorded in the repository history and all output CSVs are stored under
+\texttt{reports/results}.
 
 \bibliographystyle{plainnat}
 \bibliography{references}

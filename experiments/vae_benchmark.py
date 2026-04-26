@@ -11,6 +11,7 @@ import argparse
 import csv
 import math
 from pathlib import Path
+from typing import TypeAlias
 
 import numpy as np
 import torch
@@ -28,6 +29,8 @@ from fisher_rao_ml.evaluation import (
     format_metrics,
 )
 from fisher_rao_ml.vae import SmallMnistVAE, vae_loss
+
+LoaderBundle: TypeAlias = tuple[DataLoader, DataLoader, DataLoader]
 
 
 def parse_args() -> argparse.Namespace:
@@ -62,6 +65,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--grad-clip", type=float, default=10.0)
     parser.add_argument("--log-every", type=int, default=25)
     parser.add_argument("--sample-count", type=int, default=512)
+    parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Recompute cells already in the CSV cache",
+    )
     parser.add_argument("--noise-levels", type=float, nargs="+", default=[0.25, 0.5])
     parser.add_argument("--dropout-levels", type=float, nargs="+", default=[0.25, 0.5])
     parser.add_argument(
@@ -88,6 +96,30 @@ def write_rows(path: Path, rows: list[dict[str, float | int | str]]) -> None:
         writer.writerows(rows)
 
 
+def read_existing_rows(path: Path) -> list[dict[str, float | int | str]]:
+    if not path.exists():
+        return []
+    with path.open() as handle:
+        return list(csv.DictReader(handle))
+
+
+def cached_keys(rows: list[dict[str, float | int | str]]) -> set[tuple[str, int, str, float]]:
+    keys = set()
+    for row in rows:
+        try:
+            keys.add(
+                (
+                    str(row["dataset"]),
+                    int(row["seed"]),
+                    str(row["regularizer"]),
+                    float(row["beta"]),
+                )
+            )
+        except (KeyError, TypeError, ValueError):
+            continue
+    return keys
+
+
 def dataset_factory(name: str) -> type[Dataset]:
     if name == "mnist":
         return datasets.MNIST
@@ -111,7 +143,7 @@ def make_loaders(
     eval_samples: int,
     batch_size: int,
     seed: int,
-) -> tuple[DataLoader, DataLoader, DataLoader]:
+) -> LoaderBundle:
     dataset_cls = dataset_factory(dataset_name)
     transform = transforms.ToTensor()
     train_full = dataset_cls(root="data", train=True, download=True, transform=transform)
@@ -134,6 +166,20 @@ def make_loaders(
     )
     eval_loader = DataLoader(eval_subset, batch_size=batch_size, shuffle=False, num_workers=0)
     return train_loader, train_eval_loader, eval_loader
+
+
+def try_make_loaders(
+    dataset_name: str,
+    train_samples: int,
+    eval_samples: int,
+    batch_size: int,
+    seed: int,
+) -> LoaderBundle | None:
+    try:
+        return make_loaders(dataset_name, train_samples, eval_samples, batch_size, seed)
+    except RuntimeError as exc:
+        print(f"[vae] skipping dataset={dataset_name} seed={seed}; dataset unavailable: {exc}")
+        return None
 
 
 def iter_configs(args: argparse.Namespace) -> list[tuple[str, float]]:
@@ -247,9 +293,14 @@ def save_latent_rows(
 
 
 def run_benchmark(args: argparse.Namespace, device: torch.device) -> None:
-    metric_rows: list[dict[str, float | int | str]] = []
-    dynamics_rows: list[dict[str, float | int | str]] = []
-    latent_rows: list[dict[str, float | int | str]] = []
+    output_dir = Path(args.output_dir)
+    metric_path = output_dir / "vae_full_metrics.csv"
+    dynamics_path = output_dir / "vae_training_dynamics.csv"
+    latent_path = output_dir / "vae_latent_embeddings.csv"
+    metric_rows = [] if args.force else read_existing_rows(metric_path)
+    dynamics_rows = [] if args.force else read_existing_rows(dynamics_path)
+    latent_rows = [] if args.force else read_existing_rows(latent_path)
+    done = cached_keys(metric_rows)
     configs = iter_configs(args)
 
     print("\n[vae] Multi-seed, multi-dataset VAE benchmark")
@@ -258,14 +309,24 @@ def run_benchmark(args: argparse.Namespace, device: torch.device) -> None:
 
     for dataset_name in args.datasets:
         for seed in args.seeds:
-            train_loader, train_eval_loader, eval_loader = make_loaders(
+            loaders = try_make_loaders(
                 dataset_name,
                 args.train_samples,
                 args.eval_samples,
                 args.batch_size,
                 seed,
             )
+            if loaders is None:
+                break
+            train_loader, train_eval_loader, eval_loader = loaders
             for regularizer, beta in configs:
+                key = (dataset_name, seed, regularizer, float(beta))
+                if key in done:
+                    print(
+                        f"[vae] cache hit dataset={dataset_name} seed={seed} "
+                        f"reg={regularizer} beta={beta:g}"
+                    )
+                    continue
                 model, dynamics, stability = train_one(
                     dataset_name,
                     regularizer,
@@ -276,6 +337,26 @@ def run_benchmark(args: argparse.Namespace, device: torch.device) -> None:
                     args,
                 )
                 dynamics_rows.extend(dynamics)
+                if float(stability["eval_stable"]) < 1.0:
+                    metric_rows.append(
+                        {
+                            "task": "vae",
+                            "dataset": dataset_name,
+                            "regularizer": regularizer,
+                            "beta": beta,
+                            "seed": seed,
+                            **stability,
+                        }
+                    )
+                    print(
+                        f"[vae] unstable dataset={dataset_name} seed={seed} "
+                        f"reg={regularizer} beta={beta:g}; recorded and skipped eval"
+                    )
+                    done.add(key)
+                    write_rows(metric_path, metric_rows)
+                    write_rows(dynamics_path, dynamics_rows)
+                    write_rows(latent_path, latent_rows)
+                    continue
                 metrics = evaluate_vae_loader(model, eval_loader, device, regularizer, beta)
                 train_images, _, train_latents, _, train_labels = collect_vae_arrays(
                     model,
@@ -364,11 +445,14 @@ def run_benchmark(args: argparse.Namespace, device: torch.device) -> None:
                     f"[vae] dataset={dataset_name} seed={seed} reg={regularizer} "
                     f"beta={beta:g} {compact}"
                 )
+                done.add(key)
+                write_rows(metric_path, metric_rows)
+                write_rows(dynamics_path, dynamics_rows)
+                write_rows(latent_path, latent_rows)
 
-    output_dir = Path(args.output_dir)
-    write_rows(output_dir / "vae_full_metrics.csv", metric_rows)
-    write_rows(output_dir / "vae_training_dynamics.csv", dynamics_rows)
-    write_rows(output_dir / "vae_latent_embeddings.csv", latent_rows)
+    write_rows(metric_path, metric_rows)
+    write_rows(dynamics_path, dynamics_rows)
+    write_rows(latent_path, latent_rows)
 
 
 def main() -> None:
