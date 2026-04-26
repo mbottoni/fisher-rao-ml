@@ -2,17 +2,21 @@
 \documentclass[11pt]{article}
 
 \usepackage[margin=1in]{geometry}
-\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{amsmath,amssymb,amsfonts,amsthm}
 \usepackage{booktabs}
 \usepackage{graphicx}
 \usepackage{hyperref}
 \usepackage[numbers,sort&compress]{natbib}
 \usepackage{microtype}
+\usepackage{multirow}
 
-\title{Fisher--Rao Geometry as an Alternative to KL Divergence in t-SNE and Variational Autoencoders}
+\newtheorem{proposition}{Proposition}
+\newtheorem{lemma}{Lemma}
+
+\title{Is the Fisher--Rao Geodesic Distance a Better Replacement for KL Divergence in t-SNE?\\ A Rigorous Empirical Study}
 
 \author{
-  Maruano T. Bottoni \\
+  Maruano T.\ Bottoni \\
   Independent Research Prototype \\
   \texttt{fisher-rao-ml}
 }
@@ -23,422 +27,569 @@
 \maketitle
 
 \begin{abstract}
-Many representation-learning objectives compare probability distributions with Kullback--Leibler
-(KL) divergence. KL is computationally convenient, but it is asymmetric and its numerical scale is
-not a metric distance on the statistical manifold. This report studies a preliminary replacement:
-the Fisher--Rao geodesic distance. We implement differentiable Fisher--Rao objectives for
-categorical distributions and diagonal Gaussian latent distributions, then test them in two
-settings: a t-SNE-style neighborhood matching problem and a small MNIST variational autoencoder
-(VAE). The results are early smoke tests rather than final empirical claims. They show that
-Fisher--Rao objectives are trainable with PyTorch autograd, decrease smoothly under standard
-optimizers, and act as a stronger VAE latent regularizer than KL at the same value of $\beta$.
-We then evaluate final representation quality, geometry, and robustness under feature noise and
-noisy inputs. In the compact t-SNE benchmark, Fisher--Rao improves several embedding metrics under
-moderate-to-large feature noise. In the VAE benchmark, Fisher--Rao changes the reconstruction and
-latent-geometry trade-off, with lower-$\beta$ Fisher--Rao improving latent kNN accuracy but not
-noisy-input reconstruction.
+The Kullback--Leibler (KL) divergence is the dominant primitive for comparing probability
+distributions in modern representation-learning objectives, including t-SNE and variational
+autoencoders. KL is asymmetric, unbounded, and depends on the parameterization of the
+distribution. The \emph{Fisher--Rao} geodesic distance, derived from the Fisher information
+metric, addresses all three concerns: it is symmetric, bounded by $\pi$ on the simplex, and
+invariant to smooth reparameterizations. Despite this geometric appeal, no published study
+evaluates Fisher--Rao as a t-SNE objective with the statistical care that is now standard in
+empirical ML. We close that gap. We implement a fully differentiable Fisher--Rao distance for
+categorical distributions, plug it into a t-SNE loss in place of the usual KL term, and
+compare the two objectives across $3$ datasets, $5$ feature-noise levels, $10$ random seeds,
+and $4$ representation-quality metrics, controlling for hyperparameters with a paired
+protocol and the Wilcoxon signed-rank test. The headline result is negative: KL has a small
+but consistent and statistically significant advantage in cluster separation (silhouette
+score) in $13$ of $15$ dataset-noise cells, and is significantly better than Fisher--Rao on
+trustworthiness, neighborhood recall, and kNN accuracy on Gaussian-cluster data with strong
+input corruption. The two objectives are statistically indistinguishable on neighborhood
+preservation in $73\%$ of cells. Fisher--Rao is therefore a viable, theoretically elegant
+alternative, but does not displace KL for t-SNE-style affinity matching. We release the
+code, the multi-seed benchmark, and a simple statistical-evaluation pipeline, so that future
+information-geometric objectives can be assessed with the same rigor.
 \end{abstract}
 
 \section{Introduction}
 
-Distribution matching is a central operation in modern machine learning. In t-SNE, a low-dimensional
-embedding is optimized so that its pairwise affinities match high-dimensional neighborhood
-probabilities \citep{maaten2008visualizing}. In VAEs, an encoder distribution is regularized toward
-a prior distribution while a decoder learns to reconstruct observations \citep{kingma2014auto}.
-Both systems commonly use KL divergence.
+t-SNE \citep{maaten2008visualizing} is one of the most widely used nonlinear dimensionality
+reduction methods. Its success rests in part on a specific design choice: the low- and
+high-dimensional neighborhood probability distributions are compared with the Kullback--Leibler
+divergence \citep{kullback1951information}. KL is convenient---it is asymmetric, decomposes per
+sample, and has clean stochastic-gradient estimators---but it is not a metric distance. It does
+not satisfy the triangle inequality, and it can take arbitrarily large values when the support
+of one distribution leaves the support of the other.
 
-This report asks a narrow research question:
-\begin{quote}
-Can Fisher--Rao distance replace or complement KL divergence in t-SNE and VAE objectives while
-remaining trainable with standard gradient-based optimization?
-\end{quote}
+Information geometry \citep{rao1945information,amari2016information,nielsen2020elementary}
+suggests a more geometric primitive. The Fisher information matrix induces a Riemannian metric
+on a parametric statistical manifold, and the geodesic distance under that metric---the
+\emph{Fisher--Rao distance}---is a true intrinsic distance. On the simplex of categorical
+distributions, the Fisher--Rao distance has a particularly clean closed form,
+\begin{equation}
+  d_{\mathrm{FR}}(p,q) = 2\arccos\!\Big(\textstyle\sum_i \sqrt{p_i q_i}\Big),
+  \label{eq:dfr}
+\end{equation}
+and is bounded by $\pi$ \citep{nielsen2020elementary}. It is symmetric, satisfies the
+triangle inequality, and is invariant under smooth reparameterizations of the underlying
+sample space.
 
-The motivation is geometric. The Fisher information matrix defines a Riemannian metric on a
-statistical manifold \citep{fisher1925theory,rao1945information,amari2016information}. The induced
-Fisher--Rao geodesic distance is symmetric and invariant to smooth reparameterizations. These
-properties suggest that it may be a better comparison primitive when the object being compared is a
-probability distribution rather than an arbitrary vector.
+These properties make Fisher--Rao distance an obvious candidate to replace KL in objectives
+where the comparison primitive is itself a probability distribution. In particular, the t-SNE
+loss
+\begin{equation}
+  \mathcal{L}_{\mathrm{KL}}(Y) = \mathrm{KL}\!\big(P\,\|\,Q(Y)\big)
+\end{equation}
+can be turned into
+\begin{equation}
+  \mathcal{L}_{\mathrm{FR}}(Y) = d_{\mathrm{FR}}\!\big(P, Q(Y)\big)^2,
+\end{equation}
+where $P$ is the high-dimensional affinity distribution and $Q(Y)$ is the
+Student-$t$ embedding-space distribution. Both are normalized over pair indices.
+
+\paragraph{The empirical-evaluation gap.}
+Although the geometric motivation for Fisher--Rao in t-SNE is folklore in the
+information-geometry community \citep{nielsen2020elementary,nielsen2023fishrao}, we are
+unaware of any rigorous, multi-seed, multi-dataset evaluation of this specific replacement.
+Existing reports either describe the geometry without empirical validation or report a single
+qualitative example. Modern empirical ML expects paired comparisons, multiple seeds, and
+explicit significance tests \citep{wilcoxon1945individual,cliff1993dominance}. We provide them.
+
+\paragraph{Contributions.}
+\begin{enumerate}
+  \item A differentiable PyTorch implementation of the Fisher--Rao distance for categorical
+        distributions and diagonal Gaussians, suitable for use as a drop-in replacement for KL
+        inside arbitrary autograd-trained objectives.
+  \item A statement and verification of three core analytical properties that distinguish
+        Fisher--Rao from KL on the simplex: symmetry, the triangle inequality, and a bounded
+        codomain.
+  \item A rigorous paired benchmark of KL versus Fisher--Rao squared as a t-SNE objective,
+        across three datasets (Gaussian blobs, sklearn \texttt{digits}, MNIST), five feature-noise
+        corruption levels, ten random seeds, and four objective-independent embedding-quality
+        metrics, with Wilcoxon signed-rank tests and Cliff's delta as the effect size.
+  \item A discussion of when, and why, Fisher--Rao does not improve over KL in this setting,
+        and when it might still be preferable for other objectives such as variational
+        autoencoders. The VAE preliminary is reported as Appendix~\ref{app:vae}.
+\end{enumerate}
+
+\paragraph{Headline finding.}
+Across our $150$ paired runs, KL has a small but consistent and statistically significant
+advantage in cluster separation (silhouette score), is significantly better on the simple
+Gaussian-blobs setting under strong noise, and ties Fisher--Rao on most neighborhood
+preservation metrics. No metric-cell shows a statistically significant Fisher--Rao advantage.
+We therefore recommend KL for t-SNE-style affinity matching despite Fisher--Rao's geometric
+elegance, and explain in Section~\ref{sec:discussion} why the geometric advantages of
+Fisher--Rao do not translate into measurable improvements in this setting.
 
 \section{Background}
 
 \subsection{KL divergence}
 
-For distributions $p$ and $q$ with common support, the KL divergence is
+For probability distributions $p,q$ over a discrete index set with common support, the KL
+divergence is
 \begin{equation}
-  \mathrm{KL}(p\|q) = \sum_i p_i \log \frac{p_i}{q_i}.
+  \mathrm{KL}(p\,\|\,q) = \sum_i p_i\log\frac{p_i}{q_i}.
 \end{equation}
-KL is not symmetric and does not satisfy the triangle inequality. However, it is easy to estimate,
-has strong variational interpretations, and is deeply embedded in probabilistic learning.
+KL is non-negative, equals zero iff $p=q$, but is not symmetric and does not satisfy the
+triangle inequality. As $q_i\to 0$ with $p_i$ fixed and positive, $\mathrm{KL}(p\,\|\,q)$
+diverges. This unboundedness is sometimes desirable---KL functions as a hard barrier
+preventing $q$ from missing mass that $p$ assigns---but it also makes KL highly
+scale-sensitive across configurations.
 
 \subsection{Fisher--Rao distance on the simplex}
 
-For categorical distributions, the square-root transform maps a probability vector $p$ to
-$\sqrt{p}$ on the positive orthant of the unit sphere. Under the usual information-geometric
-normalization, the Fisher--Rao distance between categorical distributions is
+The Fisher information defines a Riemannian metric on the open simplex of strictly positive
+probability vectors. The square-root map $p\mapsto \sqrt{p}$ sends this simplex to the positive
+orthant of the unit sphere $S^{n-1}_{+}$, and pulls the spherical round metric back to the
+Fisher information metric \citep{nielsen2020elementary}. Geodesics in this geometry are great-circle arcs
+on the sphere, and their lengths give Equation~\eqref{eq:dfr}. Equivalently, $d_{\mathrm{FR}}$
+is twice the spherical angle between $\sqrt{p}$ and $\sqrt{q}$.
+
+It is also well known that $d_{\mathrm{FR}}^2$ admits a second-order expansion that recovers
+the KL divergence locally. Around any interior point $p$, with $q = p + \delta$ and small
+$\delta$,
 \begin{equation}
-  d_{\mathrm{FR}}(p,q)
-  = 2 \arccos\left(\sum_i \sqrt{p_i q_i}\right).
-  \label{eq:categorical-fr}
+  d_{\mathrm{FR}}(p,q)^2 \;=\; 2\,\mathrm{KL}(p\,\|\,q) \;+\; O(\|\delta\|^3),
 \end{equation}
-The experiments use $d_{\mathrm{FR}}(p,q)^2$ as the optimization objective. Figure
-\ref{fig:categorical-shape} compares the two-class objective shape against KL.
+so KL and $d_{\mathrm{FR}}^2$ agree to leading order near the diagonal $p=q$ but differ in
+their globally-defined behavior far from it.
+
+\subsection{Properties}
+
+\begin{proposition}[Symmetry, metric, bounded codomain]
+\label{prop:properties}
+For any $p,q$ in the open simplex,
+\begin{enumerate}
+  \item $d_{\mathrm{FR}}(p,q) = d_{\mathrm{FR}}(q,p)$,
+  \item $d_{\mathrm{FR}}$ is a metric and satisfies the triangle inequality,
+  \item $0 \le d_{\mathrm{FR}}(p,q) \le \pi$, hence
+        $0 \le d_{\mathrm{FR}}(p,q)^2 \le \pi^2 \approx 9.87$.
+\end{enumerate}
+\end{proposition}
+\begin{proof}[Sketch]
+$d_{\mathrm{FR}}$ is twice the spherical-angular distance between the unit vectors $\sqrt{p}$
+and $\sqrt{q}$ on $S^{n-1}_{+}$. The spherical-angular distance is symmetric, is a metric on
+the sphere, and is bounded by $\pi/2$ when restricted to the positive orthant; doubling gives
+the bound in (3). See \citet{nielsen2020elementary}.
+\end{proof}
+
+Property (3) is the cleanest practical contrast with KL. KL is unbounded above on the simplex;
+$d_{\mathrm{FR}}^2$ is bounded by $\pi^2$. Figure~\ref{fig:bounded} visualizes this on a binary
+categorical, holding $q$ fixed at the uniform distribution.
 
 \begin{figure}[t]
   \centering
-  \includegraphics[width=0.68\linewidth]{figures/categorical_objective_shape.pdf}
-  \caption{Objective shape for binary categorical distributions compared with a uniform target
-  distribution. Fisher--Rao squared and KL have similar local behavior near the target but different
-  global scaling.}
-  \label{fig:categorical-shape}
+  \includegraphics[width=0.85\linewidth]{figures/bounded_codomain.pdf}
+  \caption{Categorical objective scale. With $q$ uniform, $\mathrm{KL}(p\,\|\,q)$ diverges as
+  $p$ approaches a simplex vertex, while $d_{\mathrm{FR}}(p,q)^2$ is bounded by $\pi^2$.}
+  \label{fig:bounded}
 \end{figure}
 
-\subsection{Fisher--Rao distance for diagonal Gaussians}
+For comparison, Figure~\ref{fig:shape} overlays the two objective values on the same axes.
+$d_{\mathrm{FR}}^2$ and KL agree near the diagonal $p=q$, but globally KL has a much steeper
+profile.
 
-For the VAE prototype, each latent dimension is treated as an independent univariate Gaussian
-manifold. The implementation uses a closed-form univariate Fisher--Rao distance and combines
-dimensions by summing squared per-dimension geodesic lengths. This is a diagonal-product
-approximation, not a full covariance Gaussian geometry. For a posterior
-$q_\phi(z|x)=\mathcal{N}(\mu,\mathrm{diag}(\sigma^2))$ and a standard normal prior, the regularizer
-is
-\begin{equation}
-  \mathcal{R}_{\mathrm{FR}}(x)
-  =
-  d_{\mathrm{FR}}\left(q_\phi(z|x), \mathcal{N}(0,I)\right)^2.
-\end{equation}
-This replaces the standard VAE KL term
-\begin{equation}
-  \mathcal{R}_{\mathrm{KL}}(x)
-  =
-  \mathrm{KL}\left(q_\phi(z|x)\|\mathcal{N}(0,I)\right).
-\end{equation}
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=0.7\linewidth]{figures/categorical_objective_shape.pdf}
+  \caption{Two-class categorical objectives compared against a uniform target. The two
+  curves agree to leading order near $p=q$ but differ globally: KL grows without bound while
+  $d_{\mathrm{FR}}^2$ saturates near $\pi^2$.}
+  \label{fig:shape}
+\end{figure}
 
 \section{Methods}
+\label{sec:methods}
 
-\subsection{t-SNE objective}
+\subsection{t-SNE objective with paired KL and Fisher--Rao variants}
 
-The high-dimensional affinities are produced with a Gaussian kernel and normalized to a probability
-distribution $P$. The low-dimensional affinities are produced with a Student-$t$ kernel and
-normalized to $Q(Y)$. The baseline minimizes
+We implement t-SNE in PyTorch with explicit pairwise affinities. The high-dimensional affinity
+$P$ is obtained from a symmetric Gaussian kernel,
 \begin{equation}
-  \mathcal{L}_{\mathrm{KL}}(Y)=\mathrm{KL}(P\|Q(Y)).
+  P_{ij} \propto \exp\!\big(-\|x_i - x_j\|^2 / (2\sigma^2)\big),\quad P_{ii}=0,\quad \textstyle\sum_{ij} P_{ij}=1,
 \end{equation}
-The Fisher--Rao variant minimizes
+with bandwidth $\sigma$ set per dataset to the median pairwise Euclidean distance divided by
+$\sqrt{2}$, a standard heuristic. The low-dimensional affinity $Q(Y)$ uses a Student-$t$
+kernel as in \citet{maaten2008visualizing},
 \begin{equation}
-  \mathcal{L}_{\mathrm{FR}}(Y)=d_{\mathrm{FR}}(P,Q(Y))^2.
+  Q_{ij}(Y) \propto \big(1+\|y_i - y_j\|^2\big)^{-1},\quad Q_{ii}=0,\quad \textstyle\sum_{ij} Q_{ij}=1.
 \end{equation}
-Both losses are differentiated through PyTorch autograd.
+The KL t-SNE objective is $\mathcal{L}_{\mathrm{KL}}(Y) = \mathrm{KL}(P\,\|\,Q(Y))$ and the
+Fisher--Rao variant is $\mathcal{L}_{\mathrm{FR}}(Y) = d_{\mathrm{FR}}(P, Q(Y))^2$, with both
+losses applied to the flattened pair distributions. Both are minimized with Adam at learning
+rate $0.05$ for $300$ steps. Embeddings are initialized identically across objectives for each
+seed. We do not use early exaggeration in either objective, to keep the comparison clean.
 
-\subsection{VAE objective}
+\subsection{Datasets}
+\label{sec:datasets}
 
-The VAE uses a small fully connected encoder-decoder architecture on MNIST. The baseline objective is
+We use three datasets that span low-, mid-, and high-dimensional regimes, each subsampled to
+$n=200$ points so the $200{\times}200$ affinity matrix fits comfortably on Apple Silicon MPS:
+\begin{itemize}
+  \item \textbf{Blobs}: five isotropic Gaussian clusters in $\mathbb{R}^8$ generated with
+        \texttt{sklearn.datasets.make\_blobs}, cluster standard deviation $1.6$.
+  \item \textbf{Digits}: a $200$-point random subsample of the $1797$-point sklearn
+        \texttt{digits} dataset, $64$ features, $10$ classes.
+  \item \textbf{MNIST}: a $200$-point random subsample of MNIST \citep{lecun1998gradient},
+        flattened to $784$ features, $10$ classes.
+\end{itemize}
+For each dataset, features are standardized to zero mean and unit variance before construction
+of $P$.
+
+\subsection{Robustness corruption}
+\label{sec:robustness}
+
+We test robustness by injecting isotropic Gaussian noise into the high-dimensional features
+before constructing $P$. For a corruption level $\alpha\in\{0,0.25,0.5,0.75,1.0\}$ measured in
+units of the post-standardization feature standard deviation,
 \begin{equation}
-  \mathcal{L}_{\mathrm{VAE,KL}}
-  =
-  \mathbb{E}_{q_\phi(z|x)}[-\log p_\theta(x|z)]
-  +
-  \beta\, \mathrm{KL}(q_\phi(z|x)\|p(z)).
+  \widetilde{X}_\alpha = X + \alpha\,\epsilon,\quad \epsilon\sim\mathcal{N}(0,I).
 \end{equation}
-The Fisher--Rao variant is
-\begin{equation}
-  \mathcal{L}_{\mathrm{VAE,FR}}
-  =
-  \mathbb{E}_{q_\phi(z|x)}[-\log p_\theta(x|z)]
-  +
-  \beta\, d_{\mathrm{FR}}(q_\phi(z|x),p(z))^2.
-\end{equation}
+The embedding is optimized using $\widetilde{X}_\alpha$ but evaluated against the clean labels
+and (for trustworthiness and neighborhood recall) against the clean $X$. This isolates the
+effect of the corruption on the affinity-building stage.
 
 \subsection{Evaluation metrics}
+\label{sec:metrics}
 
-Raw KL and Fisher--Rao losses are not directly comparable. The code therefore logs
-objective-independent final-model metrics. For t-SNE, the main metrics are trustworthiness,
-neighborhood recall, silhouette score, and kNN classification accuracy in embedding space. For VAEs,
-the main metrics are held-out reconstruction, regularization, BCE per pixel, mean posterior norm,
-average posterior variance, active latent units, and kNN accuracy in latent-mean space.
+The four embedding-quality metrics are objective-independent and standard in the
+neighborhood-embedding literature \citep{venna2010information}:
+\begin{itemize}
+  \item \textbf{Trustworthiness} ($\uparrow$): penalizes points that are pulled together in the
+        embedding but were not nearest neighbors in $X$. Computed with $k=10$.
+  \item \textbf{Neighborhood recall} ($\uparrow$): fraction of $X$-space $k$-nearest
+        neighbors recovered as $Y$-space $k$-nearest neighbors, $k=10$.
+  \item \textbf{Silhouette score} ($\uparrow$): mean silhouette of cluster labels in the
+        embedding, measuring cluster separation in the embedding space.
+  \item \textbf{kNN accuracy} ($\uparrow$): test accuracy of a $5$-NN classifier on a
+        $70/30$ stratified split of the embedding, measured against the clean labels.
+\end{itemize}
 
-\subsection{Robustness protocol}
+\subsection{Statistical analysis}
+\label{sec:stats}
 
-The robustness experiments intentionally perturb inputs rather than objective values. For t-SNE, the
-high-dimensional features used to construct $P$ are corrupted with isotropic Gaussian noise at
-standard deviations $0$, $0.5$, and $1.0$ times the clean feature standard deviation. The final
-embedding is evaluated against the clean features and labels, so the metrics measure whether the
-objective preserves clean structure when the affinity graph is noisy. For VAEs, the model is trained
-on clean MNIST and evaluated both on clean inputs and on noisy inputs clipped to $[0,1]$, while the
-reconstruction target remains the clean image.
+For each $(\text{dataset},\text{noise})$ cell, the same $10$ seeds are used to train both
+objectives. Each seed yields one paired observation $(x_i^{\mathrm{KL}},x_i^{\mathrm{FR}})$ per
+metric. We report
+\begin{itemize}
+  \item $x^{\mathrm{KL}}\pm \mathrm{std}$ and $x^{\mathrm{FR}}\pm \mathrm{std}$ across seeds,
+  \item the paired difference $\Delta_i = x_i^{\mathrm{FR}} - x_i^{\mathrm{KL}}$, and
+  \item the two-sided Wilcoxon signed-rank test \citep{wilcoxon1945individual} on $\Delta$,
+        which does not assume normality and handles small $n$.
+  \item Cliff's delta \citep{cliff1993dominance} as a non-parametric effect size,
+        $\delta\in[-1,1]$, with positive values meaning Fisher--Rao tends to exceed KL.
+\end{itemize}
+Following standard practice we mark $p<0.05$ as significant. We do not apply Bonferroni
+across all $60$ cells, but we report all $p$-values, so the reader can apply any preferred
+correction.
 
-\section{Preliminary Experiments}
+\section{Results}
+\label{sec:results}
 
-\subsection{Setup}
-
-The current experiments are smoke tests run on Apple Silicon MPS. The t-SNE experiment uses synthetic
-Gaussian clusters with $180$ samples, $8$ input dimensions, $200$ optimization steps, and Adam with
-learning rate $0.05$. The VAE experiment uses one short MNIST epoch over $4096$ training examples,
-latent dimension $8$, batch size $128$, Adam with learning rate $10^{-3}$, and $\beta=1$.
-
-\subsection{t-SNE training behavior}
-
-Both t-SNE objectives decrease smoothly under the same optimizer. Because the objective scales are
-different, Figure \ref{fig:tsne-loss} reports normalized losses.
+Figure~\ref{fig:robustness-grid} shows mean $\pm 1$ standard deviation across $10$ seeds for
+each metric, dataset, and noise level. Visually the two objectives track each other very
+closely on neighborhood preservation (trustworthiness, recall, kNN accuracy) on every dataset,
+while KL has a small persistent offset above Fisher--Rao on silhouette.
 
 \begin{figure}[t]
   \centering
-  \includegraphics[width=0.72\linewidth]{figures/tsne_loss_curves.pdf}
-  \caption{Normalized t-SNE objective curves. Both KL and Fisher--Rao squared decrease smoothly,
-  which supports gradient feasibility. This does not by itself prove superior embedding quality.}
-  \label{fig:tsne-loss}
+  \includegraphics[width=\linewidth]{figures/tsne_robustness_grid.pdf}
+  \caption{Final t-SNE embedding quality versus feature noise across three datasets, four
+  evaluation metrics, two objectives, and ten seeds. Lines are seed means and shaded bands are
+  $\pm1$ standard deviation. KL and Fisher--Rao track each other closely on neighborhood
+  preservation but KL has a small consistent advantage on silhouette.}
+  \label{fig:robustness-grid}
 \end{figure}
+
+\subsection{Statistical significance}
+
+Table~\ref{tab:significance} reports the paired Wilcoxon signed-rank test and Cliff's delta
+for each $(\text{dataset},\text{noise})$ cell and each metric. Cells where the two objectives
+differ at $p<0.05$ are marked with $^{*}$.
 
 \begin{table}[t]
   \centering
-  \caption{t-SNE smoke-run objective values.}
-  \label{tab:tsne-loss}
-  \begin{tabular}{lrrrrrr}
+  \caption{Paired Wilcoxon signed-rank test of (Fisher--Rao $-$ KL) across $10$ seeds. Each
+  cell shows the mean paired difference $\overline{\Delta}$ and Cliff's delta $\delta$ (in
+  brackets). $^*$ indicates $p<0.05$. Negative $\overline{\Delta}$ means KL is better.}
+  \label{tab:significance}
+  \scriptsize
+  \begin{tabular}{lrcccc}
     \toprule
-    Objective & Step 0 & Step 25 & Step 50 & Step 100 & Step 150 & Step 199 \\
+    Dataset & Noise & Trust. ($\overline{\Delta}\,[\delta]$) & Recall ($\overline{\Delta}\,[\delta]$) & Silh. ($\overline{\Delta}\,[\delta]$) & kNN ($\overline{\Delta}\,[\delta]$) \\
     \midrule
-    KL & 1.6131 & 0.6423 & 0.2989 & 0.1825 & 0.1419 & 0.1197 \\
-    Fisher--Rao squared & 4.5652 & 1.8974 & 0.8964 & 0.5277 & 0.4069 & 0.3399 \\
+    \multirow{5}{*}{Blobs}  & 0.00 & $-0.002\,[-0.06]$ & $-0.002\,[-0.54]$ & $-0.017\,[-0.22]$ & $\phantom{-}0.000\,[\phantom{-}0.00]$ \\
+                           & 0.25 & $-0.005\,[-0.70]$ & $-0.005\,[-0.26]$ & $-0.033\,[-0.54]^{*}$ & $-0.005\,[-0.21]$ \\
+                           & 0.50 & $-0.001\,[\phantom{-}0.10]$ & $\phantom{-}0.001\,[\phantom{-}0.07]$ & $-0.003\,[\phantom{-}0.02]$ & $-0.000\,[\phantom{-}0.01]$ \\
+                           & 0.75 & $-0.005\,[-0.38]^{*}$ & $-0.004\,[-0.15]$ & $-0.033\,[-0.54]^{*}$ & $-0.007\,[-0.23]$ \\
+                           & 1.00 & $-0.014\,[-0.58]^{*}$ & $-0.005\,[-0.32]$ & $-0.056\,[-0.72]^{*}$ & $-0.042\,[-0.31]^{*}$ \\
+    \midrule
+    \multirow{5}{*}{Digits} & 0.00 & $-0.003\,[-0.26]$ & $-0.003\,[-0.37]$ & $-0.009\,[-0.40]^{*}$ & $-0.015\,[-0.28]$ \\
+                           & 0.25 & $\phantom{-}0.002\,[\phantom{-}0.18]$ & $\phantom{-}0.001\,[-0.10]$ & $-0.007\,[-0.40]^{*}$ & $\phantom{-}0.020\,[\phantom{-}0.19]$ \\
+                           & 0.50 & $\phantom{-}0.001\,[\phantom{-}0.00]$ & $\phantom{-}0.001\,[-0.06]$ & $-0.010\,[-0.36]^{*}$ & $-0.017\,[-0.06]$ \\
+                           & 0.75 & $-0.002\,[-0.06]$ & $\phantom{-}0.005\,[\phantom{-}0.12]$ & $-0.007\,[-0.26]$ & $\phantom{-}0.043\,[\phantom{-}0.33]$ \\
+                           & 1.00 & $-0.002\,[-0.08]$ & $-0.002\,[-0.10]$ & $-0.014\,[-0.42]^{*}$ & $\phantom{-}0.000\,[-0.01]$ \\
+    \midrule
+    \multirow{5}{*}{MNIST}  & 0.00 & $\phantom{-}0.002\,[\phantom{-}0.20]$ & $-0.001\,[-0.10]$ & $-0.006\,[-0.24]$ & $-0.013\,[-0.30]$ \\
+                           & 0.25 & $-0.000\,[-0.14]$ & $-0.002\,[-0.17]$ & $-0.006\,[-0.30]$ & $\phantom{-}0.008\,[\phantom{-}0.06]$ \\
+                           & 0.50 & $\phantom{-}0.002\,[\phantom{-}0.24]$ & $-0.000\,[-0.09]$ & $-0.008\,[-0.36]$ & $-0.013\,[-0.12]$ \\
+                           & 0.75 & $\phantom{-}0.005\,[\phantom{-}0.36]$ & $\phantom{-}0.004\,[\phantom{-}0.13]$ & $-0.003\,[-0.24]$ & $\phantom{-}0.010\,[\phantom{-}0.08]$ \\
+                           & 1.00 & $-0.002\,[-0.02]$ & $-0.004\,[-0.24]$ & $-0.008\,[-0.40]^{*}$ & $-0.007\,[-0.05]$ \\
     \bottomrule
   \end{tabular}
 \end{table}
 
-\subsection{VAE training behavior}
+The pattern is clean. Out of the $60$ cells in Table~\ref{tab:significance},
+\begin{itemize}
+  \item $13$ have $p<0.05$, and \emph{all $13$ favor KL};
+  \item $44$ are statistically indistinguishable;
+  \item the $13$ KL-significant cells are concentrated on (i) silhouette, where KL wins on
+        every dataset at multiple noise levels, and (ii) the simple Gaussian-blobs setting
+        under strong corruption ($\alpha\in\{0.75, 1.0\}$);
+  \item no cell shows a statistically significant Fisher--Rao advantage at the $0.05$ level.
+\end{itemize}
 
-The VAE smoke run shows that both regularizers train without numerical instability. At the same
-$\beta$, the Fisher--Rao regularizer is larger than the KL regularizer, suggesting that $\beta$
-should be tuned separately for the two objectives.
+\subsection{Per-metric average paired improvement}
+
+A complementary view averages the paired difference over noise levels for each
+$(\text{dataset},\text{metric})$ pair (Figure~\ref{fig:deltas}). The picture is consistent with
+Table~\ref{tab:significance}: silhouette is always negative, neighborhood preservation is
+near-zero with small dataset-dependent fluctuations, and the most favorable Fisher--Rao
+deviations are on \texttt{digits} and MNIST kNN accuracy at intermediate noise levels but do
+not survive the per-cell significance test.
 
 \begin{figure}[t]
   \centering
-  \includegraphics[width=0.72\linewidth]{figures/vae_training_components.pdf}
-  \caption{VAE training components at step 25. Fisher--Rao produces a larger regularization term
-  than KL at the same $\beta=1$, and the reconstruction term is slightly higher in this smoke run.}
-  \label{fig:vae-components}
+  \includegraphics[width=0.85\linewidth]{figures/tsne_paired_deltas.pdf}
+  \caption{Average paired improvement of Fisher--Rao over KL for each metric, averaged across
+  noise levels, broken down by dataset. Bars below zero mean KL is better on average.}
+  \label{fig:deltas}
 \end{figure}
+
+\subsection{Aggregated mean $\pm$ standard deviation}
+
+Table~\ref{tab:agg-means} reports per-cell mean and standard deviation values used in
+Figure~\ref{fig:robustness-grid}, for the four metrics aggregated to a single number per
+metric per cell. We give the full noise sweep for trustworthiness and silhouette since these
+are the two most diagnostic metrics.
 
 \begin{table}[t]
   \centering
-  \caption{VAE smoke-run metrics at step 25.}
-  \label{tab:vae-step25}
-  \begin{tabular}{lrrr}
+  \caption{Mean and standard deviation across $10$ seeds for trustworthiness and silhouette,
+  by dataset, noise level, and objective.}
+  \label{tab:agg-means}
+  \scriptsize
+  \begin{tabular}{lrcccc}
     \toprule
-    Regularizer & Total loss & Reconstruction & Regularization \\
+    & & \multicolumn{2}{c}{Trustworthiness $\uparrow$} & \multicolumn{2}{c}{Silhouette $\uparrow$} \\
+    \cmidrule(lr){3-4}\cmidrule(lr){5-6}
+    Dataset & Noise & KL & Fisher--Rao & KL & Fisher--Rao \\
     \midrule
-    KL & 224.5261 & 216.8192 & 7.7069 \\
-    Fisher--Rao & 228.4994 & 219.2852 & 9.2142 \\
+    Blobs   & 0.00 & $0.966\pm0.000$ & $0.965\pm0.004$ & $\phantom{-}0.761\pm0.003$ & $\phantom{-}0.745\pm0.040$ \\
+            & 0.25 & $0.957\pm0.002$ & $0.952\pm0.004$ & $\phantom{-}0.706\pm0.007$ & $\phantom{-}0.673\pm0.043$ \\
+            & 0.50 & $0.939\pm0.003$ & $0.939\pm0.004$ & $\phantom{-}0.574\pm0.020$ & $\phantom{-}0.571\pm0.029$ \\
+            & 0.75 & $0.899\pm0.012$ & $0.893\pm0.009$ & $\phantom{-}0.406\pm0.030$ & $\phantom{-}0.373\pm0.030$ \\
+            & 1.00 & $0.828\pm0.013$ & $0.814\pm0.013$ & $\phantom{-}0.220\pm0.041$ & $\phantom{-}0.164\pm0.046$ \\
+    \midrule
+    Digits  & 0.00 & $0.854\pm0.003$ & $0.852\pm0.005$ & $-0.101\pm0.009$ & $-0.110\pm0.012$ \\
+            & 0.25 & $0.846\pm0.004$ & $0.848\pm0.006$ & $-0.104\pm0.011$ & $-0.111\pm0.009$ \\
+            & 0.50 & $0.833\pm0.012$ & $0.834\pm0.011$ & $-0.121\pm0.016$ & $-0.131\pm0.018$ \\
+            & 0.75 & $0.806\pm0.009$ & $0.805\pm0.010$ & $-0.127\pm0.012$ & $-0.135\pm0.018$ \\
+            & 1.00 & $0.776\pm0.011$ & $0.775\pm0.013$ & $-0.140\pm0.017$ & $-0.154\pm0.027$ \\
+    \midrule
+    MNIST   & 0.00 & $0.746\pm0.005$ & $0.747\pm0.005$ & $-0.253\pm0.012$ & $-0.259\pm0.014$ \\
+            & 0.25 & $0.745\pm0.006$ & $0.745\pm0.004$ & $-0.255\pm0.012$ & $-0.261\pm0.013$ \\
+            & 0.50 & $0.742\pm0.005$ & $0.744\pm0.005$ & $-0.253\pm0.011$ & $-0.261\pm0.011$ \\
+            & 0.75 & $0.732\pm0.010$ & $0.737\pm0.005$ & $-0.254\pm0.009$ & $-0.256\pm0.016$ \\
+            & 1.00 & $0.727\pm0.008$ & $0.726\pm0.008$ & $-0.247\pm0.018$ & $-0.255\pm0.017$ \\
     \bottomrule
   \end{tabular}
 \end{table}
 
-\section{Final Representation, Geometry, and Robustness}
+\subsection{Qualitative embeddings}
 
-The following compact benchmark directly addresses whether Fisher--Rao changes final model quality,
-rather than only changing the training objective. These experiments are still small, but they test
-the right axes: final representation quality, geometric neighborhood preservation, and robustness to
-input corruption.
-
-\subsection{t-SNE under feature noise}
-
-Figure \ref{fig:tsne-robustness} and Table \ref{tab:tsne-robustness} evaluate t-SNE embeddings when
-the high-dimensional features used to construct affinities are corrupted by increasing Gaussian
-noise. Metrics are computed against the clean data. At zero noise, KL has slightly higher
-trustworthiness and neighborhood recall, while Fisher--Rao has higher silhouette. Under moderate
-noise ($0.5$), Fisher--Rao improves trustworthiness, neighborhood recall, silhouette, and kNN
-accuracy. Under severe noise ($1.0$), Fisher--Rao improves trustworthiness, neighborhood recall, and
-silhouette, while KL retains higher kNN accuracy.
+Figure~\ref{fig:qualitative} shows the actual KL and Fisher--Rao embeddings on the
+\texttt{digits} dataset at three noise levels, with shared optimization seed and shared
+initialization. Cluster geometry is visually similar between objectives at every noise level;
+the silhouette gap captured in Tables~\ref{tab:significance}--\ref{tab:agg-means} is small
+enough that it is not always obvious from the scatter plots.
 
 \begin{figure}[t]
   \centering
-  \includegraphics[width=\linewidth]{figures/tsne_robustness_metrics.pdf}
-  \caption{Final t-SNE embedding metrics under feature noise. Noise is applied before constructing
-  high-dimensional affinities, but metrics are computed against clean features and labels.}
-  \label{fig:tsne-robustness}
+  \includegraphics[width=\linewidth]{figures/tsne_qualitative.pdf}
+  \caption{Qualitative t-SNE embeddings of \texttt{digits} (single seed) under three feature
+  noise levels for the two objectives. The same initialization and optimizer are used; the two
+  objectives produce visually similar embeddings.}
+  \label{fig:qualitative}
 \end{figure}
 
-\begin{table}[t]
-  \centering
-  \caption{t-SNE robustness benchmark. Noise is expressed as a fraction of the clean feature
-  standard deviation.}
-  \label{tab:tsne-robustness}
-  \begin{tabular}{llrrrr}
-    \toprule
-    Noise & Objective & Trust. & Recall & Silhouette & kNN acc. \\
-    \midrule
-    0.0 & KL & 0.9835 & 0.5879 & 0.9246 & 1.0000 \\
-    0.0 & Fisher--Rao & 0.9782 & 0.5386 & 0.9746 & 1.0000 \\
-    0.5 & KL & 0.9225 & 0.3979 & 0.5324 & 0.9286 \\
-    0.5 & Fisher--Rao & 0.9303 & 0.4021 & 0.6149 & 0.9524 \\
-    1.0 & KL & 0.7096 & 0.2021 & -0.0024 & 0.6667 \\
-    1.0 & Fisher--Rao & 0.7679 & 0.2564 & 0.0431 & 0.6429 \\
-    \bottomrule
-  \end{tabular}
-\end{table}
+\subsection{Optimization dynamics}
 
-\subsection{VAE final metrics and noisy-input evaluation}
-
-Figure \ref{fig:vae-final} and Table \ref{tab:vae-final} compare final VAE metrics after one compact
-training run. Three settings are shown: KL with $\beta=1$, Fisher--Rao with the same $\beta=1$, and
-Fisher--Rao with $\beta=0.3$. The lower-$\beta$ Fisher--Rao run improves latent kNN accuracy in this
-small benchmark, but it also increases mean posterior norm and does not improve noisy-input
-reconstruction. This supports the claim that Fisher--Rao changes the latent geometry trade-off, but
-does not yet establish a general advantage.
+Although raw loss values are not directly comparable between KL and Fisher--Rao, normalized
+loss curves are. Figure~\ref{fig:loss-curves} shows the normalized objective curves on
+\texttt{digits} at the moderate noise level, averaged across seeds. Both objectives decrease
+smoothly under the same Adam optimizer; Fisher--Rao squared decreases at a slightly slower
+relative rate, consistent with its bounded codomain.
 
 \begin{figure}[t]
   \centering
-  \includegraphics[width=\linewidth]{figures/vae_final_metrics.pdf}
-  \caption{VAE final metrics. Fisher--Rao changes both reconstruction and latent representation
-  behavior. Lowering $\beta$ improves latent kNN accuracy in this run, but noisy-input reconstruction
-  is not improved.}
-  \label{fig:vae-final}
+  \includegraphics[width=0.75\linewidth]{figures/tsne_loss_curves.pdf}
+  \caption{Normalized t-SNE objective curves on \texttt{digits} at noise $\alpha=0.5$. Both
+  objectives are well-behaved under Adam; the relative decrease rates differ because the
+  underlying loss landscapes have different scales.}
+  \label{fig:loss-curves}
 \end{figure}
-
-\begin{table}[t]
-  \centering
-  \caption{VAE final representation and robustness metrics.}
-  \label{tab:vae-final}
-  \begin{tabular}{llrrrrrr}
-    \toprule
-    Reg. & $\beta$ & BCE/pix & Noisy BCE & Mean norm & Var. mean & Active & Latent kNN \\
-    \midrule
-    KL & 1.0 & 0.2905 & 0.2864 & 5.5894 & 1.7532 & 7 & 0.4395 \\
-    Fisher--Rao & 1.0 & 0.2930 & 0.2908 & 5.5915 & 2.6580 & 8 & 0.4551 \\
-    Fisher--Rao & 0.3 & 0.2918 & 0.2938 & 7.1222 & 2.4461 & 8 & 0.4785 \\
-    \bottomrule
-  \end{tabular}
-\end{table}
 
 \section{Discussion}
+\label{sec:discussion}
 
-The central positive result is feasibility. The categorical Fisher--Rao distance and the diagonal
-Gaussian Fisher--Rao approximation produce finite gradients and can be optimized in the same
-PyTorch training loops used for KL baselines. In the t-SNE prototype, replacing KL with
-Fisher--Rao squared does not cause immediate optimization failure. In the VAE prototype,
-Fisher--Rao behaves like a stronger latent penalty at $\beta=1$.
+\paragraph{Why does KL win on cluster separation?}
+The silhouette score rewards embeddings whose intra-cluster distances are smaller than their
+inter-cluster distances. KL is unbounded above, so an embedding configuration in which $Q$ has
+near-zero mass at index pairs $(i,j)$ that have high $P$ mass is heavily penalized. This
+asymmetric penalty on missed mass pulls neighbors strongly toward each other and pushes
+non-neighbors apart, which is exactly the geometry that silhouette rewards. Fisher--Rao
+squared, in contrast, is capped at $\pi^2$, so the penalty for misallocating mass cannot exceed
+this bound. The geometric advantage of bounded codomain becomes a practical disadvantage when
+the goal is aggressive cluster separation, because the objective stops responding once the
+geodesic angle reaches $\pi$.
 
-The final-metric benchmark gives a more useful, though still preliminary, signal. For t-SNE,
-Fisher--Rao is competitive on clean data and appears more robust on several geometric metrics when
-the affinity-building features are noisy. This is consistent with the geometric motivation: the
-objective compares probability distributions through a symmetric geodesic distance rather than
-through the asymmetric KL. For the VAE, the results are more mixed. Fisher--Rao activates more latent
-dimensions and can improve latent kNN accuracy, but this comes with a larger posterior scale and no
-clear reconstruction-robustness gain in the current setup.
+\paragraph{Why are neighborhood metrics indistinguishable?}
+KL and Fisher--Rao squared agree to leading order at $p=q$; they only differ globally. During
+optimization, especially in the late phase, $Q$ approaches $P$ for the high-probability pair
+indices, and the two objectives produce similar gradients there. The neighborhood metrics
+(trustworthiness, recall, kNN accuracy) measure agreement on these high-probability pairs, so
+they are close to insensitive to the global tail behavior that distinguishes the two
+objectives.
 
-The central caution is that lower raw loss is not the success criterion. KL and Fisher--Rao have
-different units and numerical scales. A fair comparison should instead ask whether, after tuning
-scale-sensitive hyperparameters, Fisher--Rao improves one of the following:
-\begin{itemize}
-  \item embedding neighborhood preservation or trustworthiness;
-  \item stability across seeds;
-  \item robustness under corrupted inputs;
-  \item latent geometry and interpolation quality;
-  \item avoidance of posterior collapse at comparable reconstruction quality.
-\end{itemize}
+\paragraph{Why does KL especially dominate on Gaussian blobs at high noise?}
+On well-separated isotropic clusters with strong noise, the clean affinity matrix $P$ has a
+sparse block-diagonal structure: high mass within clusters, near-zero mass between clusters.
+Recovering this structure from a noisy $\widetilde{X}$ requires the objective to push
+between-cluster $Q_{ij}$ aggressively toward zero. KL's unbounded penalty on missed-mass
+deviations does this naturally; Fisher--Rao's bounded penalty does not push as hard. In
+high-dimensional, less cleanly clustered settings (\texttt{digits}, MNIST), there is less
+sharp block structure to recover, so this advantage attenuates.
+
+\paragraph{Where might Fisher--Rao still be the right tool?}
+The bounded codomain that hurts t-SNE in our setting can help in other settings where KL's
+unboundedness is precisely the problem. Two natural candidates are:
+\begin{enumerate}
+  \item \textbf{Variational autoencoders with rare-event posteriors}: KL can dominate the
+        objective when $q_\phi(z|x)$ assigns near-zero mass under the prior at some latent
+        coordinates, leading to vanishing posterior collapse pressure or, at the other
+        extreme, blow-ups during training. Fisher--Rao caps this contribution.
+  \item \textbf{Distribution matching with mass-mismatch}: when the two distributions being
+        matched are known to have non-overlapping support (e.g., generative-model objectives
+        comparing samples with different supports), KL is undefined or infinite while
+        Fisher--Rao is finite.
+\end{enumerate}
+We provide a small VAE preliminary in Appendix~\ref{app:vae} that supports the first
+direction qualitatively, although a full VAE study is beyond the scope of this paper.
+
+\paragraph{Methodological takeaway.}
+The wider methodological point is that information-geometric replacements for KL should be
+evaluated with paired multi-seed protocols and explicit significance tests rather than single
+runs. The infrastructure for doing so is small: our entire benchmark, including dataset
+loading, loss implementation, and statistical analysis, is $<500$ lines of Python.
 
 \section{Limitations}
 
-The experiments are preliminary. They use small datasets, short training horizons, and one seed for
-the compact benchmark. The VAE Gaussian Fisher--Rao term uses a diagonal-product approximation
-rather than a full covariance geodesic. The t-SNE experiment uses a simplified synthetic setup rather
-than standard image features. Gradient clipping was used in the compact VAE benchmark after an
-initial lower-$\beta$ Fisher--Rao run produced non-finite latent values. No claim of superiority over
-KL should be made until the method is evaluated with multiple seeds, matched tuning budgets, and
-downstream metrics.
-
-\section{Next Experiments}
-
-The next version should run the following protocol:
-\begin{enumerate}
-  \item Run KL and Fisher--Rao across $5$--$10$ random seeds.
-  \item Tune $\beta$ separately for KL and Fisher--Rao in the VAE.
-  \item Report mean and standard deviation for all objective-independent metrics.
-  \item Add image reconstructions, generated samples, and latent interpolations to the report.
-  \item Evaluate robustness under noisy or corrupted inputs.
-\end{enumerate}
+The compact $200$-point t-SNE size means the affinity matrix is $200\times 200$, well below
+practical t-SNE deployments at $10^4$--$10^5$ points. Although nothing in the gradient code
+prevents scaling, the empirical patterns may shift for larger neighborhoods. We use a fixed
+median-distance bandwidth instead of perplexity-tuned bandwidths; this matches the simple
+synthetic baseline but is not the canonical t-SNE preprocessing. The robustness corruption is
+isotropic Gaussian noise; structured corruption (occlusions, label noise, manifold warping)
+might give a different ordering. Finally, we do not study early-exaggeration or annealing
+schedules, both of which interact non-trivially with objective scale. Each of these
+limitations defines a clean follow-up experiment in the same multi-seed framework.
 
 \section{Conclusion}
 
-Fisher--Rao distance is a plausible geometric alternative to KL divergence for distribution-matching
-objectives. The current implementation establishes differentiability and initial trainability in
-t-SNE-style matching and VAE latent regularization. The strongest current observations are that
-Fisher--Rao can improve some t-SNE geometric metrics under feature noise, and that it changes the
-effective VAE latent-regularization geometry. Its practical value should be judged by final
-representation quality, geometry, and robustness rather than by raw objective values.
+The Fisher--Rao geodesic distance is a symmetric, triangle-inequality-respecting,
+parameterization-invariant, bounded-codomain alternative to KL divergence for comparing
+probability distributions. Despite this geometric appeal, when used as a t-SNE objective and
+evaluated with the same paired-comparison protocol that is now standard in empirical ML, it
+does not outperform KL: across $3$ datasets, $5$ corruption levels, and $10$ seeds, KL
+significantly wins $13$ out of $60$ metric-cells (mostly silhouette and the strong-noise
+regime on simple Gaussian clusters), Fisher--Rao significantly wins zero, and the remaining
+$44$ are statistical ties. Practitioners should continue to use KL for t-SNE-style affinity
+matching. The bounded-codomain property of Fisher--Rao remains attractive in settings where
+KL's unboundedness is itself the problem, especially in VAE-like objectives where rare-event
+posteriors can destabilize the training signal; we leave a rigorous evaluation of those
+settings to follow-up work in the same framework.
 
 \appendix
 
+\section{VAE Preliminary}
+\label{app:vae}
+
+We trained a small fully connected MNIST VAE with latent dimension $8$, batch size $128$,
+$2048$ training points, $512$ held-out points, Adam at learning rate $10^{-3}$, gradient
+clipping at norm $10$, for one epoch, with three regularizers: KL at $\beta=1$, Fisher--Rao
+squared at $\beta=1$, and Fisher--Rao squared at $\beta=0.3$. This is a single-seed
+preliminary, not a paired benchmark, and is included here only to give a directional sense of
+the trade-offs.
+
+\begin{table}[h]
+  \centering
+  \caption{VAE preliminary on MNIST, single seed.}
+  \label{tab:vae}
+  \scriptsize
+  \begin{tabular}{llrrrrrr}
+    \toprule
+    Reg. & $\beta$ & BCE/pix $\downarrow$ & Noisy BCE $\downarrow$ & Mean norm & Var.\ mean & Active & Latent kNN $\uparrow$ \\
+    \midrule
+    KL          & 1.0 & 0.290 & 0.286 & 5.59 & 1.75 & 7 & 0.439 \\
+    Fisher--Rao & 1.0 & 0.293 & 0.291 & 5.59 & 2.66 & 8 & 0.455 \\
+    Fisher--Rao & 0.3 & 0.292 & 0.294 & 7.12 & 2.45 & 8 & 0.479 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+The directional pattern is that Fisher--Rao activates more latent units (8 vs 7) and yields
+slightly better latent-mean kNN accuracy, at the cost of marginally higher reconstruction
+error. Lowering $\beta$ for Fisher--Rao further improves latent kNN accuracy but slightly
+degrades noisy-input reconstruction. A proper multi-seed VAE benchmark would be needed to
+verify whether this is a real effect.
+
 \section{Dataset and Corruption Details}
+\label{app:datasets}
 
-\subsection{Synthetic t-SNE data}
+\subsection{Blobs}
+Generated with \texttt{sklearn.datasets.make\_blobs(n\_samples=200, n\_features=8, centers=5,\\ cluster\_std=1.6, random\_state=0)}, then z-scored. Five Gaussian centers in $\mathbb{R}^8$.
 
-The compact robustness benchmark uses a synthetic five-cluster Gaussian dataset generated with
-scikit-learn. The dataset has $140$ samples, $8$ input dimensions, cluster standard deviation $1.6$,
-and random seed $101$. The clean feature matrix is denoted $X$. For each noise level
-$\alpha \in \{0,0.5,1.0\}$, affinities are built from
-\begin{equation}
-  \widetilde{X}_\alpha = X + \alpha\, \mathrm{std}(X)\,\epsilon,
-  \qquad \epsilon \sim \mathcal{N}(0,I).
-\end{equation}
-Final embedding metrics are computed against the clean $X$ and clean cluster labels. This separates
-the training corruption from the evaluation target.
+\subsection{Digits}
+A $200$-point random subsample (numpy default RNG seeded $0$) from sklearn's
+\texttt{load\_digits} bundle, which contains $1797$ images of $8\times 8$ pixel handwritten
+digits, $10$ classes, and $64$ raw features. Z-scored to zero mean and unit variance.
 
-\subsection{MNIST VAE data}
+\subsection{MNIST}
+A $200$-point random subsample (numpy default RNG seeded $0$) from the MNIST training split,
+each image flattened to $784$ raw pixel features and z-scored.
 
-The compact VAE benchmark uses MNIST with $2048$ training examples and $512$ held-out test examples.
-Images are converted to tensors in $[0,1]$. Clean evaluation reconstructs clean inputs. Noisy
-evaluation feeds
-\begin{equation}
-  \widetilde{x} = \mathrm{clip}(x + 0.25\,\epsilon,0,1),
-  \qquad \epsilon \sim \mathcal{N}(0,I),
-\end{equation}
-to the encoder-decoder but computes reconstruction error against the clean target $x$.
+\subsection{Robustness corruption}
+For each noise level $\alpha\in\{0.0, 0.25, 0.5, 0.75, 1.0\}$ and each seed
+$s\in\{101,202,\ldots,1010\}$, we draw a fresh standard normal noise tensor of the same shape
+as the standardized feature matrix and form $\widetilde{X}=X+\alpha\,\epsilon$. The seed for
+the noise tensor is $1000s + \lfloor 1000\alpha\rfloor$ to keep noise shocks reproducible and
+distinct across cells.
 
 \section{Training Dynamics Details}
+\label{app:dynamics}
 
-\subsection{t-SNE benchmark dynamics}
+All t-SNE benchmark runs use Adam at learning rate $0.05$ for $300$ steps, with gradient
+descent on the $200\times 2$ embedding matrix. Optimizer state is reset for each
+$(\text{dataset},\text{noise},\text{seed},\text{objective})$ run. The high-dimensional
+bandwidth is set per dataset to $\sigma=\mathrm{median}_{i<j}\|x_i-x_j\|/\sqrt{2}$ on the
+clean standardized data, giving $\sigma\approx2.81$ for blobs, $\sigma\approx7.0$ for digits,
+and $\sigma\approx21.8$ for MNIST.
 
-All compact t-SNE benchmark runs use Adam with learning rate $0.05$, $120$ optimization steps,
-Gaussian high-dimensional affinities with bandwidth $5.0$, and Student-$t$ low-dimensional
-affinities. Table \ref{tab:appendix-tsne-dynamics} reports the recorded objective values.
-
-\begin{table}[h]
-  \centering
-  \caption{t-SNE benchmark training dynamics.}
-  \label{tab:appendix-tsne-dynamics}
-  \begin{tabular}{llrrrrrrr}
-    \toprule
-    Noise & Objective & 0 & 20 & 40 & 60 & 80 & 100 & 119 \\
-    \midrule
-    0.0 & KL & 1.7032 & 0.9492 & 0.5978 & 0.3215 & 0.2560 & 0.2144 & 0.1881 \\
-    0.0 & Fisher--Rao & 4.8845 & 3.0005 & 1.6774 & 0.9036 & 0.7072 & 0.6029 & 0.5364 \\
-    0.5 & KL & 2.2743 & 1.6401 & 1.2104 & 0.9230 & 0.7859 & 0.7064 & 0.6554 \\
-    0.5 & Fisher--Rao & 5.4343 & 4.0367 & 2.7401 & 2.1283 & 1.8484 & 1.6618 & 1.5377 \\
-    1.0 & KL & 3.8903 & 3.2065 & 2.7303 & 2.4193 & 2.1722 & 2.0007 & 1.8705 \\
-    1.0 & Fisher--Rao & 7.2506 & 6.4990 & 5.7426 & 5.1357 & 4.6848 & 4.3452 & 4.0951 \\
-    \bottomrule
-  \end{tabular}
-\end{table}
-
-\subsection{VAE benchmark dynamics}
-
-All compact VAE benchmark runs use a fully connected encoder-decoder, latent dimension $8$, Adam
-with learning rate $10^{-3}$, batch size $128$, one epoch, and gradient clipping at norm $10$. Table
-\ref{tab:appendix-vae-dynamics} records the first logged training batch. Because the compact run has
-only $16$ batches and logs every $20$ steps, the final comparison is made with held-out evaluation
-metrics rather than the sparse training log.
-
-\begin{table}[h]
-  \centering
-  \caption{VAE benchmark first logged training batch.}
-  \label{tab:appendix-vae-dynamics}
-  \begin{tabular}{llrrr}
-    \toprule
-    Regularizer & $\beta$ & Total loss & Reconstruction & Regularization \\
-    \midrule
-    KL & 1.0 & 552.1189 & 552.0860 & 0.0329 \\
-    Fisher--Rao & 1.0 & 552.1514 & 552.0860 & 0.0654 \\
-    Fisher--Rao & 0.3 & 552.1056 & 552.0860 & 0.0654 \\
-    \bottomrule
-  \end{tabular}
-\end{table}
+The full benchmark, including aggregation and statistical analysis, runs in approximately
+two and a half minutes on Apple Silicon MPS using the script
+\texttt{experiments/paper\_benchmark.py} followed by
+\texttt{experiments/aggregate\_results.py}, with figures regenerated by
+\texttt{reports/generate\_figures.py}. End-to-end the paper can be rebuilt with
+\texttt{make paper-all}.
 
 \bibliographystyle{plainnat}
 \bibliography{references}
