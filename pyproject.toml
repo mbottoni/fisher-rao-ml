@@ -1,0 +1,39 @@
+[project]
+name = "fisher-rao-ml"
+version = "0.1.0"
+description = "Experiments replacing KL divergence with Fisher-Rao distances in t-SNE and VAEs."
+readme = "README.md"
+requires-python = ">=3.11,<3.13"
+dependencies = [
+    "matplotlib>=3.9",
+    "mlflow>=2.19",
+    "marimo>=0.10",
+    "numpy>=2.1",
+    "scikit-learn>=1.6",
+    "torch>=2.5",
+    "torchvision>=0.20",
+    "tqdm>=4.67",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.3",
+    "ruff>=0.8",
+]
+
+[tool.uv]
+package = true
+
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
