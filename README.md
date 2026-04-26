@@ -21,27 +21,35 @@ PyTorch device selection prefers Apple Silicon MPS when available, then CUDA, th
 Run t-SNE objective comparisons:
 
 ```bash
-uv run python experiments/tsne_fisher_rao.py --objective fisher_rao
-uv run python experiments/tsne_fisher_rao.py --objective kl
+uv run --project . python experiments/tsne_fisher_rao.py --objective fisher_rao
+uv run --project . python experiments/tsne_fisher_rao.py --objective kl
 ```
+
+The t-SNE script prints the device, run configuration, MLflow run id, loss every
+`--log-every` steps, final embedding metrics, and the saved plot path.
 
 Run VAE regularizer comparisons:
 
 ```bash
-uv run python experiments/vae_fisher_rao.py --regularizer fisher_rao
-uv run python experiments/vae_fisher_rao.py --regularizer kl
+uv run --project . python experiments/vae_fisher_rao.py --regularizer fisher_rao
+uv run --project . python experiments/vae_fisher_rao.py --regularizer kl
 ```
+
+The VAE script prints the device, dataset sizes, parameter count, MLflow run id,
+periodic loss/reconstruction/regularization values, final training-batch metrics,
+held-out evaluation metrics, and model artifact logging status. Use `--log-every`
+to control console and MLflow training metric frequency.
 
 Open MLflow:
 
 ```bash
-uv run mlflow ui --backend-store-uri ./mlruns
+uv run --project . mlflow ui --backend-store-uri ./mlruns
 ```
 
 Open the marimo playground:
 
 ```bash
-uv run marimo edit notebooks/fisher_rao_playground.py
+uv run --project . marimo edit notebooks/fisher_rao_playground.py
 ```
 
 ## Research Questions
@@ -76,7 +84,9 @@ Track these metrics in MLflow:
 
 - objective curves and gradient stability;
 - final t-SNE embedding plots;
+- final t-SNE trustworthiness, neighborhood recall, silhouette, and kNN accuracy;
 - VAE reconstruction loss versus latent regularization;
+- final VAE reconstruction, active latent units, latent variance, and latent kNN accuracy;
 - sensitivity to `beta`, learning rate, and latent dimension.
 
 Possible advantages to investigate:
