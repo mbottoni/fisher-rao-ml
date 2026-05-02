@@ -13,8 +13,8 @@
 \newtheorem{proposition}{Proposition}
 \newtheorem{lemma}{Lemma}
 
-\title{Can Fisher--Rao Geometry Replace KL Divergence in Representation Learning?\\
-A Joint Study of t-SNE and Variational Autoencoders}
+\title{When Fisher--Rao Geometry Helps Representation Learning:\\
+Robust Affinity Matching Under False Neighbors}
 
 \author{
   Maruano T.\ Bottoni \\
@@ -29,23 +29,21 @@ A Joint Study of t-SNE and Variational Autoencoders}
 
 \begin{abstract}
 The Kullback--Leibler (KL) divergence is the dominant primitive for comparing probability
-distributions in representation-learning objectives, including t-SNE and variational
-autoencoders. KL is asymmetric, unbounded, and parameterization-sensitive. The
-\emph{Fisher--Rao} geodesic distance is symmetric and intrinsic; on the simplex it is also
-bounded. We implement differentiable Fisher--Rao objectives for categorical t-SNE affinities
-and diagonal-Gaussian VAE posteriors, then evaluate them with paired multi-seed protocols. For
-t-SNE, KL remains stronger: across $3$ datasets, $5$ corruption levels, $10$ seeds, and $4$
-metrics, Fisher--Rao never significantly outperforms KL and KL wins $13$ metric cells. For
-structured affinity corruption, the sign reverses: when $P$ contains false high-probability
-edges, Fisher--Rao preserves clean neighborhoods and overfits the corrupted pairs less than KL.
-For VAEs, the result is more nuanced but still conservative. In a beta-tuned study on MNIST
-and Fashion-MNIST ($80$ trained models), Fisher--Rao is competitive after independent beta
-selection but does not show a statistically significant advantage on reconstruction, latent
-classification, posterior matching, generation, or corruption robustness. Its main practical
-effect is to expose different posterior-geometry trade-offs and occasional instability at
-aggressive settings. We release the benchmark CSVs, figures, and paired Wilcoxon/Cliff's-delta
-analysis pipeline so future information-geometric objectives can be evaluated with the same
-rigor.
+distributions in representation-learning objectives such as t-SNE. KL is asymmetric and
+unbounded: these properties are useful when the target affinity distribution is clean, but can
+become liabilities when the target contains spurious high-confidence neighbors. We test the
+Fisher--Rao geodesic distance as a bounded, symmetric alternative on the categorical simplex.
+The main positive result is a structured affinity-corruption stress test: when the training
+target $P$ is contaminated with false high-probability cross-cluster edges, Fisher--Rao
+preserves clean neighborhoods and assigns substantially less embedding mass to the corrupted
+pairs than KL. At false-edge mass $0.2$, Fisher--Rao improves trustworthiness by $+0.068$,
+clean-neighborhood recall by $+0.100$, and reduces corrupted-edge preservation by $-0.149$.
+We also include a standard multi-seed t-SNE benchmark as a boundary condition: under clean or
+feature-noised targets, KL remains better for cluster separation and Fisher--Rao is usually a
+tie. A compact VAE study is reported as a secondary check and does not show a reliable
+advantage. The resulting claim is narrow but actionable: Fisher--Rao is not a universal KL
+replacement, but its bounded geometry is useful for robust affinity matching when the affinity
+graph itself is contaminated.
 \end{abstract}
 
 \section{Introduction}
@@ -95,34 +93,27 @@ explicit significance tests \citep{wilcoxon1945individual,cliff1993dominance}. W
 \paragraph{Contributions.}
 \begin{enumerate}
   \item A differentiable PyTorch implementation of the Fisher--Rao distance for categorical
-        distributions and diagonal Gaussians, suitable for use as a drop-in replacement for KL
-        inside arbitrary autograd-trained objectives.
+        distributions, suitable for use as a drop-in replacement for KL in affinity-matching
+        objectives.
   \item A statement and verification of three core analytical properties that distinguish
         Fisher--Rao from KL on the simplex: symmetry, the triangle inequality, and a bounded
         codomain.
-  \item A rigorous paired benchmark of KL versus Fisher--Rao squared as a t-SNE objective,
-        across three datasets (Gaussian blobs, sklearn \texttt{digits}, MNIST), five feature-noise
-        corruption levels, ten random seeds, and four objective-independent embedding-quality
-        metrics, with Wilcoxon signed-rank tests and Cliff's delta as the effect size.
   \item A targeted structured-affinity stress test showing that Fisher--Rao can help when the
         target affinity distribution contains sparse false-neighbor probability mass, because
         its bounded simplex geometry reduces overfitting to corrupted high-confidence edges.
-  \item A beta-tuned VAE benchmark on MNIST and Fashion-MNIST, evaluating reconstruction,
-        latent classification, posterior geometry, sample quality, corruption robustness, and
-        training stability after independent beta selection for each regularizer.
+  \item A paired benchmark of KL versus Fisher--Rao squared as a t-SNE objective across three
+        datasets, feature-noise levels, ten seeds, and objective-independent embedding metrics,
+        establishing where the positive robustness result does \emph{not} apply.
+  \item A secondary beta-tuned VAE check, reported briefly, showing that the same replacement is
+        not yet compelling for compact diagonal-Gaussian VAEs.
 \end{enumerate}
 
 \paragraph{Headline finding.}
-Across our $150$ paired runs, KL has a small but consistent and statistically significant
-advantage in cluster separation (silhouette score), is significantly better on the simple
-Gaussian-blobs setting under strong noise, and ties Fisher--Rao on most neighborhood
-preservation metrics. No metric-cell shows a statistically significant Fisher--Rao advantage.
-We therefore recommend KL for clean t-SNE-style affinity matching despite Fisher--Rao's
-geometric elegance. The structured-corruption stress test qualifies that recommendation:
-bounded Fisher--Rao geometry is useful when the affinity graph itself contains spurious
-high-confidence edges. For VAEs, Fisher--Rao is a viable regularizer after beta tuning, but
-the current evidence is best read as a controlled negative result: it changes posterior
-geometry without yielding a reliable quality or robustness improvement over KL.
+Fisher--Rao's value is conditional. In ordinary clean-target and feature-noise t-SNE
+benchmarks, KL remains the safer default. But when $P$ itself contains false high-probability
+edges, KL faithfully overfits the corrupted target while Fisher--Rao resists the bad edges and
+better preserves the clean geometry. This gives a precise answer to ``when should the geometry
+matter?'': when boundedness is robustness rather than underfitting.
 
 \section{Background}
 
@@ -306,7 +297,7 @@ Following standard practice we mark $p<0.05$ as significant. We do not apply Bon
 across all $60$ cells, but we report all $p$-values, so the reader can apply any preferred
 correction.
 
-\subsection{VAE protocol}
+\subsection{Secondary VAE protocol}
 \label{sec:vae-methods}
 
 We train a fully connected VAE with one hidden layer of width $400$, latent dimension $8$,
@@ -336,6 +327,86 @@ or random pixel dropout for robustness. Non-finite training is recorded as
 
 \section{Results}
 \label{sec:results}
+
+\subsection{Main result: structured affinity corruption}
+\label{sec:structured-corruption}
+
+The central question is not whether Fisher--Rao wins every affinity-matching benchmark. It is
+whether its bounded geometry helps in the regime where KL's unbounded pressure is plausibly
+harmful. To test this directly, we construct a structured affinity-corruption stress test.
+Starting from clean Gaussian-cluster affinities $P_{\mathrm{clean}}$, we form a training target
+$P_{\mathrm{train}}$ by injecting cross-label probability mass into selected false-neighbor
+pairs. Both objectives are optimized against $P_{\mathrm{train}}$, but evaluation is performed
+against the clean data geometry.
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=\linewidth]{figures/dimred_noisy_affinity_means.pdf}
+  \caption{Noisy-affinity stress test under injected false high-probability edges. Unlike
+  feature-noise corruption, this directly contaminates the target pair distribution. KL
+  increasingly preserves the injected bad edges as false-edge mass grows, while Fisher--Rao
+  maintains higher clean-neighborhood metrics and assigns less embedding probability to the
+  corrupted pairs.}
+  \label{fig:dimred-noisy-means}
+\end{figure}
+
+Figure~\ref{fig:dimred-noisy-means} shows the clearest positive result in the study. At
+false-edge mass $0.2$, Fisher--Rao improves trustworthiness by $+0.068$ and clean-neighborhood
+recall by $+0.100$, while reducing corrupted-edge preservation by $-0.149$ and corrupted-edge
+$Q$ mass by $-0.0038$. This is the mechanism predicted by the bounded simplex geometry: KL
+treats every injected high-$P_{ij}$ edge as an obligation to make $Q_{ij}$ large, whereas
+Fisher--Rao's penalty saturates once the square-root distributions are far apart.
+
+\begin{table}[t]
+  \centering
+  \caption{Noisy-affinity paired differences, Fisher--Rao minus KL, across five seeds. Positive
+  values are better for trustworthiness, recall, silhouette, and local purity; negative values
+  are better for corrupted-edge preservation and corrupted-edge $Q$ mass. With five seeds,
+  Wilcoxon tests are underpowered, so these rows should be read as effect-size evidence for a
+  larger confirmatory run.}
+  \label{tab:noisy-affinity-stress}
+  \scriptsize
+  \begin{tabular}{lrrrrrr}
+    \toprule
+    False mass & Trust. & Recall & Silh. & Purity & Bad-edge preserved & Bad-edge $Q$ mass \\
+    \midrule
+    0.05 & $+0.0077$ & $+0.0456$ & $+0.1171$ & $+0.0115$ & $-0.0250$ & $-0.00075$ \\
+    0.10 & $+0.0190$ & $+0.0851$ & $+0.1876$ & $+0.0360$ & $-0.0725$ & $-0.00157$ \\
+    0.20 & $+0.0680$ & $+0.1001$ & $+0.3754$ & $+0.1986$ & $-0.1488$ & $-0.00381$ \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=\linewidth]{figures/dimred_false_edge_curves.pdf}
+  \caption{Oriented Fisher--Rao improvement over KL in the noisy-affinity stress test. The last
+  two panels multiply lower-is-better metrics by $-1$, so positive values consistently indicate
+  a Fisher--Rao advantage.}
+  \label{fig:dimred-false-edge-curves}
+\end{figure}
+
+We also ran three additional stress families: bridge outliers, continuous manifolds, and
+parallel-manifold false bridges. Figure~\ref{fig:dimred-stress-overview} summarizes the most
+diagnostic metric from each family. The outlier-influence experiment does not support a
+Fisher--Rao advantage; the global-geometry and symmetric-mismatch tests are mixed. The
+actionable signal is therefore narrow rather than universal: Fisher--Rao appears useful when
+the \emph{affinity target itself} is contaminated by sparse false-neighbor probability mass.
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=\linewidth]{figures/dimred_stress_overview.pdf}
+  \caption{Stress-test overview. Each bar is oriented so positive means Fisher--Rao improves the
+  most diagnostic metric for that stress family. The clearest signal is the noisy-affinity
+  false-edge benchmark; other stress families are weaker or mixed.}
+  \label{fig:dimred-stress-overview}
+\end{figure}
+
+\subsection{Boundary condition: clean-target and feature-noise benchmarks}
+
+The positive result above does not imply that Fisher--Rao is a better default t-SNE objective.
+When the target affinity distribution is clean, or when corruption is applied to input features
+before constructing $P$, KL's asymmetric pressure remains valuable.
 
 Figure~\ref{fig:robustness-grid} shows mean $\pm 1$ standard deviation across $10$ seeds for
 each metric, dataset, and noise level. Visually the two objectives track each other very
@@ -491,142 +562,20 @@ relative rate, consistent with its bounded codomain.
   \label{fig:loss-curves}
 \end{figure}
 
-\subsection{Structured affinity corruption: a Fisher--Rao-favorable regime}
-\label{sec:structured-corruption}
-
-The negative t-SNE result above corrupts the input features and then asks each objective to
-match the resulting affinity matrix. That is the standard robustness setting, but it does not
-isolate the case where KL's unbounded pressure should be most harmful: a target distribution
-$P$ containing a small number of \emph{false high-probability edges}. We therefore add a
-structured affinity-corruption stress test. Starting from clean Gaussian-cluster affinities
-$P_{\mathrm{clean}}$, we construct a training target $P_{\mathrm{train}}$ by injecting
-cross-label probability mass into selected false-neighbor pairs. Both objectives are optimized
-against $P_{\mathrm{train}}$, but evaluation is performed against the clean data geometry.
-
-\begin{figure}[t]
-  \centering
-  \includegraphics[width=\linewidth]{figures/dimred_noisy_affinity_means.pdf}
-  \caption{Noisy-affinity stress test under injected false high-probability edges. Unlike
-  feature-noise corruption, this directly contaminates the target pair distribution. KL
-  increasingly preserves the injected bad edges as false-edge mass grows, while Fisher--Rao
-  maintains higher clean-neighborhood metrics and assigns less embedding probability to the
-  corrupted pairs.}
-  \label{fig:dimred-noisy-means}
-\end{figure}
-
-Figure~\ref{fig:dimred-noisy-means} shows a clear reversal relative to the clean-target
-benchmark. At false-edge mass $0.2$, Fisher--Rao improves trustworthiness by $+0.068$ and
-clean-neighborhood recall by $+0.100$, while reducing corrupted-edge preservation by $-0.149$
-and corrupted-edge $Q$ mass by $-0.0038$. This is exactly the mechanism predicted by the
-bounded simplex geometry: KL treats every injected high-$P_{ij}$ edge as an obligation to make
-$Q_{ij}$ large, whereas Fisher--Rao's penalty saturates once the square-root distributions are
-far apart.
-
-\begin{table}[t]
-  \centering
-  \caption{Noisy-affinity paired differences, Fisher--Rao minus KL, across five seeds. Positive
-  values are better for trustworthiness, recall, silhouette, and local purity; negative values
-  are better for corrupted-edge preservation and corrupted-edge $Q$ mass. With five seeds,
-  Wilcoxon tests are underpowered, so these rows should be read as effect-size evidence for a
-  follow-up study.}
-  \label{tab:noisy-affinity-stress}
-  \scriptsize
-  \begin{tabular}{lrrrrrr}
-    \toprule
-    False mass & Trust. & Recall & Silh. & Purity & Bad-edge preserved & Bad-edge $Q$ mass \\
-    \midrule
-    0.05 & $+0.0077$ & $+0.0456$ & $+0.1171$ & $+0.0115$ & $-0.0250$ & $-0.00075$ \\
-    0.10 & $+0.0190$ & $+0.0851$ & $+0.1876$ & $+0.0360$ & $-0.0725$ & $-0.00157$ \\
-    0.20 & $+0.0680$ & $+0.1001$ & $+0.3754$ & $+0.1986$ & $-0.1488$ & $-0.00381$ \\
-    \bottomrule
-  \end{tabular}
-\end{table}
-
-\begin{figure}[t]
-  \centering
-  \includegraphics[width=\linewidth]{figures/dimred_false_edge_curves.pdf}
-  \caption{Oriented Fisher--Rao improvement over KL in the noisy-affinity stress test. The last
-  two panels multiply lower-is-better metrics by $-1$, so positive values consistently indicate
-  a Fisher--Rao advantage.}
-  \label{fig:dimred-false-edge-curves}
-\end{figure}
-
-We also ran three additional stress families: bridge outliers, continuous manifolds, and
-parallel-manifold false bridges. Figure~\ref{fig:dimred-stress-overview} summarizes the most
-diagnostic metric from each family. The outlier-influence experiment does not support a
-Fisher--Rao advantage; the global-geometry and symmetric-mismatch tests are mixed. The
-actionable signal is therefore narrow rather than universal: Fisher--Rao appears useful when
-the \emph{affinity target itself} is contaminated by sparse false-neighbor probability mass.
-
-\begin{figure}[t]
-  \centering
-  \includegraphics[width=\linewidth]{figures/dimred_stress_overview.pdf}
-  \caption{Stress-test overview. Each bar is oriented so positive means Fisher--Rao improves the
-  most diagnostic metric for that stress family. The clearest signal is the noisy-affinity
-  false-edge benchmark; other stress families are weaker or mixed.}
-  \label{fig:dimred-stress-overview}
-\end{figure}
-
-\section{VAE Results}
+\section{Secondary VAE Check}
 \label{sec:vae-results}
 
-Figure~\ref{fig:vae-beta} shows the beta trade-off surface. The dominant pattern is that both
-regularizers trace similar reconstruction--representation frontiers. KL tends to achieve
-slightly lower BCE/pixel after best-beta selection: Fisher--Rao minus KL is $+0.0018$ on MNIST
-and $+0.0025$ on Fashion-MNIST, where positive means worse reconstruction. These differences
-are small and not significant at $p<0.05$ under the paired Wilcoxon test. Fisher--Rao has a
-small positive latent-kNN delta on Fashion-MNIST ($+0.013$), but a near-zero negative delta on
-MNIST ($-0.002$); neither effect is significant.
+We also tested whether the same replacement is immediately useful for compact diagonal-Gaussian
+VAEs. The answer is mostly negative. After independent beta selection on MNIST and
+Fashion-MNIST, Fisher--Rao is competitive but does not reliably improve reconstruction, latent
+classification, posterior matching, generation, or corruption robustness. The best-beta paired
+summary is reported in Appendix~\ref{app:vae}; we keep it out of the main results because the
+positive contribution of this paper is the categorical affinity-corruption regime, not
+diagonal-Gaussian VAE regularization.
 
-\begin{figure}[t]
-  \centering
-  \includegraphics[width=\linewidth]{figures/vae_final_metrics.pdf}
-  \caption{VAE beta trade-offs across reconstruction, latent kNN accuracy, and active units.
-  Curves show mean $\pm1$ standard deviation across five seeds for each dataset and
-  regularizer.}
-  \label{fig:vae-beta}
-\end{figure}
-
-\begin{figure}[t]
-  \centering
-  \includegraphics[width=0.85\linewidth]{figures/vae_best_beta_deltas.pdf}
-  \caption{Best-beta paired VAE deltas. Values are oriented so positive means Fisher--Rao is
-  better: lower BCE/MMD is multiplied by $-1$, while higher latent accuracy is left positive.}
-  \label{fig:vae-deltas}
-\end{figure}
-
-Figure~\ref{fig:vae-deltas} summarizes best-beta paired deltas. Fisher--Rao does not dominate
-any metric family. On Fashion-MNIST it slightly improves latent kNN on average but slightly
-worsens BCE and corruption BCE. On MNIST it slightly worsens reconstruction and noise
-robustness, while posterior-MMD differences also favor KL. The most favorable Fisher--Rao
-signal is therefore representational rather than generative, and even that signal is small in
-this compact fully connected model.
-
-\begin{figure}[t]
-  \centering
-  \includegraphics[width=0.85\linewidth]{figures/vae_training_dynamics.pdf}
-  \caption{VAE training dynamics on MNIST for the representative $\beta=1$ setting. Raw KL and
-  Fisher--Rao regularization values are not directly comparable in scale, but both optimize
-  smoothly under Adam after gradient clipping.}
-  \label{fig:vae-dynamics}
-\end{figure}
-
-\begin{figure}[t]
-  \centering
-  \includegraphics[width=\linewidth]{figures/vae_latent_geometry.pdf}
-  \caption{Representative VAE latent means projected to two dimensions with PCA. The plots
-  visualize posterior geometry rather than serving as a quantitative metric; paired numerical
-  metrics are reported in the CSV tables.}
-  \label{fig:vae-latents}
-\end{figure}
-
-The stability diagnostics are also informative. All selected best-beta rows are stable in the
-completed MNIST and Fashion-MNIST runs. During development, aggressive Fisher--Rao settings
-could produce non-finite latents; the final benchmark records such cells as unstable instead
-of allowing them to crash the run. This matters practically: Fisher--Rao is not merely a
-drop-in scalar replacement for KL. It changes the geometry of the mean/variance penalty, so
-beta tuning and gradient clipping are part of the experimental protocol rather than optional
-implementation details.
+This secondary result is still useful as a boundary condition. Fisher--Rao's bounded-codomain
+argument is specific to categorical simplex geometry; Gaussian Fisher--Rao is unbounded and
+changes the mean/variance trade-off rather than providing the same robustness mechanism.
 
 \section{Discussion}
 \label{sec:discussion}
@@ -669,29 +618,19 @@ mass and therefore better preserves the clean neighborhoods. This does not rescu
 Fisher--Rao as a default t-SNE objective, but it identifies a concrete use case: robust
 affinity matching when the affinity graph is contaminated by spurious high-confidence edges.
 
-\paragraph{What did the VAE study add?}
-The VAE results test a different hypothesis from t-SNE. For Gaussian posteriors, the
-categorical bounded-codomain argument does not apply; Fisher--Rao is unbounded on the Gaussian
-manifold. The relevant question is whether intrinsic Gaussian geometry gives a better
-regularization trade-off after beta tuning. In our compact fully connected VAE, the answer is
-again mostly negative: Fisher--Rao is competitive, but it does not reliably improve
-reconstruction, latent classification, posterior matching, generation, or robustness. Its
-practical value is diagnostic. It exposes how much of a claimed improvement comes from
-regularizer geometry versus beta scale, and it makes posterior-geometry trade-offs visible.
-
-\paragraph{When could Fisher--Rao still matter?}
-The current VAE experiment is small: two image datasets, five seeds, two epochs, and a fully
-connected architecture. Fisher--Rao may still be useful in settings where the Gaussian
-posterior geometry is more central: hierarchical VAEs, high-dimensional latents, annealed
-regularization schedules, or models where posterior variance dynamics are unstable under KL.
-The benchmark code now supports that follow-up directly through beta sweeps, stability
-tracking, corruption evaluation, and cached resumable runs.
+\paragraph{Why not center the VAE result?}
+The VAE study tests a different geometry. For Gaussian posteriors, Fisher--Rao is not bounded,
+so it does not provide the same robustness mechanism that explains the false-neighbor affinity
+result. In the compact fully connected VAE benchmark, Fisher--Rao is competitive after beta
+tuning but does not reliably improve downstream metrics. We therefore treat VAEs as a
+secondary boundary condition rather than the main empirical claim.
 
 \paragraph{Methodological takeaway.}
 The wider methodological point is that information-geometric replacements for KL should be
-evaluated with paired multi-seed protocols and explicit significance tests rather than single
-runs. The infrastructure for doing so is small: our entire benchmark, including dataset
-loading, loss implementation, and statistical analysis, is $<500$ lines of Python.
+evaluated where their geometry predicts an advantage, and then checked against clean baselines
+where KL may remain superior. A single broad ``KL replacement'' question hides the conditional
+effect: Fisher--Rao helps when boundedness prevents overfitting corrupted affinity mass, but
+the same boundedness can hurt cluster separation under clean targets.
 
 \section{Limitations}
 
@@ -710,20 +649,19 @@ same multi-seed framework.
 
 \section{Conclusion}
 
-The Fisher--Rao geodesic distance is a symmetric, triangle-inequality-respecting,
-parameterization-invariant, bounded-codomain alternative to KL divergence for comparing
-probability distributions. Despite this geometric appeal, when used as a t-SNE objective and
-evaluated with the same paired-comparison protocol that is now standard in empirical ML, it
-does not outperform KL: across $3$ datasets, $5$ corruption levels, and $10$ seeds, KL
-significantly wins $13$ out of $60$ metric-cells (mostly silhouette and the strong-noise
-regime on simple Gaussian clusters), Fisher--Rao significantly wins zero, and the remaining
-$44$ are statistical ties. Practitioners should continue to use KL for clean t-SNE-style
-affinity matching. The new structured-corruption stress test refines this negative result:
-Fisher--Rao can help when the affinity target contains sparse false-neighbor edges, where KL's
-unbounded pressure overfits spurious high-confidence mass. In VAEs, Fisher--Rao is competitive
-after separate beta tuning but does not produce a reliable improvement in the compact study
-reported here. Practitioners should therefore treat Fisher--Rao as an experimental regularizer
-and diagnostic geometry, not as a default replacement for KL.
+Fisher--Rao geometry is useful in a specific regime: robust categorical affinity matching when
+the target distribution contains false high-confidence neighbors. In that setting, KL's
+unbounded pressure faithfully pulls corrupted pairs together, while Fisher--Rao's bounded
+simplex geometry reduces overfitting to the bad edges and better preserves clean neighborhoods.
+This is the positive result of the study.
+
+The same experiments also define the boundary of the claim. Under clean targets and ordinary
+feature-noise corruption, KL remains the better default for t-SNE-style objectives, especially
+when cluster separation is the desired behavior. In compact diagonal-Gaussian VAEs,
+Fisher--Rao is competitive after beta tuning but does not yield a reliable quality or
+robustness improvement. The practical recommendation is therefore conditional rather than
+universal: use Fisher--Rao when robustness to contaminated affinity graphs matters; keep KL
+when the target distribution is trusted and aggressive neighbor matching is desired.
 
 \appendix
 
