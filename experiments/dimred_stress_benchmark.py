@@ -51,6 +51,13 @@ def parse_args() -> argparse.Namespace:
         help="Approximate bad-edge mass injected into the affinity distribution.",
     )
     parser.add_argument(
+        "--corruption-types",
+        nargs="+",
+        default=["uniform", "hub", "block", "boundary"],
+        choices=["uniform", "hub", "block", "boundary"],
+        help="Structured false-affinity mechanisms for the noisy_affinity stress test.",
+    )
+    parser.add_argument(
         "--outlier-fractions",
         type=float,
         nargs="+",
@@ -176,22 +183,20 @@ def inject_cross_label_edges(
     level: float,
     seed: int,
     edges_per_point: int = 4,
+    corruption_type: str = "uniform",
+    x_clean: np.ndarray | None = None,
 ) -> tuple[np.ndarray, set[tuple[int, int]]]:
     if level <= 0:
         return p_clean.copy(), set()
-    rng = np.random.default_rng(seed)
     n = len(labels)
     target_edges = max(1, int(edges_per_point * n * level))
-    candidates: list[tuple[int, int]] = []
-    attempts = 0
-    while len(candidates) < target_edges and attempts < target_edges * 50:
-        i, j = rng.choice(n, size=2, replace=False)
-        attempts += 1
-        if labels[i] == labels[j]:
-            continue
-        pair = (int(min(i, j)), int(max(i, j)))
-        if pair not in candidates:
-            candidates.append(pair)
+    candidates = select_corrupted_pairs(
+        x_clean=x_clean,
+        labels=labels,
+        target_edges=target_edges,
+        seed=seed,
+        corruption_type=corruption_type,
+    )
 
     p = p_clean.copy()
     mass_per_direction = level / max(2 * len(candidates), 1)
@@ -200,6 +205,73 @@ def inject_cross_label_edges(
         p[j, i] += mass_per_direction
     p /= p.sum()
     return p.astype(np.float32), set(candidates)
+
+
+def select_corrupted_pairs(
+    x_clean: np.ndarray | None,
+    labels: np.ndarray,
+    target_edges: int,
+    seed: int,
+    corruption_type: str,
+) -> list[tuple[int, int]]:
+    rng = np.random.default_rng(seed)
+    n = len(labels)
+    pairs: list[tuple[int, int]] = []
+
+    def add_pair(i: int, j: int) -> None:
+        if labels[i] == labels[j]:
+            return
+        pair = (int(min(i, j)), int(max(i, j)))
+        if pair not in pairs:
+            pairs.append(pair)
+
+    if corruption_type == "uniform":
+        attempts = 0
+        while len(pairs) < target_edges and attempts < target_edges * 50:
+            i, j = rng.choice(n, size=2, replace=False)
+            attempts += 1
+            add_pair(int(i), int(j))
+        return pairs
+
+    if corruption_type == "hub":
+        hub = int(rng.integers(0, n))
+        opposite = np.flatnonzero(labels != labels[hub])
+        rng.shuffle(opposite)
+        for j in opposite:
+            add_pair(hub, int(j))
+            if len(pairs) >= target_edges:
+                break
+        return pairs
+
+    if corruption_type == "block":
+        classes = np.unique(labels)
+        class_a, class_b = rng.choice(classes, size=2, replace=False)
+        a_idx = np.flatnonzero(labels == class_a)
+        b_idx = np.flatnonzero(labels == class_b)
+        while len(pairs) < target_edges:
+            add_pair(int(rng.choice(a_idx)), int(rng.choice(b_idx)))
+            if len(pairs) >= len(a_idx) * len(b_idx):
+                break
+        return pairs
+
+    if corruption_type == "boundary":
+        if x_clean is None:
+            raise ValueError("boundary corruption requires x_clean")
+        candidate_scores: list[tuple[float, int, int]] = []
+        for i in range(n):
+            opposite = np.flatnonzero(labels != labels[i])
+            distances = np.linalg.norm(x_clean[opposite] - x_clean[i], axis=1)
+            nearest = opposite[np.argsort(distances)[:5]]
+            for j in nearest:
+                pair = (int(min(i, j)), int(max(i, j)))
+                candidate_scores.append((float(np.linalg.norm(x_clean[i] - x_clean[j])), *pair))
+        for _distance, i, j in sorted(set(candidate_scores)):
+            add_pair(i, j)
+            if len(pairs) >= target_edges:
+                break
+        return pairs
+
+    raise ValueError(f"Unknown corruption_type: {corruption_type}")
 
 
 def make_cluster_dataset(n_samples: int, seed: int) -> tuple[np.ndarray, np.ndarray]:
@@ -235,55 +307,60 @@ def run_noisy_affinity_test(
     p_clean = gaussian_affinity_numpy(x_clean, bandwidth)
 
     print("\n[stress:noisy-affinity] Injecting cross-label high-affinity edges")
-    for level in args.false_edge_levels:
-        for seed in args.seeds:
-            p_train, corrupted_pairs = inject_cross_label_edges(
-                p_clean,
-                labels,
-                level=level,
-                seed=9000 + seed,
-            )
-            for objective in OBJECTIVES:
-                embedding, history = train_embedding_from_affinities(
-                    p_train,
-                    objective,
-                    args.steps,
-                    seed,
-                    device,
-                    args.log_every,
-                )
-                metrics = embedding_quality_metrics(
-                    x_clean,
-                    embedding,
+    for corruption_type in args.corruption_types:
+        for level in args.false_edge_levels:
+            for seed in args.seeds:
+                p_train, corrupted_pairs = inject_cross_label_edges(
+                    p_clean,
                     labels,
-                    args.neighbors,
-                    seed,
+                    level=level,
+                    seed=9000 + seed,
+                    corruption_type=corruption_type,
+                    x_clean=x_clean,
                 )
-                metrics["eval_corrupted_edge_preservation"] = corrupted_edge_preservation(
-                    embedding,
-                    corrupted_pairs,
-                    args.neighbors,
-                )
-                metrics["eval_corrupted_edge_q_mass"] = corrupt_edge_q_mass(
-                    embedding,
-                    corrupted_pairs,
-                )
-                rows.append(
-                    {
-                        "experiment": "noisy_affinity",
-                        "dataset": "blobs",
-                        "stress_level": level,
-                        "seed": seed,
-                        "objective": objective,
-                        "final_loss": history[-1][1],
-                        **metrics,
-                    }
-                )
-                print(
-                    f"[stress:noisy-affinity] level={level:.3f} seed={seed} "
-                    f"objective={objective} trust={metrics['eval_trustworthiness']:.4f} "
-                    f"bad_edge={metrics['eval_corrupted_edge_preservation']:.4f}"
-                )
+                for objective in OBJECTIVES:
+                    embedding, history = train_embedding_from_affinities(
+                        p_train,
+                        objective,
+                        args.steps,
+                        seed,
+                        device,
+                        args.log_every,
+                    )
+                    metrics = embedding_quality_metrics(
+                        x_clean,
+                        embedding,
+                        labels,
+                        args.neighbors,
+                        seed,
+                    )
+                    metrics["eval_corrupted_edge_preservation"] = corrupted_edge_preservation(
+                        embedding,
+                        corrupted_pairs,
+                        args.neighbors,
+                    )
+                    metrics["eval_corrupted_edge_q_mass"] = corrupt_edge_q_mass(
+                        embedding,
+                        corrupted_pairs,
+                    )
+                    rows.append(
+                        {
+                            "experiment": "noisy_affinity",
+                            "dataset": "blobs",
+                            "corruption_type": corruption_type,
+                            "stress_level": level,
+                            "seed": seed,
+                            "objective": objective,
+                            "final_loss": history[-1][1],
+                            **metrics,
+                        }
+                    )
+                    print(
+                        f"[stress:noisy-affinity] type={corruption_type} level={level:.3f} "
+                        f"seed={seed} objective={objective} "
+                        f"trust={metrics['eval_trustworthiness']:.4f} "
+                        f"bad_edge={metrics['eval_corrupted_edge_preservation']:.4f}"
+                    )
     return rows
 
 
