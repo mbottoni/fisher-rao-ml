@@ -1,4 +1,4 @@
-.PHONY: install test lint tsne-fr tsne-kl tsne-compare vae-fr vae-kl vae-compare paper-benchmark vae-benchmark vae-aggregate paper-aggregate report-figures report-pdf paper-all mlflow-ui marimo
+.PHONY: install test lint tsne-fr tsne-kl tsne-compare vae-fr vae-kl vae-compare paper-benchmark vae-benchmark vae-aggregate paper-aggregate dimred-stress dimred-stress-aggregate report-figures report-pdf paper-all mlflow-ui marimo
 
 install:
 	uv sync --project . --extra dev
@@ -37,6 +37,12 @@ vae-benchmark:
 
 paper-aggregate:
 	uv run --project . python experiments/aggregate_results.py
+
+dimred-stress:
+	uv run --project . python experiments/dimred_stress_benchmark.py
+
+dimred-stress-aggregate:
+	uv run --project . python experiments/aggregate_dimred_stress.py
 
 vae-aggregate:
 	uv run --project . python experiments/aggregate_vae_results.py
