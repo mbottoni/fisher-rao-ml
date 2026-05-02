@@ -43,10 +43,13 @@ $45$.
 We then add a harder corrupted-neighbor-graph check on digits, MNIST, and pretrained MNIST
 features, with smoothed KL, capped KL, Jensen--Shannon, and Hellinger baselines. This check
 narrows the claim: Fisher--Rao's advantage appears for corrupted affinity \emph{mass}, but not
-for every corrupted kNN adjacency target. A compact VAE study is reported as a secondary check
-and does not show a reliable advantage. The resulting claim is narrow but actionable:
-Fisher--Rao is not a universal KL replacement, but its bounded geometry is useful when
-high-confidence false neighbors are injected into the affinity distribution.
+for every corrupted kNN adjacency target. Beyond dimensionality reduction, noisy soft-label
+classification gives a second positive regime: across $16$ nonzero corruption cells,
+Fisher--Rao improves accuracy in $11$, calibration error in $10$, and Brier score in $13$
+relative to KL. A compact VAE study is reported as a secondary check and does not show a
+reliable advantage. The resulting claim is narrow but actionable: Fisher--Rao is not a
+universal KL replacement, but its bounded geometry is useful when high-confidence probability
+targets are corrupted.
 \end{abstract}
 
 \section{Introduction}
@@ -110,6 +113,9 @@ explicit significance tests \citep{wilcoxon1945individual,cliff1993dominance}. W
         smoothed KL, capped KL, Jensen--Shannon, and Hellinger baselines. This extension is a
         boundary condition: the affinity-mass result does not automatically transfer to every
         corrupted adjacency target.
+  \item A noisy probability-target benchmark for soft-label classification and corrupted
+        teacher-student distillation. This tests whether the same boundedness mechanism helps
+        outside t-SNE-style affinity matching.
   \item A paired benchmark of KL versus Fisher--Rao squared as a t-SNE objective across three
         datasets, feature-noise levels, ten seeds, and objective-independent embedding metrics,
         establishing where the positive robustness result does \emph{not} apply.
@@ -347,6 +353,27 @@ For structured affinity corruption, we additionally report local label purity, t
 injected corrupted edges preserved as embedding nearest-neighbor edges, and the total
 Student-$t$ embedding probability mass assigned to the injected corrupted edges.
 
+\subsection{Noisy probability-target benchmarks}
+\label{sec:ml-stress-methods}
+
+To test whether the same mechanism appears outside affinity matching, we add two small
+supervised benchmarks on sklearn digits and MNIST. Both use full-batch softmax classifiers so
+that the comparison isolates the categorical distribution loss rather than architecture or
+optimizer differences.
+
+\paragraph{Soft-label classification.}
+The model is trained against probability-vector labels under five target regimes: clean
+one-hot labels, label smoothing, symmetric label noise, adversarial overconfident wrong labels,
+and ambiguous labels that place mass on visually confusable classes. We compare KL, smoothed
+KL, capped KL, Jensen--Shannon, Hellinger, and Fisher--Rao with the same ten paired seeds.
+
+\paragraph{Corrupted teacher distillation.}
+A clean teacher is trained first, then a student is trained against teacher probability
+vectors. Teacher targets are left clean, sharpened, softened, randomly replaced by
+overconfident wrong labels, or shifted to class-confusion labels. We report student accuracy,
+negative log-likelihood, expected calibration error, Brier score, teacher-error imitation, and
+student accuracy on examples where the teacher is wrong.
+
 \subsection{Statistical analysis}
 \label{sec:stats}
 
@@ -524,6 +551,69 @@ the \emph{affinity target itself} is contaminated by sparse false-neighbor proba
   most diagnostic metric for that stress family. The clearest signal is the noisy-affinity
   false-edge benchmark; other stress families are weaker or mixed.}
   \label{fig:dimred-stress-overview}
+\end{figure}
+
+\subsection{Beyond affinity matching: noisy probability targets}
+\label{sec:ml-stress-results}
+
+The distribution-loss mechanism also predicts a broader supervised setting where Fisher--Rao
+should help: training targets that are probability vectors but sometimes confidently wrong.
+We therefore run the same six-objective, ten-seed paired protocol on noisy soft-label
+classification and corrupted teacher-student distillation.
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=\linewidth]{figures/ml_soft_label_curves.pdf}
+  \caption{Noisy soft-label classification under adversarial overconfident target corruption.
+  Fisher--Rao is most useful when KL overfits wrong high-confidence probability labels; bounded
+  alternatives such as Hellinger and Jensen--Shannon provide important baselines.}
+  \label{fig:ml-soft-label-curves}
+\end{figure}
+
+\begin{table}[t]
+  \centering
+  \caption{Fisher--Rao versus KL on noisy probability-target benchmarks. Counts are over
+  nonzero dataset--corruption--level cells with ten paired seeds. Accuracy is higher-is-better;
+  ECE, Brier, and teacher-error imitation are lower-is-better.}
+  \label{tab:ml-stress}
+  \scriptsize
+  \begin{tabular}{llrrr}
+    \toprule
+    Experiment & Metric & Cells & FR improves & FR improves, $p<0.05$ \\
+    \midrule
+    Soft labels & Accuracy $\uparrow$ & $16$ & $11$ & $9$ \\
+    Soft labels & ECE $\downarrow$ & $16$ & $10$ & $9$ \\
+    Soft labels & Brier $\downarrow$ & $16$ & $13$ & $10$ \\
+    Distillation & Accuracy $\uparrow$ & $16$ & $10$ & $5$ \\
+    Distillation & Teacher-error imitation $\downarrow$ & $16$ & $10$ & $8$ \\
+    Distillation & Accuracy on teacher-wrong examples $\uparrow$ & $16$ & $12$ & $4$ \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+Table~\ref{tab:ml-stress} shows that the cleanest non-t-SNE signal is soft-label
+classification. Fisher--Rao improves accuracy in $11/16$ nonzero cells, ECE in $10/16$, and
+Brier score in $13/16$, with most of those improvements significant under paired Wilcoxon.
+Distillation is supportive but weaker: Fisher--Rao improves accuracy in $10/16$ cells and
+reduces teacher-error imitation in $10/16$ cells, but calibration and NLL are mixed. This
+pattern strengthens the paper's conditional claim. Fisher--Rao is useful when the target is an
+overconfident probability vector that may be wrong; it is not automatically better whenever a
+model consumes distributions.
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=\linewidth]{figures/ml_distillation_curves.pdf}
+  \caption{Corrupted teacher-student distillation. Fisher--Rao can reduce imitation of teacher
+  mistakes, but the result is less uniform than the soft-label benchmark.}
+  \label{fig:ml-distillation-curves}
+\end{figure}
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=0.85\linewidth]{figures/ml_stress_power_summary.pdf}
+  \caption{Fraction of nonzero corruption cells where Fisher--Rao improves over KL for the
+  supervised probability-target stress tests.}
+  \label{fig:ml-stress-power}
 \end{figure}
 
 \subsection{Boundary condition: clean-target and feature-noise benchmarks}
@@ -743,6 +833,9 @@ Fisher--Rao as a default t-SNE objective, but it identifies a concrete use case:
 affinity matching when the normalized target distribution contains spurious high-confidence
 edge mass. The corrupted kNN-graph extension makes this distinction sharper: once the graph
 itself is changed and then normalized, KL can still be the better graph-matching objective.
+The noisy soft-label benchmark adds a second setting with the same structure: the target is a
+categorical probability vector, some of its high-confidence mass is wrong, and bounded
+geometric matching reduces the penalty for not obeying that bad mass exactly.
 
 \paragraph{Why not center the VAE result?}
 The VAE study tests a different geometry. For Gaussian posteriors, Fisher--Rao is not bounded,
@@ -755,8 +848,8 @@ secondary boundary condition rather than the main empirical claim.
 The wider methodological point is that information-geometric replacements for KL should be
 evaluated where their geometry predicts an advantage, and then checked against clean baselines
 where KL may remain superior. A single broad ``KL replacement'' question hides the conditional
-effect: Fisher--Rao helps when boundedness prevents overfitting corrupted affinity mass, but
-the same boundedness can hurt cluster separation under clean targets.
+effect: Fisher--Rao helps when boundedness prevents overfitting corrupted probability mass, but
+the same boundedness can hurt cluster separation or graph matching under trusted targets.
 
 \section{Limitations}
 
@@ -774,19 +867,21 @@ experiment in the same multi-seed framework.
 
 \section{Conclusion}
 
-Fisher--Rao geometry is useful in a specific regime: robust categorical affinity matching when
-the target distribution contains false high-confidence neighbors. In that setting, KL's
+Fisher--Rao geometry is useful in a specific regime: robust categorical probability matching
+when the target distribution contains false high-confidence mass. In affinity matching, KL's
 unbounded pressure faithfully pulls corrupted pairs together, while Fisher--Rao's bounded
 simplex geometry reduces overfitting to the bad edges and better preserves clean neighborhoods.
-This is the positive result of the study.
+In supervised soft-label classification, the same mechanism improves accuracy, calibration, and
+Brier score under overconfident target corruption.
 
 The same experiments also define the boundary of the claim. Under clean targets and ordinary
 feature-noise corruption, KL remains the better default for t-SNE-style objectives, especially
 when cluster separation is the desired behavior. In compact diagonal-Gaussian VAEs,
 Fisher--Rao is competitive after beta tuning but does not yield a reliable quality or
 robustness improvement. The practical recommendation is therefore conditional rather than
-universal: use Fisher--Rao when robustness to contaminated high-confidence affinity mass
-matters; keep KL when the target graph is trusted, or when aggressive graph matching is desired.
+universal: use Fisher--Rao when robustness to contaminated high-confidence probability mass
+matters; keep KL when the target distribution is trusted, or when aggressive matching is
+desired.
 
 \appendix
 
