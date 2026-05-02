@@ -314,6 +314,151 @@ def save_loss_curves() -> None:
     plt.close(fig)
 
 
+def stress_corruption_type(row: dict[str, str]) -> str:
+    return row.get("corruption_type") or "none"
+
+
+def safe_float(row: dict[str, str], key: str) -> float:
+    value = row.get(key, "")
+    if value == "":
+        return float("nan")
+    return float(value)
+
+
+def save_dimred_false_edge_curves() -> None:
+    path = RESULT_DIR / "dimred_stress_significance.csv"
+    if not path.exists():
+        print(f"Skipping dimensionality-reduction stress curves; missing {path}")
+        return
+    rows = [
+        row
+        for row in read_csv_rows(path)
+        if row["experiment"] == "noisy_affinity"
+        and stress_corruption_type(row) in {"none", "uniform"}
+    ]
+    if not rows:
+        return
+    rows.sort(key=lambda row: float(row["stress_level"]))
+
+    metrics = [
+        ("eval_trustworthiness", "trustworthiness", 1.0),
+        ("eval_neighborhood_recall", "clean-neighbor recall", 1.0),
+        ("eval_local_label_purity", "local label purity", 1.0),
+        ("eval_corrupted_edge_preservation", "bad-edge preservation", -1.0),
+        ("eval_corrupted_edge_q_mass", "bad-edge $Q$ mass", -1.0),
+    ]
+    fig, axes = plt.subplots(1, len(metrics), figsize=(3.0 * len(metrics), 3.1), sharex=True)
+    for ax, (metric, label, sign) in zip(axes, metrics, strict=True):
+        x = np.array([float(row["stress_level"]) for row in rows])
+        y = np.array([safe_float(row, f"{metric}_mean_diff") * sign for row in rows])
+        ax.axhline(0.0, color="black", linewidth=0.8)
+        ax.plot(x, y, marker="o", color="tab:red")
+        ax.set_title(label)
+        ax.set_xlabel("false-edge mass")
+        ax.grid(alpha=0.25)
+    axes[0].set_ylabel("oriented Fisher-Rao improvement over KL")
+    fig.suptitle("Structured false-affinity robustness: Fisher-Rao resists corrupted edges")
+    fig.tight_layout(rect=(0, 0, 1, 0.9))
+    fig.savefig(FIGURE_DIR / "dimred_false_edge_curves.pdf", bbox_inches="tight")
+    plt.close(fig)
+
+
+def save_dimred_noisy_affinity_means() -> None:
+    path = RESULT_DIR / "dimred_stress_aggregated.csv"
+    if not path.exists():
+        print(f"Skipping noisy-affinity means; missing {path}")
+        return
+    rows = [
+        row
+        for row in read_csv_rows(path)
+        if row["experiment"] == "noisy_affinity"
+        and stress_corruption_type(row) in {"none", "uniform"}
+    ]
+    if not rows:
+        return
+
+    metrics = [
+        ("eval_trustworthiness", "trustworthiness $\\uparrow$"),
+        ("eval_neighborhood_recall", "clean recall $\\uparrow$"),
+        ("eval_corrupted_edge_preservation", "bad-edge preservation $\\downarrow$"),
+        ("eval_corrupted_edge_q_mass", "bad-edge $Q$ mass $\\downarrow$"),
+    ]
+    fig, axes = plt.subplots(1, len(metrics), figsize=(3.0 * len(metrics), 3.2), sharex=True)
+    for ax, (metric, label) in zip(axes, metrics, strict=True):
+        for objective in ["kl", "fisher_rao"]:
+            selected = [row for row in rows if row["objective"] == objective]
+            selected.sort(key=lambda row: float(row["stress_level"]))
+            x = np.array([float(row["stress_level"]) for row in selected])
+            y = np.array([safe_float(row, f"{metric}_mean") for row in selected])
+            std = np.array([safe_float(row, f"{metric}_std") for row in selected])
+            ax.plot(
+                x,
+                y,
+                label=OBJECTIVE_LABELS[objective],
+                color=OBJECTIVE_COLORS[objective],
+                marker=OBJECTIVE_MARKERS[objective],
+            )
+            ax.fill_between(x, y - std, y + std, color=OBJECTIVE_COLORS[objective], alpha=0.16)
+        ax.set_title(label)
+        ax.set_xlabel("false-edge mass")
+        ax.grid(alpha=0.25)
+    axes[0].legend()
+    fig.suptitle("Noisy-affinity stress test means across seeds")
+    fig.tight_layout(rect=(0, 0, 1, 0.9))
+    fig.savefig(FIGURE_DIR / "dimred_noisy_affinity_means.pdf", bbox_inches="tight")
+    plt.close(fig)
+
+
+def save_dimred_stress_overview() -> None:
+    path = RESULT_DIR / "dimred_stress_significance.csv"
+    if not path.exists():
+        print(f"Skipping dimensionality-reduction stress overview; missing {path}")
+        return
+    rows = read_csv_rows(path)
+    if not rows:
+        return
+
+    metric_by_experiment = {
+        "noisy_affinity": ("eval_corrupted_edge_preservation", -1.0, "bad edges avoided"),
+        "outlier_influence": ("eval_outlier_influence", -1.0, "outlier stability"),
+        "global_geometry": ("eval_trustworthiness", 1.0, "manifold trust."),
+        "symmetric_mismatch": ("eval_between_manifold_leakage", -1.0, "less leakage"),
+    }
+    selected_rows = []
+    for row in rows:
+        if row["experiment"] not in metric_by_experiment:
+            continue
+        if row["experiment"] == "noisy_affinity" and stress_corruption_type(row) not in {
+            "none",
+            "uniform",
+        }:
+            continue
+        selected_rows.append(row)
+    if not selected_rows:
+        return
+
+    labels = [
+        f"{row['experiment'].replace('_', ' ')}\n{row['dataset']}, {float(row['stress_level']):g}"
+        for row in selected_rows
+    ]
+    values = []
+    for row in selected_rows:
+        metric, sign, _title = metric_by_experiment[row["experiment"]]
+        values.append(safe_float(row, f"{metric}_mean_diff") * sign)
+
+    fig, ax = plt.subplots(figsize=(max(8.0, 0.55 * len(values)), 3.7))
+    colors = ["tab:red" if value >= 0 else "tab:blue" for value in values]
+    ax.bar(np.arange(len(values)), values, color=colors, alpha=0.8)
+    ax.axhline(0.0, color="black", linewidth=0.8)
+    ax.set_xticks(np.arange(len(values)), labels, rotation=75, ha="right")
+    ax.set_ylabel("oriented Fisher-Rao improvement over KL")
+    ax.set_title("Stress-test overview: positive bars favor Fisher-Rao")
+    ax.grid(axis="y", alpha=0.25)
+    fig.tight_layout()
+    fig.savefig(FIGURE_DIR / "dimred_stress_overview.pdf", bbox_inches="tight")
+    plt.close(fig)
+
+
 def save_vae_final_metrics() -> None:
     path = RESULT_DIR / "vae_by_beta_aggregated.csv"
     if not path.exists():
@@ -498,6 +643,9 @@ def main() -> None:
     save_robustness_deltas()
     save_qualitative_embeddings()
     save_loss_curves()
+    save_dimred_false_edge_curves()
+    save_dimred_noisy_affinity_means()
+    save_dimred_stress_overview()
     save_vae_final_metrics()
     save_vae_best_beta_deltas()
     save_vae_training_curves()
