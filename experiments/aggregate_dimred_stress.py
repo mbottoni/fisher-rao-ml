@@ -75,14 +75,19 @@ def safe_wilcoxon(diffs: list[float]) -> tuple[float, float]:
     return float(result.statistic), float(result.pvalue)
 
 
+def row_corruption_type(row: dict[str, str]) -> str:
+    return row.get("corruption_type") or "none"
+
+
 def aggregate(rows: list[dict[str, str]], metrics: list[str]) -> list[dict[str, object]]:
-    grouped: dict[tuple[str, str, float, str], dict[str, list[float]]] = defaultdict(
+    grouped: dict[tuple[str, str, str, float, str], dict[str, list[float]]] = defaultdict(
         lambda: {metric: [] for metric in metrics}
     )
     for row in rows:
         key = (
             row["experiment"],
             row["dataset"],
+            row_corruption_type(row),
             float(row["stress_level"]),
             row["objective"],
         )
@@ -93,10 +98,13 @@ def aggregate(rows: list[dict[str, str]], metrics: list[str]) -> list[dict[str, 
             grouped[key][metric].append(float(value))
 
     aggregated: list[dict[str, object]] = []
-    for (experiment, dataset, stress_level, objective), per_metric in sorted(grouped.items()):
+    for (experiment, dataset, corruption_type, stress_level, objective), per_metric in sorted(
+        grouped.items()
+    ):
         record: dict[str, object] = {
             "experiment": experiment,
             "dataset": dataset,
+            "corruption_type": corruption_type,
             "stress_level": stress_level,
             "objective": objective,
         }
@@ -112,7 +120,7 @@ def aggregate(rows: list[dict[str, str]], metrics: list[str]) -> list[dict[str, 
 
 
 def significance(rows: list[dict[str, str]], metrics: list[str]) -> list[dict[str, object]]:
-    paired: dict[tuple[str, str, float, int], dict[str, dict[str, float]]] = defaultdict(
+    paired: dict[tuple[str, str, str, float, int], dict[str, dict[str, float]]] = defaultdict(
         lambda: {"kl": {}, "fisher_rao": {}}
     )
     for row in rows:
@@ -122,6 +130,7 @@ def significance(rows: list[dict[str, str]], metrics: list[str]) -> list[dict[st
         key = (
             row["experiment"],
             row["dataset"],
+            row_corruption_type(row),
             float(row["stress_level"]),
             int(row["seed"]),
         )
@@ -131,10 +140,10 @@ def significance(rows: list[dict[str, str]], metrics: list[str]) -> list[dict[st
                 continue
             paired[key][objective][metric] = float(value)
 
-    grouped: dict[tuple[str, str, float], dict[str, list[tuple[float, float]]]] = defaultdict(
-        lambda: {metric: [] for metric in metrics}
-    )
-    for (experiment, dataset, stress_level, _seed), bundle in paired.items():
+    grouped: dict[
+        tuple[str, str, str, float], dict[str, list[tuple[float, float]]]
+    ] = defaultdict(lambda: {metric: [] for metric in metrics})
+    for (experiment, dataset, corruption_type, stress_level, _seed), bundle in paired.items():
         if not bundle["kl"] or not bundle["fisher_rao"]:
             continue
         for metric in metrics:
@@ -142,13 +151,18 @@ def significance(rows: list[dict[str, str]], metrics: list[str]) -> list[dict[st
             fr_value = bundle["fisher_rao"].get(metric)
             if kl_value is None or fr_value is None:
                 continue
-            grouped[(experiment, dataset, stress_level)][metric].append((kl_value, fr_value))
+            grouped[(experiment, dataset, corruption_type, stress_level)][metric].append(
+                (kl_value, fr_value)
+            )
 
     records: list[dict[str, object]] = []
-    for (experiment, dataset, stress_level), per_metric in sorted(grouped.items()):
+    for (experiment, dataset, corruption_type, stress_level), per_metric in sorted(
+        grouped.items()
+    ):
         record: dict[str, object] = {
             "experiment": experiment,
             "dataset": dataset,
+            "corruption_type": corruption_type,
             "stress_level": stress_level,
         }
         for metric, pairs in per_metric.items():
@@ -197,7 +211,7 @@ def main() -> None:
         compact = {
             key: value
             for key, value in record.items()
-            if key in {"experiment", "dataset", "stress_level"}
+            if key in {"experiment", "dataset", "corruption_type", "stress_level"}
             or key.endswith("_mean_diff")
         }
         print(f"  {compact}")
