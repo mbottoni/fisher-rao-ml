@@ -1,0 +1,6 @@
+metric_label,metric,n_cells,n_fr_improves,n_fr_improves_p_lt_0_05,n_fr_improves_direction_consistency_ge_0_8,mean_oriented_improvement
+clean_recall,eval_neighborhood_recall,48,40,34,34,0.027615972222222215
+bad_edge_preservation,eval_corrupted_edge_preservation,48,48,43,42,0.15711374213715767
+bad_edge_q_mass,eval_corrupted_edge_q_mass,48,48,48,48,0.002387219412533644
+trustworthiness,eval_trustworthiness,48,45,43,43,0.029272439464948247
+local_purity,eval_local_label_purity,48,36,30,30,0.04222986111111112
