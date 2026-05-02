@@ -6,6 +6,7 @@ Inputs:
 Outputs:
     reports/results/dimred_stress_aggregated.csv
     reports/results/dimred_stress_significance.csv
+    reports/results/dimred_stress_power_summary.csv
 """
 
 from __future__ import annotations
@@ -172,12 +173,74 @@ def significance(rows: list[dict[str, str]], metrics: list[str]) -> list[dict[st
             fr_values = [pair[1] for pair in pairs]
             diffs = [fr - kl for kl, fr in pairs]
             stat, pvalue = safe_wilcoxon(diffs)
+            positive = sum(diff > 0 for diff in diffs)
+            negative = sum(diff < 0 for diff in diffs)
+            ties = len(diffs) - positive - negative
             record[f"{metric}_n"] = len(pairs)
             record[f"{metric}_mean_diff"] = float(np.mean(diffs)) if diffs else float("nan")
             record[f"{metric}_wilcoxon_stat"] = stat
             record[f"{metric}_wilcoxon_p"] = pvalue
             record[f"{metric}_cliffs_delta"] = cliffs_delta(fr_values, kl_values)
+            record[f"{metric}_positive_seed_count"] = positive
+            record[f"{metric}_negative_seed_count"] = negative
+            record[f"{metric}_tie_seed_count"] = ties
+            record[f"{metric}_direction_consistency"] = max(positive, negative, ties) / len(diffs)
         records.append(record)
+    return records
+
+
+def oriented_improvement(row: dict[str, object], metric: str, sign: float) -> float:
+    value = row.get(f"{metric}_mean_diff")
+    if value is None:
+        return float("nan")
+    return float(value) * sign
+
+
+def power_summary(significance_rows: list[dict[str, object]]) -> list[dict[str, object]]:
+    rows = [
+        row
+        for row in significance_rows
+        if row["experiment"] == "noisy_affinity" and float(row["stress_level"]) > 0
+    ]
+    if not rows:
+        return []
+
+    summary_specs = [
+        ("clean_recall", "eval_neighborhood_recall", 1.0),
+        ("bad_edge_preservation", "eval_corrupted_edge_preservation", -1.0),
+        ("bad_edge_q_mass", "eval_corrupted_edge_q_mass", -1.0),
+        ("trustworthiness", "eval_trustworthiness", 1.0),
+        ("local_purity", "eval_local_label_purity", 1.0),
+    ]
+    records: list[dict[str, object]] = []
+    for label, metric, sign in summary_specs:
+        available = [row for row in rows if row.get(f"{metric}_mean_diff") is not None]
+        improved = [row for row in available if oriented_improvement(row, metric, sign) > 0]
+        significant = [
+            row
+            for row in improved
+            if float(row.get(f"{metric}_wilcoxon_p", float("nan"))) < 0.05
+        ]
+        consistent = [
+            row
+            for row in improved
+            if float(row.get(f"{metric}_direction_consistency", 0.0)) >= 0.8
+        ]
+        records.append(
+            {
+                "metric_label": label,
+                "metric": metric,
+                "n_cells": len(available),
+                "n_fr_improves": len(improved),
+                "n_fr_improves_p_lt_0_05": len(significant),
+                "n_fr_improves_direction_consistency_ge_0_8": len(consistent),
+                "mean_oriented_improvement": float(
+                    np.mean([oriented_improvement(row, metric, sign) for row in available])
+                )
+                if available
+                else float("nan"),
+            }
+        )
     return records
 
 
@@ -188,6 +251,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--significance",
         default="reports/results/dimred_stress_significance.csv",
+    )
+    parser.add_argument(
+        "--power-summary",
+        default="reports/results/dimred_stress_power_summary.csv",
     )
     return parser.parse_args()
 
@@ -205,6 +272,10 @@ def main() -> None:
     significance_rows = significance(rows, metrics)
     write_rows(Path(args.significance), significance_rows)
     print(f"[stress-aggregate] Wrote {len(significance_rows)} rows to {args.significance}")
+
+    power_rows = power_summary(significance_rows)
+    write_rows(Path(args.power_summary), power_rows)
+    print(f"[stress-aggregate] Wrote {len(power_rows)} rows to {args.power_summary}")
 
     print("\n[stress-aggregate] Significance head:")
     for record in significance_rows[:6]:
