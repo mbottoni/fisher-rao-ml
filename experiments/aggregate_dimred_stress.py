@@ -6,6 +6,7 @@ Inputs:
 Outputs:
     reports/results/dimred_stress_aggregated.csv
     reports/results/dimred_stress_significance.csv
+    reports/results/dimred_stress_baseline_significance.csv
     reports/results/dimred_stress_power_summary.csv
 """
 
@@ -189,6 +190,79 @@ def significance(rows: list[dict[str, str]], metrics: list[str]) -> list[dict[st
     return records
 
 
+def baseline_significance(
+    rows: list[dict[str, str]],
+    metrics: list[str],
+) -> list[dict[str, object]]:
+    paired: dict[tuple[str, str, str, float, int], dict[str, dict[str, float]]] = defaultdict(dict)
+    for row in rows:
+        key = (
+            row["experiment"],
+            row["dataset"],
+            row_corruption_type(row),
+            float(row["stress_level"]),
+            int(row["seed"]),
+        )
+        objective = row["objective"]
+        paired[key].setdefault(objective, {})
+        for metric in metrics:
+            value = row.get(metric, "")
+            if value != "":
+                paired[key][objective][metric] = float(value)
+
+    grouped: dict[
+        tuple[str, str, str, float, str], dict[str, list[tuple[float, float]]]
+    ] = defaultdict(lambda: {metric: [] for metric in metrics})
+    for (experiment, dataset, corruption_type, stress_level, _seed), bundle in paired.items():
+        if "kl" not in bundle:
+            continue
+        for objective, objective_metrics in bundle.items():
+            if objective == "kl":
+                continue
+            for metric in metrics:
+                kl_value = bundle["kl"].get(metric)
+                objective_value = objective_metrics.get(metric)
+                if kl_value is None or objective_value is None:
+                    continue
+                grouped[(experiment, dataset, corruption_type, stress_level, objective)][
+                    metric
+                ].append((kl_value, objective_value))
+
+    records: list[dict[str, object]] = []
+    for (experiment, dataset, corruption_type, stress_level, objective), per_metric in sorted(
+        grouped.items()
+    ):
+        record: dict[str, object] = {
+            "experiment": experiment,
+            "dataset": dataset,
+            "corruption_type": corruption_type,
+            "stress_level": stress_level,
+            "objective": objective,
+            "baseline": "kl",
+        }
+        for metric, pairs in per_metric.items():
+            if not pairs:
+                continue
+            baseline_values = [pair[0] for pair in pairs]
+            objective_values = [pair[1] for pair in pairs]
+            diffs = [value - baseline for baseline, value in pairs]
+            stat, pvalue = safe_wilcoxon(diffs)
+            positive = sum(diff > 0 for diff in diffs)
+            negative = sum(diff < 0 for diff in diffs)
+            ties = len(diffs) - positive - negative
+            record[f"{metric}_n"] = len(pairs)
+            record[f"{metric}_mean_diff"] = float(np.mean(diffs)) if diffs else float("nan")
+            record[f"{metric}_wilcoxon_stat"] = stat
+            record[f"{metric}_wilcoxon_p"] = pvalue
+            record[f"{metric}_cliffs_delta"] = cliffs_delta(objective_values, baseline_values)
+            record[f"{metric}_positive_seed_count"] = positive
+            record[f"{metric}_negative_seed_count"] = negative
+            record[f"{metric}_tie_seed_count"] = ties
+            record[f"{metric}_direction_consistency"] = max(positive, negative, ties) / len(diffs)
+        records.append(record)
+    return records
+
+
 def oriented_improvement(row: dict[str, object], metric: str, sign: float) -> float:
     value = row.get(f"{metric}_mean_diff")
     if value is None:
@@ -197,14 +271,6 @@ def oriented_improvement(row: dict[str, object], metric: str, sign: float) -> fl
 
 
 def power_summary(significance_rows: list[dict[str, object]]) -> list[dict[str, object]]:
-    rows = [
-        row
-        for row in significance_rows
-        if row["experiment"] == "noisy_affinity" and float(row["stress_level"]) > 0
-    ]
-    if not rows:
-        return []
-
     summary_specs = [
         ("clean_recall", "eval_neighborhood_recall", 1.0),
         ("bad_edge_preservation", "eval_corrupted_edge_preservation", -1.0),
@@ -213,34 +279,44 @@ def power_summary(significance_rows: list[dict[str, object]]) -> list[dict[str, 
         ("local_purity", "eval_local_label_purity", 1.0),
     ]
     records: list[dict[str, object]] = []
-    for label, metric, sign in summary_specs:
-        available = [row for row in rows if row.get(f"{metric}_mean_diff") is not None]
-        improved = [row for row in available if oriented_improvement(row, metric, sign) > 0]
-        significant = [
+    experiments = sorted({row["experiment"] for row in significance_rows})
+    for experiment in experiments:
+        rows = [
             row
-            for row in improved
-            if float(row.get(f"{metric}_wilcoxon_p", float("nan"))) < 0.05
+            for row in significance_rows
+            if row["experiment"] == experiment and float(row["stress_level"]) > 0
         ]
-        consistent = [
-            row
-            for row in improved
-            if float(row.get(f"{metric}_direction_consistency", 0.0)) >= 0.8
-        ]
-        records.append(
-            {
-                "metric_label": label,
-                "metric": metric,
-                "n_cells": len(available),
-                "n_fr_improves": len(improved),
-                "n_fr_improves_p_lt_0_05": len(significant),
-                "n_fr_improves_direction_consistency_ge_0_8": len(consistent),
-                "mean_oriented_improvement": float(
-                    np.mean([oriented_improvement(row, metric, sign) for row in available])
-                )
-                if available
-                else float("nan"),
-            }
-        )
+        if not rows:
+            continue
+        for label, metric, sign in summary_specs:
+            available = [row for row in rows if row.get(f"{metric}_mean_diff") is not None]
+            if not available:
+                continue
+            improved = [row for row in available if oriented_improvement(row, metric, sign) > 0]
+            significant = [
+                row
+                for row in improved
+                if float(row.get(f"{metric}_wilcoxon_p", float("nan"))) < 0.05
+            ]
+            consistent = [
+                row
+                for row in improved
+                if float(row.get(f"{metric}_direction_consistency", 0.0)) >= 0.8
+            ]
+            records.append(
+                {
+                    "experiment": experiment,
+                    "metric_label": label,
+                    "metric": metric,
+                    "n_cells": len(available),
+                    "n_fr_improves": len(improved),
+                    "n_fr_improves_p_lt_0_05": len(significant),
+                    "n_fr_improves_direction_consistency_ge_0_8": len(consistent),
+                    "mean_oriented_improvement": float(
+                        np.mean([oriented_improvement(row, metric, sign) for row in available])
+                    ),
+                }
+            )
     return records
 
 
@@ -251,6 +327,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--significance",
         default="reports/results/dimred_stress_significance.csv",
+    )
+    parser.add_argument(
+        "--baseline-significance",
+        default="reports/results/dimred_stress_baseline_significance.csv",
     )
     parser.add_argument(
         "--power-summary",
@@ -272,6 +352,13 @@ def main() -> None:
     significance_rows = significance(rows, metrics)
     write_rows(Path(args.significance), significance_rows)
     print(f"[stress-aggregate] Wrote {len(significance_rows)} rows to {args.significance}")
+
+    baseline_rows = baseline_significance(rows, metrics)
+    write_rows(Path(args.baseline_significance), baseline_rows)
+    print(
+        "[stress-aggregate] Wrote "
+        f"{len(baseline_rows)} rows to {args.baseline_significance}"
+    )
 
     power_rows = power_summary(significance_rows)
     write_rows(Path(args.power_summary), power_rows)
