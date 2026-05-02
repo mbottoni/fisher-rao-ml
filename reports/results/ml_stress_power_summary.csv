@@ -1,0 +1,11 @@
+experiment,objective,metric_label,metric,n_cells,n_improves_over_kl,n_improves_p_lt_0_05,mean_oriented_improvement
+distillation,fisher_rao,accuracy,eval_accuracy,16,10,5,0.01986296296296297
+distillation,fisher_rao,nll,eval_nll,16,4,4,-0.017314158007502557
+distillation,fisher_rao,ece,eval_ece,16,3,2,0.003656802803105503
+distillation,fisher_rao,brier,eval_brier,16,7,5,0.02929527517408132
+distillation,fisher_rao,teacher_error_imitation,eval_teacher_error_imitation,16,10,8,0.005516370756721709
+distillation,fisher_rao,accuracy_on_teacher_wrong,eval_accuracy_on_teacher_wrong,16,12,4,0.023947437172186253
+soft_label,fisher_rao,accuracy,eval_accuracy,16,11,9,0.023189351851851857
+soft_label,fisher_rao,nll,eval_nll,16,9,2,-0.005390323232859374
+soft_label,fisher_rao,ece,eval_ece,16,10,9,0.03585453684525909
+soft_label,fisher_rao,brier,eval_brier,16,13,10,0.04449241710826755

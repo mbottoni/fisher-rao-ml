@@ -13,9 +13,11 @@ contains:
   (`experiments/vae_benchmark.py`);
 - hypothesis-driven dimensionality-reduction stress tests for cases where Fisher-Rao may help
   (`experiments/dimred_stress_benchmark.py`);
+- noisy probability-target classification and distillation stress tests
+  (`experiments/soft_label_benchmark.py`, `experiments/distillation_benchmark.py`);
 - paired-comparison statistical aggregation pipelines
   (`experiments/aggregate_results.py`, `experiments/aggregate_vae_results.py`,
-  `experiments/aggregate_dimred_stress.py`);
+  `experiments/aggregate_dimred_stress.py`, `experiments/aggregate_ml_stress.py`);
 - an arXiv-style LaTeX report (`reports/fisher_rao_vs_kl_arxiv.tex`).
 
 The t-SNE result is negative-leaning: KL has a small but consistent advantage in
@@ -48,9 +50,11 @@ Individual stages:
 make paper-benchmark       # paired t-SNE runs
 make vae-benchmark         # multi-dataset, multi-seed VAE beta sweep
 make dimred-stress         # targeted t-SNE stress tests for Fisher-Rao-favorable regimes
+make ml-stress             # noisy soft-label and distillation probability-target tests
 make paper-aggregate       # t-SNE mean/std + paired Wilcoxon + Cliff's delta
 make vae-aggregate         # VAE best-beta selection + paired tests
 make dimred-stress-aggregate # stress-test mean/std + paired tests
+make ml-stress-aggregate   # ML stress-test mean/std + paired tests
 make report-figures        # aggregate followed by figure regeneration
 make report-pdf            # report-figures followed by pdflatex/bibtex
 ```
@@ -133,6 +137,30 @@ uv run --project . python experiments/dimred_stress_benchmark.py \
   --knn-objectives kl fisher_rao
 uv run --project . python experiments/aggregate_dimred_stress.py
 uv run --project . python reports/generate_figures.py
+```
+
+## Noisy probability-target ML stress tests
+
+These benchmarks test the broader ML hypothesis suggested by the dimensionality-reduction
+results: Fisher-Rao should help when probability-vector targets are overconfident and sometimes
+wrong.
+
+```bash
+make ml-stress
+make ml-stress-aggregate
+```
+
+For a quick smoke run:
+
+```bash
+uv run --project . python experiments/soft_label_benchmark.py \
+  --datasets digits \
+  --seeds 101 \
+  --objectives kl fisher_rao hellinger \
+  --corruption-types clean adversarial \
+  --corruption-levels 0.3 \
+  --steps 10
+uv run --project . python experiments/aggregate_ml_stress.py
 ```
 
 ## Single-objective experiments (with MLflow tracking)

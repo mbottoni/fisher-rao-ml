@@ -704,6 +704,146 @@ def save_knn_graph_baselines() -> None:
     plt.close(fig)
 
 
+def save_ml_stress_curves() -> None:
+    path = RESULT_DIR / "ml_stress_aggregated.csv"
+    if not path.exists():
+        print(f"Skipping ML stress curves; missing {path}")
+        return
+    rows = [
+        row
+        for row in read_csv_rows(path)
+        if row["experiment"] == "soft_label"
+        and row["corruption_type"] in {"adversarial", "symmetric_noise"}
+    ]
+    if not rows:
+        return
+    metrics = [
+        ("eval_accuracy", "accuracy $\\uparrow$"),
+        ("eval_ece", "ECE $\\downarrow$"),
+        ("eval_brier", "Brier $\\downarrow$"),
+    ]
+    datasets = sorted({row["dataset"] for row in rows})
+    fig, axes = plt.subplots(len(datasets), len(metrics), figsize=(9.5, 2.9 * len(datasets)))
+    if len(datasets) == 1:
+        axes = np.array([axes])
+    for row_idx, dataset in enumerate(datasets):
+        subset = [
+            row
+            for row in rows
+            if row["dataset"] == dataset and row["corruption_type"] == "adversarial"
+        ]
+        if not subset:
+            subset = [row for row in rows if row["dataset"] == dataset]
+        for col_idx, (metric, label) in enumerate(metrics):
+            ax = axes[row_idx, col_idx]
+            for objective in sorted({row["objective"] for row in subset}):
+                selected = [row for row in subset if row["objective"] == objective]
+                selected.sort(key=lambda row: float(row["stress_level"]))
+                x = np.array([float(row["stress_level"]) for row in selected])
+                y = np.array([safe_float(row, f"{metric}_mean") for row in selected])
+                ax.plot(
+                    x,
+                    y,
+                    marker=OBJECTIVE_MARKERS.get(objective, "o"),
+                    color=OBJECTIVE_COLORS.get(objective),
+                    label=OBJECTIVE_LABELS.get(objective, objective),
+                )
+            ax.set_title(f"{DATASET_LABELS.get(dataset, dataset)}: {label}")
+            ax.set_xlabel("corrupted target fraction")
+            ax.grid(alpha=0.25)
+            if row_idx == 0 and col_idx == 0:
+                ax.legend(fontsize=7)
+    fig.suptitle("Noisy soft-label classification under overconfident wrong targets")
+    fig.tight_layout(rect=(0, 0, 1, 0.94))
+    fig.savefig(FIGURE_DIR / "ml_soft_label_curves.pdf", bbox_inches="tight")
+    plt.close(fig)
+
+
+def save_ml_distillation_curves() -> None:
+    path = RESULT_DIR / "ml_stress_aggregated.csv"
+    if not path.exists():
+        print(f"Skipping ML distillation curves; missing {path}")
+        return
+    rows = [
+        row
+        for row in read_csv_rows(path)
+        if row["experiment"] == "distillation"
+        and row["corruption_type"] in {"random_wrong", "class_confusion"}
+    ]
+    if not rows:
+        return
+    metrics = [
+        ("eval_accuracy", "accuracy $\\uparrow$"),
+        ("eval_teacher_error_imitation", "teacher-error imitation $\\downarrow$"),
+        ("eval_ece", "ECE $\\downarrow$"),
+    ]
+    datasets = sorted({row["dataset"] for row in rows})
+    fig, axes = plt.subplots(len(datasets), len(metrics), figsize=(9.5, 2.9 * len(datasets)))
+    if len(datasets) == 1:
+        axes = np.array([axes])
+    for row_idx, dataset in enumerate(datasets):
+        subset = [
+            row
+            for row in rows
+            if row["dataset"] == dataset and row["corruption_type"] == "random_wrong"
+        ]
+        if not subset:
+            subset = [row for row in rows if row["dataset"] == dataset]
+        for col_idx, (metric, label) in enumerate(metrics):
+            ax = axes[row_idx, col_idx]
+            for objective in sorted({row["objective"] for row in subset}):
+                selected = [row for row in subset if row["objective"] == objective]
+                selected.sort(key=lambda row: float(row["stress_level"]))
+                x = np.array([float(row["stress_level"]) for row in selected])
+                y = np.array([safe_float(row, f"{metric}_mean") for row in selected])
+                ax.plot(
+                    x,
+                    y,
+                    marker=OBJECTIVE_MARKERS.get(objective, "o"),
+                    color=OBJECTIVE_COLORS.get(objective),
+                    label=OBJECTIVE_LABELS.get(objective, objective),
+                )
+            ax.set_title(f"{DATASET_LABELS.get(dataset, dataset)}: {label}")
+            ax.set_xlabel("corrupted teacher fraction")
+            ax.grid(alpha=0.25)
+            if row_idx == 0 and col_idx == 0:
+                ax.legend(fontsize=7)
+    fig.suptitle("Student distillation under corrupted teacher probabilities")
+    fig.tight_layout(rect=(0, 0, 1, 0.94))
+    fig.savefig(FIGURE_DIR / "ml_distillation_curves.pdf", bbox_inches="tight")
+    plt.close(fig)
+
+
+def save_ml_stress_power() -> None:
+    path = RESULT_DIR / "ml_stress_power_summary.csv"
+    if not path.exists():
+        print(f"Skipping ML stress power figure; missing {path}")
+        return
+    rows = read_csv_rows(path)
+    rows = [
+        row
+        for row in rows
+        if row["metric_label"] in {"accuracy", "ece", "brier", "teacher_error_imitation"}
+    ]
+    if not rows:
+        return
+    labels = [f"{row['experiment']}\n{row['metric_label']}" for row in rows]
+    values = [
+        int(row["n_improves_over_kl"]) / max(int(row["n_cells"]), 1)
+        for row in rows
+    ]
+    fig, ax = plt.subplots(figsize=(max(6.0, 0.6 * len(rows)), 3.2))
+    ax.bar(np.arange(len(rows)), values, color="tab:red", alpha=0.8)
+    ax.set_ylim(0.0, 1.0)
+    ax.set_xticks(np.arange(len(rows)), labels, rotation=45, ha="right")
+    ax.set_ylabel("fraction of cells where Fisher-Rao improves over KL")
+    ax.set_title("ML probability-target stress summary")
+    ax.grid(axis="y", alpha=0.25)
+    fig.tight_layout()
+    fig.savefig(FIGURE_DIR / "ml_stress_power_summary.pdf", bbox_inches="tight")
+    plt.close(fig)
+
+
 def save_vae_final_metrics() -> None:
     path = RESULT_DIR / "vae_by_beta_aggregated.csv"
     if not path.exists():
@@ -895,6 +1035,9 @@ def main() -> None:
     save_false_edge_mechanism()
     save_dimred_significance_heatmap()
     save_knn_graph_baselines()
+    save_ml_stress_curves()
+    save_ml_distillation_curves()
+    save_ml_stress_power()
     save_vae_final_metrics()
     save_vae_best_beta_deltas()
     save_vae_training_curves()
