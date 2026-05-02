@@ -14,13 +14,35 @@ DATASET_LABELS = {
     "blobs": "Blobs (8d)",
     "digits": "Digits (64d)",
     "mnist": "MNIST (784d)",
+    "mnist_resnet18": "MNIST ResNet18 features",
     "fashion_mnist": "Fashion-MNIST",
     "kmnist": "KMNIST",
 }
 
-OBJECTIVE_LABELS = {"kl": "KL", "fisher_rao": "Fisher-Rao"}
-OBJECTIVE_COLORS = {"kl": "tab:blue", "fisher_rao": "tab:red"}
-OBJECTIVE_MARKERS = {"kl": "o", "fisher_rao": "s"}
+OBJECTIVE_LABELS = {
+    "kl": "KL",
+    "kl_smoothed": "Smoothed KL",
+    "kl_capped": "Capped KL",
+    "jensen_shannon": "Jensen-Shannon",
+    "hellinger": "Hellinger",
+    "fisher_rao": "Fisher-Rao",
+}
+OBJECTIVE_COLORS = {
+    "kl": "tab:blue",
+    "kl_smoothed": "tab:cyan",
+    "kl_capped": "tab:purple",
+    "jensen_shannon": "tab:orange",
+    "hellinger": "tab:green",
+    "fisher_rao": "tab:red",
+}
+OBJECTIVE_MARKERS = {
+    "kl": "o",
+    "kl_smoothed": "^",
+    "kl_capped": "v",
+    "jensen_shannon": "D",
+    "hellinger": "P",
+    "fisher_rao": "s",
+}
 
 
 def read_csv_rows(path: Path) -> list[dict[str, str]]:
@@ -625,6 +647,63 @@ def save_dimred_significance_heatmap() -> None:
     plt.close(fig)
 
 
+def save_knn_graph_baselines() -> None:
+    path = RESULT_DIR / "dimred_stress_aggregated.csv"
+    if not path.exists():
+        print(f"Skipping kNN graph baseline figure; missing {path}")
+        return
+    rows = [
+        row
+        for row in read_csv_rows(path)
+        if row["experiment"] == "knn_graph"
+        and float(row["stress_level"]) > 0
+        and stress_corruption_type(row) != "none"
+    ]
+    if not rows:
+        return
+    metrics = [
+        ("eval_neighborhood_recall", "clean-neighbor recall $\\uparrow$"),
+        ("eval_corrupted_edge_preservation", "bad-edge preservation $\\downarrow$"),
+    ]
+    datasets = sorted({row["dataset"] for row in rows})
+    fig, axes = plt.subplots(len(datasets), len(metrics), figsize=(9.0, 2.8 * len(datasets)))
+    if len(datasets) == 1:
+        axes = np.array([axes])
+    for row_idx, dataset in enumerate(datasets):
+        subset = [
+            row
+            for row in rows
+            if row["dataset"] == dataset and stress_corruption_type(row) == "uniform"
+        ]
+        if not subset:
+            subset = [row for row in rows if row["dataset"] == dataset]
+        for col_idx, (metric, title) in enumerate(metrics):
+            ax = axes[row_idx, col_idx]
+            for objective in sorted({row["objective"] for row in subset}):
+                selected = [row for row in subset if row["objective"] == objective]
+                selected.sort(key=lambda row: float(row["stress_level"]))
+                x = np.array([float(row["stress_level"]) for row in selected])
+                y = np.array([safe_float(row, f"{metric}_mean") for row in selected])
+                if not len(x):
+                    continue
+                ax.plot(
+                    x,
+                    y,
+                    marker=OBJECTIVE_MARKERS.get(objective, "o"),
+                    color=OBJECTIVE_COLORS.get(objective),
+                    label=OBJECTIVE_LABELS.get(objective, objective),
+                )
+            ax.set_title(f"{DATASET_LABELS.get(dataset, dataset)}: {title}")
+            ax.set_xlabel("corrupted kNN edge fraction")
+            ax.grid(alpha=0.25)
+            if row_idx == 0 and col_idx == 0:
+                ax.legend(fontsize=7)
+    fig.suptitle("Corrupted neighbor graph robustness across divergences")
+    fig.tight_layout(rect=(0, 0, 1, 0.94))
+    fig.savefig(FIGURE_DIR / "dimred_knn_graph_baselines.pdf", bbox_inches="tight")
+    plt.close(fig)
+
+
 def save_vae_final_metrics() -> None:
     path = RESULT_DIR / "vae_by_beta_aggregated.csv"
     if not path.exists():
@@ -815,6 +894,7 @@ def main() -> None:
     save_dimred_bad_edge_qualitative()
     save_false_edge_mechanism()
     save_dimred_significance_heatmap()
+    save_knn_graph_baselines()
     save_vae_final_metrics()
     save_vae_best_beta_deltas()
     save_vae_training_curves()

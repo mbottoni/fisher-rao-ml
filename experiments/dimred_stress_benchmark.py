@@ -20,6 +20,7 @@ from sklearn.datasets import load_digits, make_blobs, make_s_curve, make_swiss_r
 from sklearn.manifold import trustworthiness
 from sklearn.neighbors import NearestNeighbors
 from sklearn.preprocessing import StandardScaler
+from torchvision import datasets, models, transforms
 
 from fisher_rao_ml.device import get_device
 from fisher_rao_ml.evaluation import evaluate_embedding, neighborhood_recall
@@ -30,6 +31,14 @@ from fisher_rao_ml.tsne import (
 )
 
 OBJECTIVES = ("kl", "fisher_rao")
+ROBUST_OBJECTIVES = (
+    "kl",
+    "kl_smoothed",
+    "kl_capped",
+    "jensen_shannon",
+    "hellinger",
+    "fisher_rao",
+)
 
 
 def parse_args() -> argparse.Namespace:
@@ -95,6 +104,27 @@ def parse_args() -> argparse.Namespace:
         default=[0.0, 0.05, 0.1, 0.2],
         help="Approximate cross-manifold bridge mass injected into P.",
     )
+    parser.add_argument(
+        "--knn-datasets",
+        nargs="+",
+        default=["digits", "mnist", "mnist_resnet18"],
+        choices=["digits", "mnist", "mnist_resnet18"],
+        help="Datasets for corrupted kNN-graph robustness.",
+    )
+    parser.add_argument(
+        "--knn-corruption-types",
+        nargs="+",
+        default=["uniform", "hub", "block"],
+        choices=["uniform", "hub", "block", "boundary"],
+    )
+    parser.add_argument(
+        "--knn-corruption-levels",
+        type=float,
+        nargs="+",
+        default=[0.0, 0.1, 0.2, 0.3],
+    )
+    parser.add_argument("--knn-neighbors", type=int, default=10)
+    parser.add_argument("--knn-objectives", nargs="+", default=list(ROBUST_OBJECTIVES))
     return parser.parse_args()
 
 
@@ -319,6 +349,130 @@ def make_noisy_affinity_dataset(
         labels = bundle.target[idx]
         return standardize(x), labels.astype(np.int64)
     raise ValueError(f"Unknown noisy-affinity dataset: {name}")
+
+
+def load_mnist_arrays(n_samples: int, seed: int) -> tuple[np.ndarray, np.ndarray]:
+    bundle = datasets.MNIST(root="data", train=True, download=True, transform=transforms.ToTensor())
+    rng = np.random.default_rng(seed)
+    idx = rng.choice(len(bundle), size=n_samples, replace=False)
+    x = np.stack([bundle[int(i)][0].numpy().reshape(-1) for i in idx]).astype(np.float32)
+    labels = np.array([int(bundle[int(i)][1]) for i in idx], dtype=np.int64)
+    return x, labels
+
+
+def load_pretrained_mnist_embeddings(
+    n_samples: int,
+    seed: int,
+    device: torch.device,
+) -> tuple[np.ndarray, np.ndarray]:
+    bundle = datasets.MNIST(root="data", train=True, download=True)
+    rng = np.random.default_rng(seed)
+    idx = rng.choice(len(bundle), size=n_samples, replace=False)
+    labels = np.array([int(bundle[int(i)][1]) for i in idx], dtype=np.int64)
+    try:
+        weights = models.ResNet18_Weights.DEFAULT
+        preprocess = weights.transforms()
+        print("[stress:kNN] using pretrained ResNet18 image embeddings")
+    except Exception as exc:
+        weights = None
+        preprocess = transforms.Compose(
+            [
+                transforms.Resize((224, 224)),
+                transforms.ToTensor(),
+                transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+            ]
+        )
+        print(f"[stress:kNN] pretrained weights unavailable ({exc}); using ResNet18 features")
+
+    model = models.resnet18(weights=weights)
+    model.fc = torch.nn.Identity()
+    model.eval().to(device)
+    features = []
+    with torch.no_grad():
+        for start in range(0, len(idx), 32):
+            batch = []
+            for i in idx[start : start + 32]:
+                image = bundle[int(i)][0].convert("RGB")
+                batch.append(preprocess(image))
+            tensor = torch.stack(batch).to(device)
+            features.append(model(tensor).cpu().numpy())
+    return np.concatenate(features, axis=0).astype(np.float32), labels
+
+
+def make_knn_dataset(
+    name: str,
+    n_samples: int,
+    seed: int,
+    device: torch.device,
+) -> tuple[np.ndarray, np.ndarray]:
+    if name == "digits":
+        x, labels = make_noisy_affinity_dataset("digits", n_samples, seed)
+        return x, labels
+    if name == "mnist":
+        x, labels = load_mnist_arrays(n_samples, seed)
+        return standardize(x), labels
+    if name == "mnist_resnet18":
+        x, labels = load_pretrained_mnist_embeddings(n_samples, seed, device)
+        return standardize(x), labels
+    raise ValueError(f"Unknown kNN dataset: {name}")
+
+
+def knn_affinity_from_edges(
+    n: int,
+    edges: set[tuple[int, int]],
+    eps: float = 1e-12,
+) -> np.ndarray:
+    weights = np.zeros((n, n), dtype=np.float32)
+    for i, j in edges:
+        if i == j:
+            continue
+        weights[i, j] = 1.0
+        weights[j, i] = 1.0
+    total = weights.sum()
+    if total <= eps:
+        raise ValueError("kNN graph has no edges")
+    return weights / total
+
+
+def clean_knn_edges(x: np.ndarray, n_neighbors: int) -> set[tuple[int, int]]:
+    neighbors = NearestNeighbors(n_neighbors=n_neighbors + 1).fit(x)
+    indices = neighbors.kneighbors(return_distance=False)[:, 1:]
+    edges = set()
+    for i, row in enumerate(indices):
+        for j in row:
+            edges.add((int(min(i, j)), int(max(i, j))))
+    return edges
+
+
+def corrupt_knn_edges(
+    x: np.ndarray,
+    labels: np.ndarray,
+    clean_edges: set[tuple[int, int]],
+    n_neighbors: int,
+    level: float,
+    seed: int,
+    corruption_type: str,
+) -> tuple[set[tuple[int, int]], set[tuple[int, int]]]:
+    if level <= 0:
+        return set(clean_edges), set()
+    target_edges = max(1, int(round(len(labels) * n_neighbors * level / 2.0)))
+    corrupted_pairs = set(
+        select_corrupted_pairs(
+            x_clean=x,
+            labels=labels,
+            target_edges=target_edges,
+            seed=seed,
+            corruption_type=corruption_type,
+        )
+    )
+    rng = np.random.default_rng(seed + 17)
+    removable = list(clean_edges - corrupted_pairs)
+    rng.shuffle(removable)
+    graph_edges = set(clean_edges)
+    for edge in removable[: len(corrupted_pairs)]:
+        graph_edges.discard(edge)
+    graph_edges.update(corrupted_pairs)
+    return graph_edges, corrupted_pairs
 
 
 def embedding_quality_metrics(
@@ -831,9 +985,93 @@ def run_symmetric_mismatch_test(
     return rows
 
 
+def run_knn_graph_test(args: argparse.Namespace, device: torch.device) -> list[dict[str, object]]:
+    rows: list[dict[str, object]] = []
+    objectives = tuple(args.knn_objectives)
+    unknown = set(objectives) - set(ROBUST_OBJECTIVES)
+    if unknown:
+        raise ValueError(f"Unknown kNN objectives: {sorted(unknown)}")
+
+    print("\n[stress:kNN] Corrupting clean neighbor graphs with cross-label edges")
+    for dataset in args.knn_datasets:
+        x_clean, labels = make_knn_dataset(dataset, args.samples, seed=29, device=device)
+        clean_edges = clean_knn_edges(x_clean, args.knn_neighbors)
+        p_clean = knn_affinity_from_edges(len(labels), clean_edges)
+        print(
+            f"[stress:kNN] dataset={dataset} shape={x_clean.shape} "
+            f"clean_edges={len(clean_edges)}"
+        )
+        for corruption_type in args.knn_corruption_types:
+            for level in args.knn_corruption_levels:
+                for seed in args.seeds:
+                    graph_edges, corrupted_pairs = corrupt_knn_edges(
+                        x_clean,
+                        labels,
+                        clean_edges,
+                        n_neighbors=args.knn_neighbors,
+                        level=level,
+                        seed=12_000 + seed,
+                        corruption_type=corruption_type,
+                    )
+                    p_train = p_clean if level == 0.0 else knn_affinity_from_edges(
+                        len(labels),
+                        graph_edges,
+                    )
+                    for objective in objectives:
+                        embedding, history = train_embedding_from_affinities(
+                            p_train,
+                            objective,
+                            args.steps,
+                            seed,
+                            device,
+                            args.log_every,
+                        )
+                        metrics = embedding_quality_metrics(
+                            x_clean,
+                            embedding,
+                            labels,
+                            args.neighbors,
+                            seed,
+                        )
+                        metrics["eval_corrupted_edge_preservation"] = corrupted_edge_preservation(
+                            embedding,
+                            corrupted_pairs,
+                            args.neighbors,
+                        )
+                        metrics["eval_corrupted_edge_q_mass"] = corrupt_edge_q_mass(
+                            embedding,
+                            corrupted_pairs,
+                        )
+                        rows.append(
+                            {
+                                "experiment": "knn_graph",
+                                "dataset": dataset,
+                                "corruption_type": corruption_type,
+                                "stress_level": level,
+                                "seed": seed,
+                                "objective": objective,
+                                "final_loss": history[-1][1],
+                                **metrics,
+                            }
+                        )
+                        print(
+                            f"[stress:kNN] dataset={dataset} type={corruption_type} "
+                            f"level={level:.3f} seed={seed} objective={objective} "
+                            f"recall={metrics['eval_neighborhood_recall']:.4f} "
+                            f"bad_edge={metrics['eval_corrupted_edge_preservation']:.4f}"
+                        )
+    return rows
+
+
 def selected_experiments(names: Iterable[str]) -> set[str]:
     selected = set(names)
-    all_names = {"noisy_affinity", "outlier_influence", "global_geometry", "symmetric_mismatch"}
+    all_names = {
+        "noisy_affinity",
+        "outlier_influence",
+        "global_geometry",
+        "symmetric_mismatch",
+        "knn_graph",
+    }
     if "all" in selected:
         return all_names
     unknown = selected - all_names
@@ -864,6 +1102,8 @@ def main() -> None:
         rows.extend(run_global_geometry_test(args, device))
     if "symmetric_mismatch" in selected:
         rows.extend(run_symmetric_mismatch_test(args, device))
+    if "knn_graph" in selected:
+        rows.extend(run_knn_graph_test(args, device))
 
     write_rows(output_dir / "dimred_stress_full.csv", rows)
     write_rows(output_dir / "dimred_stress_embeddings.csv", embedding_rows)

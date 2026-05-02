@@ -40,12 +40,13 @@ embedding mass to the corrupted pairs than KL. Across $48$ nonzero
 dataset--corruption--level cells, Fisher--Rao reduces corrupted-edge preservation in all
 $48$ cells, reduces corrupted-edge $Q$ mass in all $48$, and improves trustworthiness in
 $45$.
-We also include a standard multi-seed t-SNE benchmark as a boundary condition: under clean or
-feature-noised targets, KL remains better for cluster separation and Fisher--Rao is usually a
-tie. A compact VAE study is reported as a secondary check and does not show a reliable
-advantage. The resulting claim is narrow but actionable: Fisher--Rao is not a universal KL
-replacement, but its bounded geometry is useful for robust affinity matching when the affinity
-graph itself is contaminated.
+We then add a harder corrupted-neighbor-graph check on digits, MNIST, and pretrained MNIST
+features, with smoothed KL, capped KL, Jensen--Shannon, and Hellinger baselines. This check
+narrows the claim: Fisher--Rao's advantage appears for corrupted affinity \emph{mass}, but not
+for every corrupted kNN adjacency target. A compact VAE study is reported as a secondary check
+and does not show a reliable advantage. The resulting claim is narrow but actionable:
+Fisher--Rao is not a universal KL replacement, but its bounded geometry is useful when
+high-confidence false neighbors are injected into the affinity distribution.
 \end{abstract}
 
 \section{Introduction}
@@ -105,6 +106,10 @@ explicit significance tests \citep{wilcoxon1945individual,cliff1993dominance}. W
         its bounded simplex geometry reduces overfitting to corrupted high-confidence edges.
         The confirmatory run covers two datasets, four corruption mechanisms, six nonzero
         corruption levels, and ten paired seeds.
+  \item A corrupted kNN-graph extension on digits, MNIST, and pretrained MNIST features with
+        smoothed KL, capped KL, Jensen--Shannon, and Hellinger baselines. This extension is a
+        boundary condition: the affinity-mass result does not automatically transfer to every
+        corrupted adjacency target.
   \item A paired benchmark of KL versus Fisher--Rao squared as a t-SNE objective across three
         datasets, feature-noise levels, ten seeds, and objective-independent embedding metrics,
         establishing where the positive robustness result does \emph{not} apply.
@@ -174,6 +179,32 @@ the bound in (3). See \citet{nielsen2020elementary}.
 Property (3) is the cleanest practical contrast with KL. KL is unbounded above on the simplex;
 $d_{\mathrm{FR}}^2$ is bounded by $\pi^2$. Figure~\ref{fig:bounded} visualizes this on a binary
 categorical, holding $q$ fixed at the uniform distribution.
+
+\begin{proposition}[False-edge gradient pressure]
+\label{prop:false-edge-gradient}
+Consider a two-bin abstraction of one false neighbor edge and its complement,
+$p=(\alpha,1-\alpha)$ and $q=(u,1-u)$, with fixed $\alpha\in(0,1)$ and $u\downarrow 0$.
+Then
+\[
+  \left|\frac{\partial}{\partial u}\mathrm{KL}(p\,\|\,q)\right|
+  = \Theta(u^{-1}),
+  \qquad
+  \left|\frac{\partial}{\partial u}d_{\mathrm{FR}}(p,q)^2\right|
+  = \Theta(u^{-1/2}).
+\]
+Thus, for a high-confidence false edge that the embedding initially assigns little mass,
+KL applies asymptotically stronger attraction than Fisher--Rao.
+\end{proposition}
+\begin{proof}[Sketch]
+For KL, direct differentiation gives
+$-\alpha/u + (1-\alpha)/(1-u)$, whose magnitude is $\Theta(u^{-1})$ as $u\downarrow 0$.
+For Fisher--Rao, let
+$A(u)=\sqrt{\alpha u}+\sqrt{(1-\alpha)(1-u)}$ and
+$L(u)=4\arccos(A(u))^2$. Differentiating,
+$L'(u)=-8\arccos(A(u))A'(u)/\sqrt{1-A(u)^2}$. As $u\downarrow 0$,
+$A'(u)=\Theta(u^{-1/2})$ while $\arccos(A(u))$ and $\sqrt{1-A(u)^2}$ converge to finite
+nonzero constants, giving the stated rate.
+\end{proof}
 
 \begin{figure}[t]
   \centering
@@ -267,14 +298,14 @@ The embedding is optimized using $\widetilde{X}_\alpha$ but evaluated against th
 and (for trustworthiness and neighborhood recall) against the clean $X$. This isolates the
 effect of the corruption on the affinity-building stage.
 
-\subsection{Structured affinity corruption}
+\subsection{Corrupted neighbor graph robustness}
 \label{sec:structured-affinity-method}
 
-The Fisher--Rao-favorable stress test corrupts the target affinity distribution directly. For
-Gaussian blobs and sklearn digits, each with $n=300$ points, we first compute
-$P_{\mathrm{clean}}$ from the clean standardized features. We then form
-$P_{\mathrm{train}}$ by adding probability mass to cross-label false-neighbor pairs and
-renormalizing. We evaluate four corruption mechanisms:
+The Fisher--Rao-favorable stress tests corrupt the target neighbor relation directly. We use
+two versions. The first corrupts the \emph{affinity mass}. For Gaussian blobs and sklearn
+digits, each with $n=300$ points, we first compute $P_{\mathrm{clean}}$ from the clean
+standardized features. We then form $P_{\mathrm{train}}$ by adding probability mass to
+cross-label false-neighbor pairs and renormalizing. We evaluate four corruption mechanisms:
 \begin{itemize}
   \item \textbf{Uniform}: random cross-label pairs.
   \item \textbf{Hub}: one point receives many false cross-label neighbors.
@@ -285,6 +316,17 @@ The false-edge mass levels are $0$, $0.025$, $0.05$, $0.1$, $0.15$, $0.2$, and $
 each dataset, corruption type, level, and seed, both objectives use the same corrupted
 $P_{\mathrm{train}}$ and the same initialization. The stress-test embeddings are optimized for
 $500$ Adam steps.
+
+The second version corrupts the \emph{neighbor graph} before converting it to an affinity
+distribution. We build a clean symmetric $k$NN graph with $k=10$, replace a fraction of its
+edges by cross-label false-neighbor edges, normalize the resulting adjacency matrix into
+$P_{\mathrm{train}}$, and evaluate against the original clean features and labels. This is a
+closer model of practical graph-based dimensionality-reduction pipelines where the wrong
+neighbors enter through approximate kNN construction, batch effects, or representation
+preprocessing rather than through a synthetic probability-mass injection. The kNN corruption
+run uses digits, MNIST, and MNIST images embedded by an ImageNet-pretrained ResNet18 feature
+extractor. In addition to KL and Fisher--Rao, it compares four bounded or softened baselines:
+smoothed KL, capped KL, Jensen--Shannon divergence, and Hellinger distance.
 
 \subsection{Evaluation metrics}
 \label{sec:metrics}
@@ -372,8 +414,8 @@ seeds.
   \includegraphics[width=0.85\linewidth]{figures/dimred_false_edge_mechanism.pdf}
   \caption{Two-bin mechanism diagnostic for a false edge with target mass $p_{ij}=0.05$. KL's
   gradient pressure grows like $1/q_{ij}$ when the embedding assigns too little mass to the
-  edge; Fisher--Rao has a bounded simplex geometry and exerts less extreme pressure far from
-  the target.}
+  edge; Proposition~\ref{prop:false-edge-gradient} shows Fisher--Rao grows only as
+  $1/\sqrt{q_{ij}}$ in the same two-bin limit.}
   \label{fig:false-edge-mechanism}
 \end{figure}
 
@@ -440,6 +482,32 @@ Figure~\ref{fig:dimred-noisy-means} shows the corresponding empirical effect.
   injected false-neighbor edges. KL more readily pulls these pairs together; Fisher--Rao better
   resists the corrupted high-confidence edges.}
   \label{fig:dimred-bad-edge-qualitative}
+\end{figure}
+
+\paragraph{Graph-level corruption and robust baselines.}
+The injected-mass experiment above isolates a mechanism, but real workflows often fail earlier:
+the neighbor graph itself contains wrong edges. We therefore repeat the paired protocol after
+corrupting a clean $10$NN graph on digits, MNIST, and pretrained MNIST image features, and we
+compare Fisher--Rao not only to KL but also to smoothed KL, capped KL, Jensen--Shannon, and
+Hellinger objectives. Figure~\ref{fig:dimred-knn-baselines} shows the resulting clean-neighbor
+recall and bad-edge preservation curves.
+
+This graph-level check is a boundary condition on the robustness story. Across $27$ nonzero
+dataset--corruption--level cells, Fisher--Rao does not improve clean-neighbor recall or
+trustworthiness over KL in any cell, improves bad-edge preservation in only $4/27$ cells, and
+improves bad-edge $Q$ mass in $9/27$ cells. Smoothed KL is almost indistinguishable from KL,
+capped KL is identical under this cap, and Jensen--Shannon/Hellinger make the same broad
+tradeoff as Fisher--Rao: lower KL pressure also weakens clean graph matching. The positive
+claim is therefore specifically about corrupted high-confidence \emph{affinity mass}, not every
+possible corrupted neighbor graph.
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=\linewidth]{figures/dimred_knn_graph_baselines.pdf}
+  \caption{kNN-graph corruption benchmark on digits, MNIST, and ImageNet-pretrained ResNet18
+  MNIST features. The training target is a normalized corrupted neighbor graph; evaluation is
+  against the clean feature geometry and labels.}
+  \label{fig:dimred-knn-baselines}
 \end{figure}
 
 We also ran three additional stress families: bridge outliers, continuous manifolds, and
@@ -672,7 +740,9 @@ false high-probability edges. KL's unbounded pressure then becomes a liability b
 faithfully pulls those false pairs together. Fisher--Rao is less obedient to extreme target
 mass and therefore better preserves the clean neighborhoods. This does not rescue
 Fisher--Rao as a default t-SNE objective, but it identifies a concrete use case: robust
-affinity matching when the affinity graph is contaminated by spurious high-confidence edges.
+affinity matching when the normalized target distribution contains spurious high-confidence
+edge mass. The corrupted kNN-graph extension makes this distinction sharper: once the graph
+itself is changed and then normalized, KL can still be the better graph-matching objective.
 
 \paragraph{Why not center the VAE result?}
 The VAE study tests a different geometry. For Gaussian posteriors, Fisher--Rao is not bounded,
@@ -691,16 +761,16 @@ the same boundedness can hurt cluster separation under clean targets.
 \section{Limitations}
 
 The compact t-SNE sizes mean the affinity matrices are $200\times200$ in the standard
-benchmark and $300\times300$ in the structured-corruption benchmark, well below practical
+benchmark and $300\times300$ in the structured-corruption benchmarks, well below practical
 t-SNE deployments at $10^4$--$10^5$ points. Although nothing in the gradient code prevents
 scaling, the empirical patterns may shift for larger neighborhoods. We use a fixed
 median-distance bandwidth instead of perplexity-tuned bandwidths; this matches the controlled
-stress-test setting but is not the canonical t-SNE preprocessing. The structured-corruption
-study now includes one real dataset (\texttt{digits}), but MNIST-scale false-neighbor
-corruption and real noisy kNN graphs remain important follow-ups. Finally, we do not study
-early-exaggeration or annealing schedules, both of which interact non-trivially with objective
-scale. Each of these limitations defines a clean follow-up experiment in the same multi-seed
-framework.
+stress-test setting but is not the canonical t-SNE preprocessing. The kNN-graph extension uses
+MNIST and pretrained MNIST features, but still relies on synthetic cross-label edge
+replacement; naturally occurring approximate-neighbor errors and batch-effect graphs remain
+important follow-ups. Finally, we do not study early-exaggeration or annealing schedules, both
+of which interact non-trivially with objective scale. Each limitation defines a clean follow-up
+experiment in the same multi-seed framework.
 
 \section{Conclusion}
 
@@ -715,8 +785,8 @@ feature-noise corruption, KL remains the better default for t-SNE-style objectiv
 when cluster separation is the desired behavior. In compact diagonal-Gaussian VAEs,
 Fisher--Rao is competitive after beta tuning but does not yield a reliable quality or
 robustness improvement. The practical recommendation is therefore conditional rather than
-universal: use Fisher--Rao when robustness to contaminated affinity graphs matters; keep KL
-when the target distribution is trusted and aggressive neighbor matching is desired.
+universal: use Fisher--Rao when robustness to contaminated high-confidence affinity mass
+matters; keep KL when the target graph is trusted, or when aggressive graph matching is desired.
 
 \appendix
 

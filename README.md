@@ -108,6 +108,9 @@ Implemented stress families:
 - `noisy_affinity`: inject false high-affinity cross-label edges into `P_train`, then evaluate
   against clean neighborhoods on blobs and sklearn digits. The default run includes uniform,
   hub, block, and boundary false-edge mechanisms.
+- `knn_graph`: corrupt a clean kNN graph by replacing true neighbor edges with cross-label
+  false-neighbor edges on digits, MNIST, and ImageNet-pretrained ResNet18 MNIST features. This
+  run compares KL, smoothed KL, capped KL, Jensen-Shannon, Hellinger, and Fisher-Rao.
 - `outlier_influence`: add bridge outliers and measure normal-point embedding drift after
   Procrustes alignment.
 - `global_geometry`: use Swiss-roll and S-curve manifolds with continuum-preservation metrics.
@@ -118,12 +121,16 @@ For a quick smoke run:
 
 ```bash
 uv run --project . python experiments/dimred_stress_benchmark.py \
-  --experiments noisy_affinity \
+  --experiments noisy_affinity knn_graph \
   --samples 80 \
   --steps 5 \
   --seeds 101 \
   --corruption-types uniform \
-  --false-edge-levels 0.1
+  --false-edge-levels 0.1 \
+  --knn-datasets digits \
+  --knn-corruption-types uniform \
+  --knn-corruption-levels 0.1 \
+  --knn-objectives kl fisher_rao
 uv run --project . python experiments/aggregate_dimred_stress.py
 uv run --project . python reports/generate_figures.py
 ```
