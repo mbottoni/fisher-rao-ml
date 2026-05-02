@@ -11,8 +11,11 @@ contains:
   (`experiments/paper_benchmark.py`);
 - a multi-seed, multi-dataset VAE beta-sweep benchmark
   (`experiments/vae_benchmark.py`);
+- hypothesis-driven dimensionality-reduction stress tests for cases where Fisher-Rao may help
+  (`experiments/dimred_stress_benchmark.py`);
 - paired-comparison statistical aggregation pipelines
-  (`experiments/aggregate_results.py`, `experiments/aggregate_vae_results.py`);
+  (`experiments/aggregate_results.py`, `experiments/aggregate_vae_results.py`,
+  `experiments/aggregate_dimred_stress.py`);
 - an arXiv-style LaTeX report (`reports/fisher_rao_vs_kl_arxiv.tex`).
 
 The t-SNE result is negative-leaning: KL has a small but consistent advantage in
@@ -44,8 +47,10 @@ Individual stages:
 ```bash
 make paper-benchmark       # paired t-SNE runs
 make vae-benchmark         # multi-dataset, multi-seed VAE beta sweep
+make dimred-stress         # targeted t-SNE stress tests for Fisher-Rao-favorable regimes
 make paper-aggregate       # t-SNE mean/std + paired Wilcoxon + Cliff's delta
 make vae-aggregate         # VAE best-beta selection + paired tests
+make dimred-stress-aggregate # stress-test mean/std + paired tests
 make report-figures        # aggregate followed by figure regeneration
 make report-pdf            # report-figures followed by pdflatex/bibtex
 ```
@@ -72,6 +77,39 @@ skipped automatically; pass `--force` to recompute them.
 MLflow is used by the single-objective scripts (`experiments/tsne_fisher_rao.py` and
 `experiments/vae_fisher_rao.py`). The paper-scale grid benchmarks write CSV artifacts directly
 so they can be aggregated and versioned reproducibly.
+
+## Fisher-Rao-favorable stress tests
+
+The headline benchmark asks whether Fisher-Rao improves broad t-SNE-style metrics. The stress
+benchmark asks a narrower question: when does KL's unbounded asymmetric pressure become a
+liability?
+
+```bash
+make dimred-stress
+make dimred-stress-aggregate
+```
+
+Implemented stress families:
+
+- `noisy_affinity`: inject false high-affinity cross-label edges into `P_train`, then evaluate
+  against clean neighborhoods.
+- `outlier_influence`: add bridge outliers and measure normal-point embedding drift after
+  Procrustes alignment.
+- `global_geometry`: use Swiss-roll and S-curve manifolds with continuum-preservation metrics.
+- `symmetric_mismatch`: inject false-positive bridges between nearby parallel manifolds and
+  measure leakage / false-neighbor rates.
+
+For a quick smoke run:
+
+```bash
+uv run --project . python experiments/dimred_stress_benchmark.py \
+  --experiments noisy_affinity \
+  --samples 80 \
+  --steps 5 \
+  --seeds 101 \
+  --false-edge-levels 0.1
+uv run --project . python experiments/aggregate_dimred_stress.py
+```
 
 ## Single-objective experiments (with MLflow tracking)
 
@@ -116,8 +154,10 @@ experiments/
   vae_fisher_rao.py        # individual VAE runs (MLflow logged)
   paper_benchmark.py       # multi-seed t-SNE robustness sweep
   vae_benchmark.py         # multi-seed VAE beta-sweep study
+  dimred_stress_benchmark.py # targeted dimensionality-reduction stress tests
   aggregate_results.py     # t-SNE paired Wilcoxon + Cliff's delta + mean/std
   aggregate_vae_results.py # VAE best-beta selection + paired tests
+  aggregate_dimred_stress.py # stress-test paired Wilcoxon + Cliff's delta + mean/std
 reports/
   generate_figures.py      # figures consumed by the LaTeX report
   fisher_rao_vs_kl_arxiv.tex
