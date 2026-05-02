@@ -330,15 +330,19 @@ def save_dimred_false_edge_curves() -> None:
     if not path.exists():
         print(f"Skipping dimensionality-reduction stress curves; missing {path}")
         return
-    rows = [
+    all_rows = [
         row
         for row in read_csv_rows(path)
         if row["experiment"] == "noisy_affinity"
-        and stress_corruption_type(row) in {"none", "uniform"}
+        and stress_corruption_type(row) != "none"
     ]
-    if not rows:
+    if not all_rows:
         return
-    rows.sort(key=lambda row: float(row["stress_level"]))
+    preferred_dataset = "digits" if any(row["dataset"] == "digits" for row in all_rows) else (
+        all_rows[0]["dataset"]
+    )
+    rows = [row for row in all_rows if row["dataset"] == preferred_dataset]
+    corruption_types = sorted({stress_corruption_type(row) for row in rows})
 
     metrics = [
         ("eval_trustworthiness", "trustworthiness", 1.0),
@@ -349,15 +353,22 @@ def save_dimred_false_edge_curves() -> None:
     ]
     fig, axes = plt.subplots(1, len(metrics), figsize=(3.0 * len(metrics), 3.1), sharex=True)
     for ax, (metric, label, sign) in zip(axes, metrics, strict=True):
-        x = np.array([float(row["stress_level"]) for row in rows])
-        y = np.array([safe_float(row, f"{metric}_mean_diff") * sign for row in rows])
+        for corruption_type in corruption_types:
+            selected = [row for row in rows if stress_corruption_type(row) == corruption_type]
+            selected.sort(key=lambda row: float(row["stress_level"]))
+            x = np.array([float(row["stress_level"]) for row in selected])
+            y = np.array([safe_float(row, f"{metric}_mean_diff") * sign for row in selected])
+            ax.plot(x, y, marker="o", label=corruption_type)
         ax.axhline(0.0, color="black", linewidth=0.8)
-        ax.plot(x, y, marker="o", color="tab:red")
         ax.set_title(label)
         ax.set_xlabel("false-edge mass")
         ax.grid(alpha=0.25)
     axes[0].set_ylabel("oriented Fisher-Rao improvement over KL")
-    fig.suptitle("Structured false-affinity robustness: Fisher-Rao resists corrupted edges")
+    axes[-1].legend(fontsize=8)
+    fig.suptitle(
+        "Structured false-affinity robustness on "
+        f"{DATASET_LABELS.get(preferred_dataset, preferred_dataset)}"
+    )
     fig.tight_layout(rect=(0, 0, 1, 0.9))
     fig.savefig(FIGURE_DIR / "dimred_false_edge_curves.pdf", bbox_inches="tight")
     plt.close(fig)
@@ -368,14 +379,27 @@ def save_dimred_noisy_affinity_means() -> None:
     if not path.exists():
         print(f"Skipping noisy-affinity means; missing {path}")
         return
-    rows = [
+    all_rows = [
         row
         for row in read_csv_rows(path)
         if row["experiment"] == "noisy_affinity"
-        and stress_corruption_type(row) in {"none", "uniform"}
+        and stress_corruption_type(row) != "none"
     ]
-    if not rows:
+    if not all_rows:
         return
+    preferred_dataset = "digits" if any(row["dataset"] == "digits" for row in all_rows) else (
+        all_rows[0]["dataset"]
+    )
+    preferred_corruption = "hub" if any(
+        row["dataset"] == preferred_dataset and stress_corruption_type(row) == "hub"
+        for row in all_rows
+    ) else stress_corruption_type(all_rows[0])
+    rows = [
+        row
+        for row in all_rows
+        if row["dataset"] == preferred_dataset
+        and stress_corruption_type(row) == preferred_corruption
+    ]
 
     metrics = [
         ("eval_trustworthiness", "trustworthiness $\\uparrow$"),
@@ -403,7 +427,10 @@ def save_dimred_noisy_affinity_means() -> None:
         ax.set_xlabel("false-edge mass")
         ax.grid(alpha=0.25)
     axes[0].legend()
-    fig.suptitle("Noisy-affinity stress test means across seeds")
+    fig.suptitle(
+        "Noisy-affinity stress test means "
+        f"({DATASET_LABELS.get(preferred_dataset, preferred_dataset)}, {preferred_corruption})"
+    )
     fig.tight_layout(rect=(0, 0, 1, 0.9))
     fig.savefig(FIGURE_DIR / "dimred_noisy_affinity_means.pdf", bbox_inches="tight")
     plt.close(fig)
@@ -456,6 +483,145 @@ def save_dimred_stress_overview() -> None:
     ax.grid(axis="y", alpha=0.25)
     fig.tight_layout()
     fig.savefig(FIGURE_DIR / "dimred_stress_overview.pdf", bbox_inches="tight")
+    plt.close(fig)
+
+
+def save_dimred_bad_edge_qualitative() -> None:
+    embedding_path = RESULT_DIR / "dimred_stress_embeddings.csv"
+    edge_path = RESULT_DIR / "dimred_stress_edges.csv"
+    if not embedding_path.exists() or not edge_path.exists():
+        print(f"Skipping bad-edge qualitative figure; missing {embedding_path} or {edge_path}")
+        return
+    embeddings = read_csv_rows(embedding_path)
+    edges = read_csv_rows(edge_path)
+    if not embeddings:
+        return
+
+    objectives = ["kl", "fisher_rao"]
+    states = ["clean", "corrupted"]
+    fig, axes = plt.subplots(2, 2, figsize=(7.0, 6.8))
+    grouped: dict[tuple[str, str], list[dict[str, str]]] = defaultdict(list)
+    for row in embeddings:
+        grouped[(row["target_state"], row["objective"])].append(row)
+
+    for row_idx, state in enumerate(states):
+        for col_idx, objective in enumerate(objectives):
+            ax = axes[row_idx, col_idx]
+            selected = sorted(
+                grouped.get((state, objective), []),
+                key=lambda row: int(row["index"]),
+            )
+            if not selected:
+                ax.set_axis_off()
+                continue
+            xs = np.array([float(row["x"]) for row in selected])
+            ys = np.array([float(row["y"]) for row in selected])
+            labels = np.array([int(row["label"]) for row in selected])
+            if state == "corrupted":
+                for edge in edges:
+                    i = int(edge["source"])
+                    j = int(edge["target"])
+                    if i < len(xs) and j < len(xs):
+                        ax.plot(
+                            [xs[i], xs[j]],
+                            [ys[i], ys[j]],
+                            color="tab:red",
+                            alpha=0.08,
+                            linewidth=0.45,
+                            zorder=1,
+                        )
+            ax.scatter(xs, ys, c=labels, cmap="tab10", s=12, alpha=0.9, zorder=2)
+            ax.set_title(f"{OBJECTIVE_LABELS[objective]}, {state} target")
+            ax.set_xticks([])
+            ax.set_yticks([])
+    fig.suptitle("Representative corrupted-edge embeddings; red lines are injected bad edges")
+    fig.tight_layout(rect=(0, 0, 1, 0.94))
+    fig.savefig(FIGURE_DIR / "dimred_bad_edge_qualitative.pdf", bbox_inches="tight")
+    plt.close(fig)
+
+
+def save_false_edge_mechanism() -> None:
+    p_false = 0.05
+    q_false = np.geomspace(1e-5, 0.25, 600)
+    p = np.stack([np.full_like(q_false, p_false), np.full_like(q_false, 1.0 - p_false)], axis=1)
+    q = np.stack([q_false, 1.0 - q_false], axis=1)
+    kl = np.sum(p * (np.log(p) - np.log(q)), axis=1)
+    affinity = np.sum(np.sqrt(p * q), axis=1)
+    fr = (2.0 * np.arccos(np.clip(affinity, -1.0, 1.0))) ** 2
+    kl_grad_mag = p_false / q_false
+    fr_grad_mag = np.abs(np.gradient(fr, q_false))
+
+    fig, axes = plt.subplots(1, 2, figsize=(8.2, 3.3))
+    axes[0].plot(q_false, kl, color="tab:blue", label="KL")
+    axes[0].plot(q_false, fr, color="tab:red", label="Fisher-Rao")
+    axes[0].axvline(p_false, color="black", linestyle="--", linewidth=0.8, label="$q=p$")
+    axes[0].set_xscale("log")
+    axes[0].set_xlabel("embedding mass on false edge $q_{ij}$")
+    axes[0].set_ylabel("two-bin objective")
+    axes[0].set_title("False-edge objective shape")
+    axes[0].grid(alpha=0.25)
+    axes[0].legend()
+
+    axes[1].plot(q_false, kl_grad_mag, color="tab:blue", label="KL")
+    axes[1].plot(q_false, fr_grad_mag, color="tab:red", label="Fisher-Rao")
+    axes[1].axvline(p_false, color="black", linestyle="--", linewidth=0.8)
+    axes[1].set_xscale("log")
+    axes[1].set_yscale("log")
+    axes[1].set_xlabel("embedding mass on false edge $q_{ij}$")
+    axes[1].set_ylabel("gradient magnitude")
+    axes[1].set_title("KL pressure grows as $1/q_{ij}$")
+    axes[1].grid(alpha=0.25)
+    axes[1].legend()
+    fig.suptitle("Why KL overfits high-confidence false edges")
+    fig.tight_layout(rect=(0, 0, 1, 0.91))
+    fig.savefig(FIGURE_DIR / "dimred_false_edge_mechanism.pdf", bbox_inches="tight")
+    plt.close(fig)
+
+
+def save_dimred_significance_heatmap() -> None:
+    path = RESULT_DIR / "dimred_stress_significance.csv"
+    if not path.exists():
+        print(f"Skipping dimred significance heatmap; missing {path}")
+        return
+    rows = [
+        row
+        for row in read_csv_rows(path)
+        if row["experiment"] == "noisy_affinity"
+        and stress_corruption_type(row) != "none"
+        and float(row["stress_level"]) > 0
+    ]
+    if not rows:
+        return
+    rows.sort(
+        key=lambda row: (
+            row["dataset"],
+            stress_corruption_type(row),
+            float(row["stress_level"]),
+        )
+    )
+    metrics = [
+        ("eval_neighborhood_recall", "Recall", 1.0),
+        ("eval_corrupted_edge_preservation", "Bad edges", -1.0),
+    ]
+    labels = [
+        f"{row['dataset']}\n{stress_corruption_type(row)}\n{float(row['stress_level']):g}"
+        for row in rows
+    ]
+    matrix = np.array(
+        [
+            [safe_float(row, f"{metric}_mean_diff") * sign for metric, _label, sign in metrics]
+            for row in rows
+        ]
+    ).T
+    fig, ax = plt.subplots(figsize=(max(9.0, 0.34 * len(rows)), 2.5))
+    vmax = np.nanmax(np.abs(matrix)) if np.isfinite(matrix).any() else 1.0
+    image = ax.imshow(matrix, aspect="auto", cmap="coolwarm", vmin=-vmax, vmax=vmax)
+    ax.set_yticks(np.arange(len(metrics)), [label for _metric, label, _sign in metrics])
+    ax.set_xticks(np.arange(len(labels)), labels, rotation=75, ha="right", fontsize=7)
+    ax.set_title("Oriented Fisher-Rao improvement by dataset, corruption type, and level")
+    fig.colorbar(image, ax=ax, shrink=0.75, label="oriented FR improvement")
+    fig.tight_layout()
+    fig.savefig(FIGURE_DIR / "dimred_significance_heatmap.pdf", bbox_inches="tight")
     plt.close(fig)
 
 
@@ -646,6 +812,9 @@ def main() -> None:
     save_dimred_false_edge_curves()
     save_dimred_noisy_affinity_means()
     save_dimred_stress_overview()
+    save_dimred_bad_edge_qualitative()
+    save_false_edge_mechanism()
+    save_dimred_significance_heatmap()
     save_vae_final_metrics()
     save_vae_best_beta_deltas()
     save_vae_training_curves()
