@@ -16,7 +16,7 @@ from pathlib import Path
 
 import numpy as np
 import torch
-from sklearn.datasets import make_blobs, make_s_curve, make_swiss_roll
+from sklearn.datasets import load_digits, make_blobs, make_s_curve, make_swiss_roll
 from sklearn.manifold import trustworthiness
 from sklearn.neighbors import NearestNeighbors
 from sklearn.preprocessing import StandardScaler
@@ -44,6 +44,13 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--log-every", type=int, default=100)
     parser.add_argument("--neighbors", type=int, default=10)
     parser.add_argument(
+        "--stress-datasets",
+        nargs="+",
+        default=["blobs", "digits"],
+        choices=["blobs", "digits"],
+        help="Datasets used by the noisy_affinity false-neighbor stress test.",
+    )
+    parser.add_argument(
         "--false-edge-levels",
         type=float,
         nargs="+",
@@ -56,6 +63,18 @@ def parse_args() -> argparse.Namespace:
         default=["uniform", "hub", "block", "boundary"],
         choices=["uniform", "hub", "block", "boundary"],
         help="Structured false-affinity mechanisms for the noisy_affinity stress test.",
+    )
+    parser.add_argument("--save-qualitative-dataset", default="digits", choices=["blobs", "digits"])
+    parser.add_argument(
+        "--save-qualitative-corruption-type",
+        default="hub",
+        choices=["uniform", "hub", "block", "boundary"],
+    )
+    parser.add_argument(
+        "--save-qualitative-level",
+        type=float,
+        default=None,
+        help="False-edge level saved for the qualitative bad-edge figure. Defaults to max level.",
     )
     parser.add_argument(
         "--outlier-fractions",
@@ -285,6 +304,23 @@ def make_cluster_dataset(n_samples: int, seed: int) -> tuple[np.ndarray, np.ndar
     return standardize(x), labels.astype(np.int64)
 
 
+def make_noisy_affinity_dataset(
+    name: str,
+    n_samples: int,
+    seed: int,
+) -> tuple[np.ndarray, np.ndarray]:
+    if name == "blobs":
+        return make_cluster_dataset(n_samples, seed)
+    if name == "digits":
+        bundle = load_digits()
+        rng = np.random.default_rng(seed)
+        idx = rng.choice(len(bundle.data), size=n_samples, replace=False)
+        x = bundle.data[idx]
+        labels = bundle.target[idx]
+        return standardize(x), labels.astype(np.int64)
+    raise ValueError(f"Unknown noisy-affinity dataset: {name}")
+
+
 def embedding_quality_metrics(
     x_clean: np.ndarray,
     embedding: np.ndarray,
@@ -300,68 +336,119 @@ def embedding_quality_metrics(
 def run_noisy_affinity_test(
     args: argparse.Namespace,
     device: torch.device,
-) -> list[dict[str, object]]:
+) -> tuple[list[dict[str, object]], list[dict[str, object]], list[dict[str, object]]]:
     rows: list[dict[str, object]] = []
-    x_clean, labels = make_cluster_dataset(args.samples, seed=13)
-    bandwidth = max(median_distance(x_clean) / math.sqrt(2.0), 1e-3)
-    p_clean = gaussian_affinity_numpy(x_clean, bandwidth)
+    embedding_rows: list[dict[str, object]] = []
+    edge_rows: list[dict[str, object]] = []
+    qualitative_level = (
+        max(args.false_edge_levels)
+        if args.save_qualitative_level is None
+        else args.save_qualitative_level
+    )
 
     print("\n[stress:noisy-affinity] Injecting cross-label high-affinity edges")
-    for corruption_type in args.corruption_types:
-        for level in args.false_edge_levels:
-            for seed in args.seeds:
-                p_train, corrupted_pairs = inject_cross_label_edges(
-                    p_clean,
-                    labels,
-                    level=level,
-                    seed=9000 + seed,
-                    corruption_type=corruption_type,
-                    x_clean=x_clean,
-                )
-                for objective in OBJECTIVES:
-                    embedding, history = train_embedding_from_affinities(
-                        p_train,
-                        objective,
-                        args.steps,
-                        seed,
-                        device,
-                        args.log_every,
-                    )
-                    metrics = embedding_quality_metrics(
-                        x_clean,
-                        embedding,
+    for dataset in args.stress_datasets:
+        x_clean, labels = make_noisy_affinity_dataset(dataset, args.samples, seed=13)
+        bandwidth = max(median_distance(x_clean) / math.sqrt(2.0), 1e-3)
+        p_clean = gaussian_affinity_numpy(x_clean, bandwidth)
+        print(f"[stress:noisy-affinity] dataset={dataset} shape={x_clean.shape}")
+        for corruption_type in args.corruption_types:
+            for level in args.false_edge_levels:
+                for seed in args.seeds:
+                    p_train, corrupted_pairs = inject_cross_label_edges(
+                        p_clean,
                         labels,
-                        args.neighbors,
-                        seed,
+                        level=level,
+                        seed=9000 + seed,
+                        corruption_type=corruption_type,
+                        x_clean=x_clean,
                     )
-                    metrics["eval_corrupted_edge_preservation"] = corrupted_edge_preservation(
-                        embedding,
-                        corrupted_pairs,
-                        args.neighbors,
+                    should_save_edges = (
+                        dataset == args.save_qualitative_dataset
+                        and corruption_type == args.save_qualitative_corruption_type
+                        and seed == args.seeds[0]
+                        and abs(level - qualitative_level) < 1e-12
                     )
-                    metrics["eval_corrupted_edge_q_mass"] = corrupt_edge_q_mass(
-                        embedding,
-                        corrupted_pairs,
-                    )
-                    rows.append(
-                        {
-                            "experiment": "noisy_affinity",
-                            "dataset": "blobs",
-                            "corruption_type": corruption_type,
-                            "stress_level": level,
-                            "seed": seed,
-                            "objective": objective,
-                            "final_loss": history[-1][1],
-                            **metrics,
-                        }
-                    )
-                    print(
-                        f"[stress:noisy-affinity] type={corruption_type} level={level:.3f} "
-                        f"seed={seed} objective={objective} "
-                        f"trust={metrics['eval_trustworthiness']:.4f} "
-                        f"bad_edge={metrics['eval_corrupted_edge_preservation']:.4f}"
-                    )
-    return rows
+                    if should_save_edges:
+                        for edge_idx, (i, j) in enumerate(sorted(corrupted_pairs)):
+                            edge_rows.append(
+                                {
+                                    "dataset": dataset,
+                                    "corruption_type": corruption_type,
+                                    "stress_level": level,
+                                    "seed": seed,
+                                    "edge_index": edge_idx,
+                                    "source": i,
+                                    "target": j,
+                                }
+                            )
+                    for objective in OBJECTIVES:
+                        embedding, history = train_embedding_from_affinities(
+                            p_train,
+                            objective,
+                            args.steps,
+                            seed,
+                            device,
+                            args.log_every,
+                        )
+                        metrics = embedding_quality_metrics(
+                            x_clean,
+                            embedding,
+                            labels,
+                            args.neighbors,
+                            seed,
+                        )
+                        metrics["eval_corrupted_edge_preservation"] = corrupted_edge_preservation(
+                            embedding,
+                            corrupted_pairs,
+                            args.neighbors,
+                        )
+                        metrics["eval_corrupted_edge_q_mass"] = corrupt_edge_q_mass(
+                            embedding,
+                            corrupted_pairs,
+                        )
+                        rows.append(
+                            {
+                                "experiment": "noisy_affinity",
+                                "dataset": dataset,
+                                "corruption_type": corruption_type,
+                                "stress_level": level,
+                                "seed": seed,
+                                "objective": objective,
+                                "final_loss": history[-1][1],
+                                **metrics,
+                            }
+                        )
+                        should_save_embedding = (
+                            dataset == args.save_qualitative_dataset
+                            and corruption_type == args.save_qualitative_corruption_type
+                            and seed == args.seeds[0]
+                            and (level == 0.0 or abs(level - qualitative_level) < 1e-12)
+                        )
+                        if should_save_embedding:
+                            target_state = "clean" if level == 0.0 else "corrupted"
+                            for i in range(embedding.shape[0]):
+                                embedding_rows.append(
+                                    {
+                                        "dataset": dataset,
+                                        "corruption_type": corruption_type,
+                                        "stress_level": level,
+                                        "target_state": target_state,
+                                        "seed": seed,
+                                        "objective": objective,
+                                        "index": i,
+                                        "x": float(embedding[i, 0]),
+                                        "y": float(embedding[i, 1]),
+                                        "label": int(labels[i]),
+                                    }
+                                )
+                        print(
+                            f"[stress:noisy-affinity] dataset={dataset} type={corruption_type} "
+                            f"level={level:.3f} seed={seed} objective={objective} "
+                            f"trust={metrics['eval_trustworthiness']:.4f} "
+                            f"bad_edge={metrics['eval_corrupted_edge_preservation']:.4f}"
+                        )
+    return rows, embedding_rows, edge_rows
 
 
 def aligned_mean_distance(reference: np.ndarray, candidate: np.ndarray) -> float:
@@ -764,8 +851,13 @@ def main() -> None:
     print(f"[stress] device={device} output_dir={output_dir} experiments={sorted(selected)}")
 
     rows: list[dict[str, object]] = []
+    embedding_rows: list[dict[str, object]] = []
+    edge_rows: list[dict[str, object]] = []
     if "noisy_affinity" in selected:
-        rows.extend(run_noisy_affinity_test(args, device))
+        noisy_rows, noisy_embedding_rows, noisy_edge_rows = run_noisy_affinity_test(args, device)
+        rows.extend(noisy_rows)
+        embedding_rows.extend(noisy_embedding_rows)
+        edge_rows.extend(noisy_edge_rows)
     if "outlier_influence" in selected:
         rows.extend(run_outlier_influence_test(args, device))
     if "global_geometry" in selected:
@@ -774,7 +866,16 @@ def main() -> None:
         rows.extend(run_symmetric_mismatch_test(args, device))
 
     write_rows(output_dir / "dimred_stress_full.csv", rows)
+    write_rows(output_dir / "dimred_stress_embeddings.csv", embedding_rows)
+    write_rows(output_dir / "dimred_stress_edges.csv", edge_rows)
     print(f"[stress] Wrote {len(rows)} rows to {output_dir / 'dimred_stress_full.csv'}")
+    if embedding_rows:
+        print(
+            f"[stress] Wrote {len(embedding_rows)} rows to "
+            f"{output_dir / 'dimred_stress_embeddings.csv'}"
+        )
+    if edge_rows:
+        print(f"[stress] Wrote {len(edge_rows)} rows to {output_dir / 'dimred_stress_edges.csv'}")
 
 
 if __name__ == "__main__":
