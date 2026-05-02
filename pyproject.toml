@@ -10,6 +10,7 @@ dependencies = [
     "marimo>=0.10",
     "numpy>=2.1",
     "scikit-learn>=1.6",
+    "scipy>=1.14",
     "torch>=2.5",
     "torchvision>=0.20",
     "tqdm>=4.67",
