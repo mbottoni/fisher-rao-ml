@@ -92,7 +92,8 @@ make dimred-stress-aggregate
 Implemented stress families:
 
 - `noisy_affinity`: inject false high-affinity cross-label edges into `P_train`, then evaluate
-  against clean neighborhoods.
+  against clean neighborhoods. The default run includes uniform, hub, block, and boundary
+  false-edge mechanisms.
 - `outlier_influence`: add bridge outliers and measure normal-point embedding drift after
   Procrustes alignment.
 - `global_geometry`: use Swiss-roll and S-curve manifolds with continuum-preservation metrics.
@@ -107,8 +108,10 @@ uv run --project . python experiments/dimred_stress_benchmark.py \
   --samples 80 \
   --steps 5 \
   --seeds 101 \
+  --corruption-types uniform \
   --false-edge-levels 0.1
 uv run --project . python experiments/aggregate_dimred_stress.py
+uv run --project . python reports/generate_figures.py
 ```
 
 ## Single-objective experiments (with MLflow tracking)
