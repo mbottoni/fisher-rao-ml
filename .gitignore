@@ -15,3 +15,5 @@ reports/*.aux
 reports/*.blg
 reports/*.log
 reports/*.out
+
+*.pdf
