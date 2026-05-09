@@ -1,11 +1,6 @@
 experiment,metric_label,metric,n_cells,n_fr_improves,n_fr_improves_p_lt_0_05,n_fr_improves_direction_consistency_ge_0_8,mean_oriented_improvement
-knn_graph,clean_recall,eval_neighborhood_recall,27,0,0,0,-0.031062962962962962
-knn_graph,bad_edge_preservation,eval_corrupted_edge_preservation,27,4,0,1,-0.012280830977109318
-knn_graph,bad_edge_q_mass,eval_corrupted_edge_q_mass,27,9,4,5,-0.004561245409961515
-knn_graph,trustworthiness,eval_trustworthiness,27,0,0,0,-0.020179044891405762
-knn_graph,local_purity,eval_local_label_purity,27,0,0,0,-0.02434074074074075
-noisy_affinity,clean_recall,eval_neighborhood_recall,48,40,34,34,0.027615972222222215
-noisy_affinity,bad_edge_preservation,eval_corrupted_edge_preservation,48,48,43,42,0.15711374213715767
-noisy_affinity,bad_edge_q_mass,eval_corrupted_edge_q_mass,48,48,48,48,0.002387219412533644
-noisy_affinity,trustworthiness,eval_trustworthiness,48,45,43,43,0.029272439464948247
-noisy_affinity,local_purity,eval_local_label_purity,48,36,30,30,0.04222986111111112
+noisy_affinity,clean_recall,eval_neighborhood_recall,48,43,0,41,0.033404166666666665
+noisy_affinity,bad_edge_preservation,eval_corrupted_edge_preservation,48,47,0,38,0.16644059274438375
+noisy_affinity,bad_edge_q_mass,eval_corrupted_edge_q_mass,48,48,0,48,0.003182450831809547
+noisy_affinity,trustworthiness,eval_trustworthiness,48,44,0,41,0.024823712737127367
+noisy_affinity,local_purity,eval_local_label_purity,48,38,0,32,0.04295000000000001
