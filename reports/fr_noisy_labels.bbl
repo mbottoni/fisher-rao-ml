@@ -1,0 +1,56 @@
+\begin{thebibliography}{7}
+\providecommand{\natexlab}[1]{#1}
+\providecommand{\url}[1]{\texttt{#1}}
+\expandafter\ifx\csname urlstyle\endcsname\relax
+  \providecommand{\doi}[1]{doi: #1}\else
+  \providecommand{\doi}{doi: \begingroup \urlstyle{rm}\Url}\fi
+
+\bibitem[Bottoni(2026)]{bottoni2026fisherrao}
+Maruano~T. Bottoni.
+\newblock When {Fisher--Rao} geometry helps representation learning: Robust
+  affinity matching under false neighbors.
+\newblock Preprint, 2026.
+
+\bibitem[Ghosh et~al.(2017)Ghosh, Kumar, and Sastry]{ghosh2017robust}
+Aritra Ghosh, Himanshu Kumar, and P.~S. Sastry.
+\newblock Robust loss functions under label noise for deep neural networks.
+\newblock \emph{Proceedings of the AAAI Conference on Artificial Intelligence},
+  31\penalty0 (1), 2017.
+
+\bibitem[Han et~al.(2018)Han, Yao, Yu, Niu, Xu, Hu, Tsang, and
+  Sugiyama]{han2018coteaching}
+Bo~Han, Quanming Yao, Xingrui Yu, Gang Niu, Miao Xu, Weihua Hu, Ivor Tsang, and
+  Masashi Sugiyama.
+\newblock Co-teaching: Robust training of deep neural networks with extremely
+  noisy labels.
+\newblock In \emph{Advances in Neural Information Processing Systems},
+  volume~31, 2018.
+
+\bibitem[Li et~al.(2020)Li, Socher, and Hoi]{li2020dividemix}
+Junnan Li, Richard Socher, and Steven C.~H. Hoi.
+\newblock {DivideMix}: Learning with noisy labels as semi-supervised learning.
+\newblock In \emph{International Conference on Learning Representations}, 2020.
+
+\bibitem[Ma et~al.(2020)Ma, Huang, Wang, Romano, Erfani, and
+  Bailey]{ma2020normalized}
+Xingjun Ma, Hanxun Huang, Yisen Wang, Simone Romano, Sarah Erfani, and James
+  Bailey.
+\newblock Normalized loss functions for deep learning with noisy labels.
+\newblock In \emph{International Conference on Machine Learning}, pages
+  6543--6553. PMLR, 2020.
+
+\bibitem[Wang et~al.(2019)Wang, Ma, Chen, Luo, Yi, and
+  Bailey]{wang2019symmetric}
+Yisen Wang, Xingjun Ma, Zaiyi Chen, Yuan Luo, Jinfeng Yi, and James Bailey.
+\newblock Symmetric cross entropy for robust learning with noisy labels.
+\newblock In \emph{Proceedings of the IEEE/CVF International Conference on
+  Computer Vision}, pages 322--330, 2019.
+
+\bibitem[Zhang and Sabuncu(2018)]{zhang2018generalized}
+Zhilu Zhang and Mert Sabuncu.
+\newblock Generalized cross entropy loss for training deep neural networks with
+  noisy labels.
+\newblock In \emph{Advances in Neural Information Processing Systems},
+  volume~31, 2018.
+
+\end{thebibliography}
