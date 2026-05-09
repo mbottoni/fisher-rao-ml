@@ -12,6 +12,7 @@ OBJECTIVES = (
     "jensen_shannon",
     "hellinger",
     "fisher_rao",
+    "fr_kl_hybrid",
 )
 
 
@@ -59,6 +60,10 @@ def distribution_loss(
         )
     if objective == "fisher_rao":
         return categorical_fisher_rao_squared(target, prediction, eps=eps).mean()
+    if objective == "fr_kl_hybrid":
+        kl = (target * (target.log() - prediction.log())).sum(dim=-1).mean()
+        fr2 = categorical_fisher_rao_squared(target, prediction, eps=eps).mean()
+        return 0.5 * kl + 0.5 * fr2
     raise ValueError(f"Unknown objective: {objective}")
 
 
