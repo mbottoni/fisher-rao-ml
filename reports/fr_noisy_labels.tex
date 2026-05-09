@@ -1,0 +1,351 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{booktabs}
+\usepackage{graphicx}
+\usepackage{hyperref}
+\usepackage{xcolor}
+\usepackage{microtype}
+\usepackage{natbib}
+
+\newtheorem{proposition}{Proposition}
+\newtheorem{remark}{Remark}
+
+\title{Fisher--Rao Loss Does Not Tolerate Symmetric Label Noise:\\
+A Comparative Study of Distribution Divergences for Noisy-Label Learning}
+
+\author{Maruan Ottoni}
+
+\date{\today}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+Learning under noisy labels is a central challenge in modern machine learning.
+While noise-tolerant losses such as Mean Absolute Error (MAE) and Generalized
+Cross Entropy (GCE) are well-understood theoretically, the behavior of
+information-geometric divergences such as the Fisher--Rao (FR) distance has
+not been systematically evaluated in this setting.
+We conduct a controlled benchmark comparing six objectives on the UCI Digits
+dataset across five symmetric noise rates (0--80\%) and one asymmetric noise
+rate (40\%).
+Our main finding is negative but informative: the FR loss and the closely
+related Hellinger distance both \emph{under-perform} standard cross-entropy
+(KL) at moderate symmetric noise rates (sym\,40: $\Delta\mathrm{acc} = -3.2\%$,
+$p=0.002$, 0/10 paired wins; sym\,60: $-2.0\%$, $p=0.004$, 0/10 wins).
+By contrast, MAE achieves $+19.6\%$ at sym\,40 ($p=0.002$, 10/10 wins) and
+GCE/SCE achieve $+6.1$--$6.3\%$.
+We trace this gap to the Ghosh et al.\ noise-tolerance condition: a loss is
+Bayes-optimal under symmetric noise if and only if its per-class values sum to
+a constant, a property that MAE satisfies exactly but FR does not.
+These results sharpen the understanding of where FR-based training is and is
+not beneficial.
+\end{abstract}
+
+% ------------------------------------------------------------------
+\section{Introduction}
+% ------------------------------------------------------------------
+
+Label noise is pervasive in large-scale datasets assembled from web crawls,
+crowd-sourcing, and automated pipelines.
+Even modest noise rates can substantially degrade test accuracy, and the
+classical cross-entropy (KL) loss is known to be brittle in this setting.
+
+Two families of remedies have been proposed.
+\emph{Noise-tolerant losses} replace cross-entropy with objectives whose
+gradients are inherently bounded or whose risk minimizers are provably
+Bayes-optimal under symmetric noise~\citep{ghosh2017robust,
+zhang2018generalized, wang2019symmetric}.
+\emph{Robust training procedures} apply data selection, teacher--student
+distillation, or sample weighting to reduce the influence of noisy
+examples~\citep{han2018coteaching, li2020dividemix}.
+
+A complementary line of work draws on \emph{information geometry}: replacing
+KL divergence with the Fisher--Rao geodesic distance or the Hellinger distance
+in the training objective.
+These divergences are bounded, symmetric, and properly metric on the simplex,
+properties that are absent from KL and that have been argued to confer
+robustness~\citep{bottoni2026fisherrao}.
+However, no systematic empirical study has compared FR/Hellinger against
+established noise-tolerant baselines across a range of noise conditions.
+
+We fill this gap with a controlled experiment whose design is simple enough to
+be fully reproducible on a single laptop.
+Our contributions are:
+\begin{enumerate}
+  \item A six-way comparison of objectives (KL, Fisher--Rao, Hellinger, GCE,
+    MAE, SCE) across six label-noise regimes on UCI Digits.
+  \item A theoretical explanation via the Ghosh et al.\ condition showing why
+    FR/Hellinger cannot be noise-tolerant.
+  \item Practical guidance: use MAE or GCE for symmetric noise; reserve
+    Fisher--Rao for settings with structured overconfident soft-target noise.
+\end{enumerate}
+
+% ------------------------------------------------------------------
+\section{Background}
+% ------------------------------------------------------------------
+
+\subsection{Label noise types}
+
+Let $(x, y) \sim \mathcal{D}$ be a clean example and $\tilde{y}$ the observed
+noisy label.
+
+\paragraph{Symmetric noise at rate $\varepsilon$.}
+Each label is replaced uniformly at random by another class with probability
+$\varepsilon$:
+\[
+  \tilde{y} \;=\;
+  \begin{cases}
+    y & \text{with probability } 1-\varepsilon \\
+    \mathrm{Uniform}(\mathcal{Y} \setminus \{y\}) & \text{with probability } \varepsilon.
+  \end{cases}
+\]
+
+\paragraph{Asymmetric (class-conditional) noise at rate $\varepsilon$.}
+Each class $c$ is mapped to class $(c+1)\!\mod C$ with probability $\varepsilon$
+and remains $c$ otherwise.
+
+\subsection{Objectives}
+
+All objectives receive a one-hot target $\mathbf{y}$ (possibly corrupted) and
+a predicted probability vector $\mathbf{p} = \mathrm{softmax}(\mathbf{z})$.
+
+\paragraph{Cross-entropy (KL).}
+$\mathcal{L}_\mathrm{KL} = -\sum_k y_k \log p_k$.
+
+\paragraph{Fisher--Rao (FR).}
+The geodesic distance on the categorical simplex, squared:
+$\mathcal{L}_\mathrm{FR} = 4\arccos^2\!\bigl(\sum_k \sqrt{y_k p_k}\bigr)$.
+
+\paragraph{Hellinger.}
+$\mathcal{L}_\mathrm{H} = \tfrac{1}{2}\sum_k (\sqrt{y_k} - \sqrt{p_k})^2$.
+
+\paragraph{Generalized Cross Entropy (GCE)~\citep{zhang2018generalized}.}
+$\mathcal{L}_\mathrm{GCE} = (1 - p_{\tilde{y}}^q)/q$ with $q=0.7$.
+
+\paragraph{Mean Absolute Error (MAE)~\citep{ghosh2017robust}.}
+$\mathcal{L}_\mathrm{MAE} = \sum_k |y_k - p_k|$.
+
+\paragraph{Symmetric Cross Entropy (SCE)~\citep{wang2019symmetric}.}
+$\mathcal{L}_\mathrm{SCE} = 0.1\cdot\mathcal{L}_\mathrm{KL} +
+1.0\cdot\mathcal{L}_\mathrm{RCE}$, where $\mathcal{L}_\mathrm{RCE} = -\sum_k
+p_k \log y_k$ is the reverse KL.
+
+\subsection{Noise-tolerance condition}
+
+\begin{proposition}[Ghosh et al.\ 2017, Theorem~1]
+  \label{prop:ghosh}
+  A loss $\ell(\mathbf{f}(x), \mathbf{e}_k)$ is Bayes-optimal under symmetric
+  label noise with rate $\varepsilon < (C-1)/C$ if and only if
+  $\sum_{k=1}^C \ell(\mathbf{f}(x), \mathbf{e}_k) = \mathrm{const}$
+  for all $\mathbf{f}(x) \in \Delta^{C-1}$.
+\end{proposition}
+
+MAE satisfies this condition: $\sum_k \|\mathbf{p} - \mathbf{e}_k\|_1 = 2(C-1)$
+for any $\mathbf{p}$~\citep{ghosh2017robust}.
+Cross-entropy does not ($\sum_k -\log p_k$ is unbounded).
+
+\begin{remark}
+  The Fisher--Rao loss $4\arccos^2(\sqrt{p_k})$ sums to
+  $4\sum_k \arccos^2(\sqrt{p_k})$, which depends on $\mathbf{p}$ and is
+  therefore \emph{not} constant.
+  Similarly, $\sum_k \tfrac{1}{2}(\sqrt{p_k} - 1)^2 = \tfrac{1}{2}(1 -
+  2\sum_k \sqrt{p_k} + C)$, which depends on $\sum_k\sqrt{p_k}$ and is
+  not constant.
+  Neither FR nor Hellinger satisfies the noise-tolerance condition.
+\end{remark}
+
+% ------------------------------------------------------------------
+\section{Experimental Setup}
+% ------------------------------------------------------------------
+
+\paragraph{Dataset.}
+UCI Handwritten Digits (1,797 samples, 64 features, 10 classes).
+80/20 train/test split stratified by class; features standardized.
+
+\paragraph{Model.}
+Two-hidden-layer MLP with 256 units, batch normalisation, and ReLU activations.
+
+\paragraph{Training.}
+Adam optimiser, learning rate $10^{-3}$, weight decay $10^{-4}$, cosine
+annealing over 100 epochs, batch size 128, gradient clipping at 5.0.
+
+\paragraph{Noise injection.}
+Noise is applied to training labels only; the test set is always clean.
+For symmetric noise at rate $\varepsilon$, we sample $\lfloor \varepsilon N
+\rfloor$ training indices uniformly at random and replace their labels with a
+uniformly random alternative class.
+For asymmetric noise at rate $\varepsilon = 0.4$, each label $c$ is set to
+$(c+1)\!\mod 10$ independently with probability $0.4$.
+
+\paragraph{Evaluation.}
+Ten independent seeds per (noise regime, objective) cell.
+Primary metric: test accuracy.
+Secondary metrics: ECE (expected calibration error), Brier score, NLL.
+Statistical comparison: two-sided Wilcoxon signed-rank test against KL with
+paired seeds; oriented gain $= \mathrm{mean}(\Delta\mathrm{acc})$ with positive
+meaning improvement over KL.
+
+% ------------------------------------------------------------------
+\section{Results}
+% ------------------------------------------------------------------
+
+\subsection{Accuracy under symmetric noise}
+
+Table~\ref{tab:accuracy} reports mean test accuracy ($\pm$ std across 10 seeds)
+for each (noise regime, objective) cell.
+
+\begin{table}[t]
+  \centering
+  \caption{Mean test accuracy (\%) on UCI Digits.
+    Bold: best non-KL objective per noise regime.
+    Underline: statistically worse than KL ($p<0.01$, Wilcoxon).}
+  \label{tab:accuracy}
+  \small
+  \begin{tabular}{lcccccc}
+    \toprule
+    Noise & KL (CE) & FR & Hellinger & GCE & MAE & SCE \\
+    \midrule
+    Clean    & 97.9 & 97.9 & 97.9 & 98.0 & 98.0 & 97.9 \\
+    Sym 20\% & 86.2 & 86.4 & 86.5 & \textbf{92.4} & \textbf{96.6} & 91.9 \\
+    Sym 40\% & 70.0 & \underline{66.8} & \underline{67.2} & \textbf{76.3} & \textbf{89.6} & \textbf{76.1} \\
+    Sym 60\% & 47.1 & \underline{45.1} & \underline{45.4} & \textbf{50.7} & \textbf{68.2} & \textbf{50.6} \\
+    Sym 80\% & 21.7 & 22.0 & 21.9 & 23.1 & \textbf{29.5} & 23.6 \\
+    Asym 40\% & 61.1 & 60.3 & 60.7 & 60.9 & \textbf{67.3} & 61.2 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+Key observations:
+
+\begin{enumerate}
+  \item \textbf{MAE dominates at all symmetric noise levels.}
+    At sym\,40, MAE achieves $89.6\%$ vs KL's $70.0\%$ ($+19.6\%$,
+    $p=0.002$, 10/10 paired wins).
+    At sym\,60, the gap widens to $+21.1\%$ ($p=0.002$, 10/10 wins).
+  \item \textbf{GCE and SCE are competitive.}
+    Both achieve $+6.1$--$6.3\%$ over KL at sym\,40 ($p=0.002$, 10/10 wins).
+  \item \textbf{FR and Hellinger are significantly worse than KL at sym\,40
+    and sym\,60.}
+    FR: $-3.2\%$ at sym\,40 ($p=0.002$, 0/10 wins);
+    $-2.0\%$ at sym\,60 ($p=0.004$, 0/10 wins).
+    Hellinger shows the same pattern ($-2.9\%$ at sym\,40, $p=0.004$, 1/10
+    wins).
+  \item \textbf{At sym\,80, differences vanish.}
+    At very high noise the signal-to-noise ratio collapses; all objectives
+    converge near random ($\approx 22$--$29\%$).
+  \item \textbf{Asymmetric noise: only MAE wins significantly.}
+    $+6.2\%$ ($p=0.002$, 10/10 wins).
+    FR is not significantly different from KL ($p=0.057$, 2/10 wins).
+\end{enumerate}
+
+\subsection{Calibration and Brier score}
+
+Across all symmetric noise regimes, MAE consistently achieves the lowest Brier
+score and NLL, consistent with its theoretical guarantees.
+GCE and SCE track closely.
+FR and Hellinger show elevated Brier scores and NLL at sym\,40--60, confirming
+that the accuracy drop reflects a systematic failure rather than a
+variance artefact.
+
+% ------------------------------------------------------------------
+\section{Discussion}
+% ------------------------------------------------------------------
+
+\paragraph{Why does FR fail under symmetric noise?}
+The failure is explained by Proposition~\ref{prop:ghosh}: FR's per-class loss
+values sum to a quantity that depends on the predicted distribution, so the
+risk minimizer under symmetric noise is \emph{not} the Bayes classifier.
+In contrast, MAE's constant-sum property makes it immune to symmetric noise by
+construction.
+
+The situation is conceptually similar to the KL vs.\ MAE comparison: KL also
+lacks the constant-sum property and is therefore brittle to symmetric noise.
+But KL at least benefits from numerical stability and well-understood
+optimisation dynamics.
+FR combines the worst of both worlds: it lacks the constant-sum property
+\emph{and} its gradient vanishes near one-hot distributions (where
+$\arccos(\sqrt{p_k}) \approx 0$), leaving the optimiser with weak signal
+precisely when training examples are corrupted.
+
+\paragraph{When does FR help?}
+Previous work~\citep{bottoni2026fisherrao} shows FR outperforming KL in the
+\emph{soft-label} setting, where targets are themselves probability distributions
+rather than one-hot vectors.
+When the target distribution is genuinely diffuse (e.g.\ knowledge distillation
+or soft crowdsourced annotations), FR's boundedness prevents overconfident
+responses to mislabelled soft targets.
+The present experiment uses one-hot targets corrupted by a random noise process,
+which is a fundamentally different regime.
+
+\paragraph{Practical recommendation.}
+For symmetric label noise, use MAE (strongest guarantee, best empirical
+performance) or GCE/SCE (good performance with KL-like optimisation dynamics).
+For structured noise in probability targets (overconfident wrong distributions),
+the Fisher--Rao loss may be preferable.
+
+% ------------------------------------------------------------------
+\section{Related Work}
+% ------------------------------------------------------------------
+
+\citet{ghosh2017robust} established the noise-tolerance condition and showed MAE
+satisfies it.
+\citet{zhang2018generalized} proposed GCE as a differentiable interpolation
+between CE and MAE.
+\citet{wang2019symmetric} introduced SCE to combine forward and reverse KL for
+label noise robustness.
+\citet{ma2020normalized} showed that normalised versions of many losses
+(including MAE) satisfy the noise-tolerance condition.
+
+On the information-geometry side, \citet{bottoni2026fisherrao} introduced the
+Fisher--Rao loss for distribution comparison in the soft-label and
+dimensionality-reduction settings, establishing theoretical advantages over KL
+in that context.
+The present work is the first to benchmark FR specifically under the
+symmetric/asymmetric label noise model of \citet{ghosh2017robust}.
+
+% ------------------------------------------------------------------
+\section{Limitations}
+% ------------------------------------------------------------------
+
+\begin{itemize}
+  \item Experiments use UCI Digits (1,797 samples, 64 features).
+    Results on larger datasets with convolutional architectures (e.g.\ CIFAR-10,
+    Clothing-1M) may differ.
+  \item We evaluate only synthetic noise.
+    Real-world noise has complex class-dependent structure not captured by
+    the symmetric or single-hop asymmetric models.
+  \item We do not evaluate co-learning, teacher--student, or semi-supervised
+    approaches; the comparison is restricted to the choice of loss function alone.
+  \item Ten seeds gives a minimum achievable $p$-value of $\approx 0.002$
+    (Wilcoxon on $n=10$ pairs); very small effects cannot be detected reliably.
+\end{itemize}
+
+% ------------------------------------------------------------------
+\section{Conclusion}
+% ------------------------------------------------------------------
+
+We conducted a systematic evaluation of the Fisher--Rao geodesic distance as a
+training objective under label noise.
+Contrary to the intuition that a bounded, symmetric divergence should be more
+robust, FR under-performs standard cross-entropy at symmetric noise rates of
+40--60\% and shows no advantage at other tested rates.
+The theoretical explanation is precise: FR does not satisfy the Ghosh et al.\
+noise-tolerance condition, so its risk minimizer under symmetric noise is not
+the Bayes classifier.
+
+MAE remains the theoretically principled and empirically strongest choice for
+symmetric label noise, achieving up to $+21\%$ accuracy over KL at 60\% noise.
+GCE and SCE offer a practical compromise between noise robustness and
+optimisation stability.
+
+The Fisher--Rao loss retains its advantages in settings involving soft
+probability targets, and future work should explore hybrid or adaptive
+objectives that switch between FR and MAE depending on the estimated noise
+structure.
+
+\bibliographystyle{plainnat}
+\bibliography{references}
+
+\end{document}
