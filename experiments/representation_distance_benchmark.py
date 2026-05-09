@@ -1,0 +1,381 @@
+"""FR Representation Distance benchmark.
+
+Trains multiple small MLP classifiers under varying conditions and compares
+FR-RD against linear CKA and L2 weight distance as model comparison metrics.
+
+Conditions:
+  - clean: standard cross-entropy on clean labels
+  - noisy_30: 30% uniform random label noise
+  - noisy_60: 60% uniform random label noise
+  - fr_loss: Fisher-Rao loss (clean labels)
+  - smoothed: label smoothing 0.1 (clean labels)
+
+For each condition × seed pair, trains a two-layer MLP on sklearn digits and
+MNIST, saves softmax outputs and penultimate features on a held-out test set,
+then computes all pairwise FR-RD, CKA, and weight-L2 matrices.
+
+Also measures:
+  - FR-RD tracking along a training trajectory (every 10 steps vs final model)
+  - FR-RD-based OOD detection (digits models evaluated on MNIST inputs)
+
+Outputs:
+  reports/results/fr_rd_pairwise.csv       -- pairwise distance matrix rows
+  reports/results/fr_rd_trajectory.csv     -- per-step FR-RD to final model
+  reports/results/fr_rd_ood.csv            -- OOD scores
+"""
+
+from __future__ import annotations
+
+import argparse
+import csv
+import itertools
+from pathlib import Path
+
+import numpy as np
+import torch
+import torch.nn as nn
+from sklearn.datasets import load_digits
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+
+from fisher_rao_ml.device import get_device
+from fisher_rao_ml.distribution_losses import distribution_loss_from_logits
+from fisher_rao_ml.representation_distance import (
+    cka_linear,
+    fr_ood_score,
+    fr_representation_distance,
+    pairwise_cka,
+    pairwise_fr_rd,
+)
+
+
+# ---------------------------------------------------------------------------
+# Model
+# ---------------------------------------------------------------------------
+
+class MLP(nn.Module):
+    def __init__(self, in_dim: int, hidden: int, n_classes: int) -> None:
+        super().__init__()
+        self.net = nn.Sequential(
+            nn.Linear(in_dim, hidden),
+            nn.ReLU(),
+            nn.Linear(hidden, hidden),
+            nn.ReLU(),
+        )
+        self.head = nn.Linear(hidden, n_classes)
+
+    def forward(self, x: Tensor) -> tuple[Tensor, Tensor]:
+        features = self.net(x)
+        logits = self.head(features)
+        return logits, features
+
+
+# ---------------------------------------------------------------------------
+# Data helpers
+# ---------------------------------------------------------------------------
+
+def load_digits_split(
+    test_size: float = 0.3,
+    seed: int = 0,
+) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, int]:
+    data = load_digits()
+    x, y = data.data.astype(np.float32), data.target
+    x_tr, x_te, y_tr, y_te = train_test_split(x, y, test_size=test_size, random_state=seed, stratify=y)
+    scaler = StandardScaler().fit(x_tr)
+    x_tr = torch.from_numpy(scaler.transform(x_tr))
+    x_te = torch.from_numpy(scaler.transform(x_te))
+    y_tr = torch.from_numpy(y_tr)
+    y_te = torch.from_numpy(y_te)
+    return x_tr, y_tr, x_te, y_te, int(y.max()) + 1
+
+
+def load_mnist_subset(
+    n: int = 500,
+    seed: int = 0,
+    scaler: object = None,
+) -> tuple[torch.Tensor, torch.Tensor]:
+    """Load a small MNIST subset, standardized with a provided scaler."""
+    try:
+        from torchvision.datasets import MNIST
+        import torchvision.transforms as T
+        mnist = MNIST(root="data", train=False, download=True,
+                      transform=T.Compose([T.ToTensor(), T.Lambda(lambda x: x.view(-1))]))
+        rng = np.random.default_rng(seed)
+        idx = rng.choice(len(mnist), size=min(n, len(mnist)), replace=False)
+        x = torch.stack([mnist[int(i)][0] for i in idx]).numpy().astype(np.float32)
+        y = torch.tensor([mnist[int(i)][1] for i in idx])
+        if scaler is not None:
+            x = scaler.transform(x)
+        x = torch.from_numpy(x)
+        return x, y
+    except Exception:
+        return None, None
+
+
+def inject_noise(labels: torch.Tensor, noise_rate: float, n_classes: int, seed: int) -> torch.Tensor:
+    rng = np.random.default_rng(seed)
+    noisy = labels.clone()
+    n = len(labels)
+    n_noisy = int(noise_rate * n)
+    idx = rng.choice(n, size=n_noisy, replace=False)
+    for i in idx:
+        choices = [c for c in range(n_classes) if c != int(noisy[i])]
+        noisy[i] = int(rng.choice(choices))
+    return noisy
+
+
+def make_one_hot(labels: torch.Tensor, n_classes: int) -> torch.Tensor:
+    oh = torch.zeros(len(labels), n_classes)
+    oh.scatter_(1, labels.unsqueeze(1), 1.0)
+    return oh
+
+
+def make_smoothed(labels: torch.Tensor, n_classes: int, smoothing: float = 0.1) -> torch.Tensor:
+    oh = make_one_hot(labels, n_classes)
+    return (1.0 - smoothing) * oh + smoothing / n_classes
+
+
+# ---------------------------------------------------------------------------
+# Training
+# ---------------------------------------------------------------------------
+
+CONDITION_NOISE = {
+    "clean": (0.0, "kl", 0.0),
+    "noisy_30": (0.3, "kl", 0.0),
+    "noisy_60": (0.6, "kl", 0.0),
+    "fr_loss": (0.0, "fisher_rao", 0.0),
+    "smoothed": (0.0, "kl", 0.1),
+}
+
+
+def train_model(
+    x_tr: torch.Tensor,
+    y_tr: torch.Tensor,
+    n_classes: int,
+    condition: str,
+    seed: int,
+    device: torch.device,
+    n_steps: int = 300,
+    hidden: int = 128,
+    lr: float = 1e-3,
+    trajectory_steps: list[int] | None = None,
+) -> tuple[MLP, list[tuple[int, torch.Tensor]]]:
+    """Train an MLP. Returns (final_model, trajectory_probs_list).
+
+    trajectory_probs_list contains (step, probs_on_train) for each trajectory step.
+    """
+    torch.manual_seed(seed)
+    noise_rate, objective, smoothing = CONDITION_NOISE[condition]
+
+    noisy_labels = inject_noise(y_tr, noise_rate, n_classes, seed) if noise_rate > 0 else y_tr
+    if smoothing > 0:
+        targets = make_smoothed(noisy_labels, n_classes, smoothing).to(device)
+    else:
+        targets = make_one_hot(noisy_labels, n_classes).to(device)
+
+    x = x_tr.to(device)
+    model = MLP(x.shape[1], hidden, n_classes).to(device)
+    opt = torch.optim.Adam(model.parameters(), lr=lr)
+
+    trajectory: list[tuple[int, torch.Tensor]] = []
+    traj_steps_set = set(trajectory_steps or [])
+
+    model.train()
+    for step in range(1, n_steps + 1):
+        opt.zero_grad()
+        logits, _ = model(x)
+        loss = distribution_loss_from_logits(targets, logits, objective=objective)
+        loss.backward()
+        opt.step()
+
+        if step in traj_steps_set:
+            with torch.no_grad():
+                model.eval()
+                logits_tr, _ = model(x)
+                probs = torch.softmax(logits_tr, dim=-1).cpu()
+                trajectory.append((step, probs))
+                model.train()
+
+    return model, trajectory
+
+
+@torch.no_grad()
+def get_probs_and_features(
+    model: MLP,
+    x: torch.Tensor,
+    device: torch.device,
+) -> tuple[torch.Tensor, torch.Tensor]:
+    model.eval()
+    logits, features = model(x.to(device))
+    probs = torch.softmax(logits, dim=-1).cpu()
+    return probs, features.cpu()
+
+
+@torch.no_grad()
+def accuracy(model: MLP, x: torch.Tensor, y: torch.Tensor, device: torch.device) -> float:
+    model.eval()
+    logits, _ = model(x.to(device))
+    return float((logits.argmax(dim=1).cpu() == y).float().mean().item())
+
+
+# ---------------------------------------------------------------------------
+# Main
+# ---------------------------------------------------------------------------
+
+def write_rows(path: Path, rows: list[dict]) -> None:
+    if not rows:
+        return
+    keys: list[str] = []
+    for r in rows:
+        for k in r:
+            if k not in keys:
+                keys.append(k)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", newline="") as f:
+        w = csv.DictWriter(f, fieldnames=keys)
+        w.writeheader()
+        w.writerows(rows)
+
+
+def parse_args() -> argparse.Namespace:
+    p = argparse.ArgumentParser()
+    p.add_argument("--dataset", default="digits", choices=["digits"])
+    p.add_argument("--seeds", type=int, default=5)
+    p.add_argument("--n-steps", type=int, default=300)
+    p.add_argument("--hidden", type=int, default=128)
+    p.add_argument("--out-pairwise", default="reports/results/fr_rd_pairwise.csv")
+    p.add_argument("--out-trajectory", default="reports/results/fr_rd_trajectory.csv")
+    p.add_argument("--out-ood", default="reports/results/fr_rd_ood.csv")
+    return p.parse_args()
+
+
+def main() -> None:
+    args = parse_args()
+    device = get_device()
+    print(f"[fr-rd] device={device}")
+
+    x_tr, y_tr, x_te, y_te, n_classes = load_digits_split(seed=0)
+    conditions = list(CONDITION_NOISE.keys())
+    seeds = list(range(args.seeds))
+
+    # --- Part 1: pairwise distances ---
+    traj_steps = list(range(10, args.n_steps + 1, 10))
+    probs_map: dict[tuple[str, int], torch.Tensor] = {}
+    features_map: dict[tuple[str, int], torch.Tensor] = {}
+    weights_map: dict[tuple[str, int], torch.Tensor] = {}
+    acc_map: dict[tuple[str, int], float] = {}
+    traj_map: dict[tuple[str, int], list[tuple[int, torch.Tensor]]] = {}
+
+    for cond in conditions:
+        for seed in seeds:
+            key = (cond, seed)
+            print(f"[fr-rd] training {cond} seed={seed}")
+            model, traj = train_model(
+                x_tr, y_tr, n_classes, cond, seed, device,
+                n_steps=args.n_steps, hidden=args.hidden,
+                trajectory_steps=traj_steps,
+            )
+            probs, feats = get_probs_and_features(model, x_te, device)
+            probs_map[key] = probs
+            features_map[key] = feats
+            acc_map[key] = accuracy(model, x_te, y_te, device)
+            traj_map[key] = traj
+            weights_map[key] = torch.cat([p.data.cpu().flatten() for p in model.parameters()])
+
+    # Pairwise distances
+    all_keys = [(c, s) for c in conditions for s in seeds]
+    pairwise_rows = []
+    for i, ki in enumerate(all_keys):
+        for j, kj in enumerate(all_keys):
+            if j <= i:
+                continue
+            fr_d = fr_representation_distance(probs_map[ki], probs_map[kj])
+            ck = cka_linear(features_map[ki], features_map[kj])
+            w_l2 = float((weights_map[ki] - weights_map[kj]).norm().item())
+            pairwise_rows.append({
+                "cond_a": ki[0], "seed_a": ki[1],
+                "cond_b": kj[0], "seed_b": kj[1],
+                "acc_a": acc_map[ki], "acc_b": acc_map[kj],
+                "acc_diff": abs(acc_map[ki] - acc_map[kj]),
+                "fr_rd": fr_d,
+                "cka": ck,
+                "weight_l2": w_l2,
+            })
+
+    write_rows(Path(args.out_pairwise), pairwise_rows)
+    print(f"[fr-rd] wrote {len(pairwise_rows)} pairwise rows → {args.out_pairwise}")
+
+    # --- Part 2: trajectory (training dynamics) ---
+    traj_rows = []
+    for cond in conditions:
+        for seed in seeds:
+            key = (cond, seed)
+            final_probs = probs_map[key]  # probs on TEST set from final model
+            # Rebuild final probs on train set for trajectory comparison
+            final_train_probs = None
+            for step, probs in reversed(traj_map[key]):
+                if step == traj_steps[-1]:
+                    final_train_probs = probs
+                    break
+            if final_train_probs is None:
+                continue
+            for step, step_probs in traj_map[key]:
+                fr_d = fr_representation_distance(step_probs, final_train_probs)
+                traj_rows.append({
+                    "condition": cond,
+                    "seed": seed,
+                    "step": step,
+                    "fr_rd_to_final": fr_d,
+                    "final_test_acc": acc_map[key],
+                })
+
+    write_rows(Path(args.out_trajectory), traj_rows)
+    print(f"[fr-rd] wrote {len(traj_rows)} trajectory rows → {args.out_trajectory}")
+
+    # --- Part 3: OOD detection ---
+    ood_rows = []
+    try:
+        from sklearn.preprocessing import StandardScaler as SS
+        data = load_digits()
+        scaler_for_mnist = SS().fit(data.data.astype(np.float32))
+        x_mnist, y_mnist = load_mnist_subset(n=300, seed=0, scaler=scaler_for_mnist)
+        if x_mnist is not None:
+            for cond in conditions:
+                all_probs_id = torch.cat([probs_map[(cond, s)] for s in seeds], dim=0)
+                for seed in seeds:
+                    model_key = (cond, seed)
+                    model, _ = train_model(
+                        x_tr, y_tr, n_classes, cond, seed, device,
+                        n_steps=args.n_steps, hidden=args.hidden,
+                    )
+                    probs_mnist, _ = get_probs_and_features(model, x_mnist, device)
+                    ood_scores_mnist = fr_ood_score(all_probs_id, probs_mnist).numpy()
+                    ood_scores_id = fr_ood_score(all_probs_id, probs_map[model_key]).numpy()
+                    ood_rows.append({
+                        "condition": cond,
+                        "seed": seed,
+                        "mean_ood_score_mnist": float(ood_scores_mnist.mean()),
+                        "mean_ood_score_id": float(ood_scores_id.mean()),
+                        "separation": float(ood_scores_mnist.mean() - ood_scores_id.mean()),
+                    })
+    except Exception as e:
+        print(f"[fr-rd] OOD section skipped: {e}")
+
+    write_rows(Path(args.out_ood), ood_rows)
+    print(f"[fr-rd] wrote {len(ood_rows)} OOD rows → {args.out_ood}")
+
+    # Print summary
+    print("\n[fr-rd] Pairwise FR-RD summary by condition pair:")
+    from collections import defaultdict
+    by_pair: dict[tuple[str, str], list[float]] = defaultdict(list)
+    for r in pairwise_rows:
+        pair = tuple(sorted([r["cond_a"], r["cond_b"]]))
+        by_pair[pair].append(r["fr_rd"])
+    for pair, vals in sorted(by_pair.items()):
+        print(f"  {pair[0]:12s} vs {pair[1]:12s}: mean FR-RD = {np.mean(vals):.4f}")
+
+
+from torch import Tensor  # noqa: E402 (needed for type annotation in MLP)
+
+if __name__ == "__main__":
+    main()
