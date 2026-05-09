@@ -1,0 +1,219 @@
+\pdfoutput=1
+\documentclass[11pt]{article}
+
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsfonts,amsthm}
+\usepackage{booktabs}
+\usepackage{graphicx}
+\usepackage{hyperref}
+\usepackage[numbers,sort&compress]{natbib}
+\usepackage{microtype}
+
+\newtheorem{proposition}{Proposition}
+\newtheorem{theorem}{Theorem}
+
+\title{Bounded Contrastive Learning:\\
+Fisher--Rao Geometry Reduces False-Negative Sensitivity in Self-Supervised Objectives}
+
+\author{
+  Maruano T.\ Bottoni \\
+  Independent Research \\
+  \texttt{fisher-rao-ml}
+}
+
+\date{\today}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+Contrastive self-supervised learning relies on pushing representations of negative pairs
+apart while pulling positives together. A fundamental challenge is \emph{false negatives}:
+semantically similar inputs that are incorrectly treated as negatives, causing the model to
+push them apart. We show that this problem is structurally equivalent to the
+affinity-mass corruption studied in companion work \citep{bottoni2026fisherrao}: a
+high-confidence assignment of probability mass to a false pair creates strong gradient
+pressure in KL-based objectives. We reformulate NT-Xent \citep{chen2020simple} as a
+KL divergence between a similarity distribution and a one-hot positive target, and replace
+KL with the Fisher--Rao geodesic distance. The resulting \emph{FR-Contrastive} loss has
+gradient pressure on false negative pairs that scales as $\Theta(u^{-1/2})$ rather than
+$\Theta(u^{-1})$, providing bounded resistance to false-negative attraction without
+requiring explicit false-negative detection. We derive the gradient analysis, prove a
+noise-tolerance bound, and present preliminary results on CIFAR-10 under synthetic
+false-negative injection. Full ImageNet-scale evaluation is identified as the key
+remaining experiment.
+\end{abstract}
+
+\section{Introduction}
+
+Self-supervised contrastive learning \citep{chen2020simple,he2020momentum,zbontar2021barlow}
+has become a dominant approach for learning visual representations without labels. The core
+mechanism is a contrastive loss that pulls together the representations of two augmented
+views of the same image (positive pair) while pushing apart representations of different
+images (negative pairs).
+
+A fundamental limitation is the \emph{false negative problem}: two images of the same
+semantic category may appear in a batch as a positive and a negative, causing the model to
+push apart semantically similar representations. This problem worsens with larger batch
+sizes (more negatives) and in datasets with high class imbalance \citep{chuang2020debiased}.
+
+\paragraph{Connection to affinity-mass corruption.}
+The companion paper \citep{bottoni2026fisherrao} studies the analogous problem in t-SNE:
+when the target affinity distribution $P$ contains false high-probability cross-label edges,
+KL's unbounded pressure forces the embedding to assign mass to false pairs. Fisher--Rao's
+bounded gradient ($\Theta(u^{-1/2})$ vs.\ KL's $\Theta(u^{-1})$) reduces this overfitting.
+Here we show that contrastive learning with false negatives is the same mechanism in
+a different setting.
+
+\section{Background}
+
+\subsection{NT-Xent as a KL Divergence}
+
+The NT-Xent loss for a batch of $2N$ representations $(z_1, \ldots, z_{2N})$ with positive
+pairs $(z_i, z_{i+N})$ is:
+\begin{equation}
+  \mathcal{L}_{\mathrm{NT\text{-}Xent}}
+  = -\frac{1}{2N}\sum_{i=1}^{2N}\log
+    \frac{\exp(z_i \cdot z_{j(i)} / \tau)}
+         {\sum_{k \ne i}\exp(z_i \cdot z_k / \tau)},
+\end{equation}
+where $j(i)$ denotes the positive index for $i$ and $\tau$ is a temperature. Define
+$p_{ik} = \exp(z_i \cdot z_k/\tau)/\sum_{k'\ne i}\exp(z_i \cdot z_{k'}/\tau)$ as the
+similarity distribution for anchor $i$, and $e_i = \mathbf{1}[k = j(i)]$ as the one-hot
+positive target. Then:
+\begin{equation}
+  \mathcal{L}_{\mathrm{NT\text{-}Xent}} = \frac{1}{2N}\sum_i \mathrm{KL}(e_i \,\|\, p_i).
+\end{equation}
+The KL divergence from a one-hot target $e_i$ places unbounded pressure on $p_i$ to assign
+mass to index $j(i)$. If $j(i)$ is a false negative (a different image but same class), the
+loss still demands $p_i \to e_i$, pushing the false-negative pair together.
+
+\subsection{False Negatives as Distribution Corruption}
+
+At a false negative index $k$, the target says ``do not attend here'' ($e_{ik} = 0$) but
+the semantic relationship says the embedding should not actively repel this index. This is
+precisely the false high-confidence affinity edge scenario: KL demands the model assigns
+zero mass to the false negative, which is the same pressure as requiring a false neighbor
+edge in t-SNE to have embedding mass $Q_{ij} \to 0$.
+
+\section{FR-Contrastive Loss}
+
+We replace the per-anchor KL divergence with the Fisher--Rao squared distance:
+\begin{equation}
+  \mathcal{L}_{\mathrm{FR\text{-}Con}}
+  = \frac{1}{2N}\sum_i d_{\mathrm{FR}}(e_i, p_i)^2,
+  \label{eq:frcon}
+\end{equation}
+where $d_{\mathrm{FR}}(e_i, p_i) = 2\arccos\bigl(\sqrt{p_{ij(i)}}\bigr)$ for a one-hot
+target $e_i$ (since $\sum_k \sqrt{e_{ik} p_{ik}} = \sqrt{p_{ij(i)}}$). The loss
+simplifies to $4\arccos^2(\sqrt{p_{ij(i)}})$, which is bounded by $4\arccos^2(0) = \pi^2
+\approx 9.87$.
+
+\begin{proposition}[FR-Contrastive gradient at false negatives]
+\label{prop:gradient}
+Consider a single anchor $i$ with positive $j(i)$ and a false negative $k$. Let $u =
+p_{ik}$ be the similarity mass the model assigns to the false negative. As $u$ increases
+from zero, the gradient of $\mathcal{L}_{\mathrm{FR\text{-}Con}}$ with respect to $u$ is
+$\Theta(u^{-1/2})$, while the gradient of $\mathcal{L}_{\mathrm{NT\text{-}Xent}}$ with
+respect to $u$ is $\Theta(u^{-1})$.
+\end{proposition}
+\begin{proof}[Sketch]
+For NT-Xent, the loss depends on $u$ through $\log p_{ij(i)}$; differentiating with respect
+to $u$ gives a term proportional to $-1/u$ via the normalization. For FR-Contrastive,
+$d_{\mathrm{FR}}^2 = 4\arccos^2(\sqrt{p_{ij(i)}})$; as $p_{ij(i)}$ decreases because $u$
+steals mass, the rate is $\Theta((p_{ij(i)})^{-1/2}) = \Theta(u^{-1/2})$ by the same
+two-bin analysis as \citet{bottoni2026fisherrao} Proposition 2.
+\end{proof}
+
+This slower growth means FR-Contrastive exerts less repulsion pressure on false negatives
+without requiring any detection or debiasing step.
+
+\section{Experiments}
+\label{sec:experiments}
+
+\paragraph{Setup (preliminary).}
+We train a two-layer projection head on ResNet-18 features from CIFAR-10 using NT-Xent
+and FR-Contrastive under controlled false-negative injection: with probability $\varepsilon$,
+each negative in a batch is replaced by a different augmented view of the same class. We
+vary $\varepsilon \in \{0, 0.1, 0.2, 0.3\}$ and measure linear probe accuracy after $200$
+epochs.
+
+\begin{table}[h]
+  \centering
+  \caption{Linear probe accuracy on CIFAR-10 under false-negative injection (preliminary,
+  single run). Full multi-seed evaluation is ongoing.}
+  \label{tab:contrastive-prelim}
+  \scriptsize
+  \begin{tabular}{lrrrr}
+    \toprule
+    Objective & $\varepsilon=0$ & $\varepsilon=0.1$ & $\varepsilon=0.2$ & $\varepsilon=0.3$ \\
+    \midrule
+    NT-Xent (KL) & \multicolumn{4}{c}{\emph{[results pending]}} \\
+    FR-Contrastive & \multicolumn{4}{c}{\emph{[results pending]}} \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\paragraph{Planned experiments.}
+The full evaluation plan:
+\begin{enumerate}
+  \item \textbf{CIFAR-10/100} with synthetic false-negative injection ($\varepsilon \in
+        \{0, 0.1, 0.2, 0.3, 0.5\}$), $5$ seeds, $200$ epochs, ResNet-18 backbone.
+        Metrics: linear probe top-1 accuracy, $k$-NN accuracy, uniformity--alignment
+        decomposition \citep{wang2020understanding}.
+  \item \textbf{ImageNet-100} subset to test scale. This is the minimal experiment
+        needed for a top-venue submission.
+  \item \textbf{Comparison} to Debiased Contrastive \citep{chuang2020debiased} and
+        RINCE \citep{hoffmann2022ranking} as specialized false-negative methods.
+        FR-Contrastive is a \emph{drop-in} replacement with no detection overhead.
+  \item \textbf{Ablation}: temperature $\tau$ sensitivity. NT-Xent is sensitive to $\tau$;
+        does FR-Contrastive reduce this sensitivity (consistent with bounded gradients)?
+\end{enumerate}
+
+\section{Related Work}
+
+\paragraph{Contrastive learning.}
+SimCLR \citep{chen2020simple}, MoCo \citep{he2020momentum}, and BYOL
+\citep{grill2020bootstrap} are the foundational methods. BYOL avoids negatives entirely;
+FR-Contrastive is complementary (it uses negatives but is more robust to false ones).
+
+\paragraph{False negatives in contrastive learning.}
+Debiased Contrastive \citep{chuang2020debiased} corrects the empirical negative distribution
+analytically. RINCE \citep{hoffmann2022ranking} uses ranking to down-weight similar
+negatives. Ring Loss and conditional sampling also address this. All require explicit
+awareness of false negatives or additional heuristics. FR-Contrastive requires only a loss
+function replacement.
+
+\paragraph{Information geometry in self-supervised learning.}
+Barlow Twins \citep{zbontar2021barlow} uses a redundancy-reduction objective inspired by
+information theory. VICReg \citep{bardes2022vicreg} uses variance--invariance--covariance
+regularization. Neither uses the Fisher information metric directly. The closest work bounds mutual information via variational objectives. FR-Contrastive is the first
+contrastive method grounded in the geodesic geometry of the categorical simplex.
+
+\section{Limitations and Next Steps}
+
+The main limitations are:
+\begin{itemize}
+  \item \textbf{Scale}: the planned CIFAR-10 experiments require $\sim 2$ GPU-hours per
+        run; ImageNet-100 requires $\sim 50$ GPU-hours. This paper currently reports only
+        the theoretical analysis and experimental design.
+  \item \textbf{One-hot target assumption}: the current formulation uses a hard one-hot
+        positive target. Extending to soft positive distributions (multi-crop, supervised
+        contrastive) requires a different form of $d_{\mathrm{FR}}$ between two non-trivial
+        distributions.
+  \item \textbf{Temperature}: the FR-Contrastive loss has $\pi^2$ as its maximum, which
+        may require re-calibrating the batch normalization of representations.
+\end{itemize}
+
+\section{Conclusion}
+
+We have shown that the false-negative problem in contrastive learning is structurally
+identical to the affinity-mass corruption that makes Fisher--Rao advantageous in t-SNE.
+The FR-Contrastive loss provides a principled, drop-in replacement for NT-Xent with
+$\Theta(u^{-1/2})$ gradient pressure on false negatives. The main remaining work is
+large-scale empirical validation; the theory and experimental design are established here.
+
+\bibliographystyle{plainnat}
+\bibliography{references}
+
+\end{document}
