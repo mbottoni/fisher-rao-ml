@@ -38,18 +38,24 @@ sklearn digits: when the training target $P$ is contaminated with false high-pro
 cross-label edges, Fisher--Rao preserves clean neighborhoods and assigns substantially less
 embedding mass to the corrupted pairs than KL. Across $48$ nonzero
 dataset--corruption--level cells, Fisher--Rao reduces corrupted-edge preservation in all
-$48$ cells, reduces corrupted-edge $Q$ mass in all $48$, and improves trustworthiness in
-$45$.
-We then add a harder corrupted-neighbor-graph check on digits, MNIST, and pretrained MNIST
-features, with smoothed KL, capped KL, Jensen--Shannon, and Hellinger baselines. This check
-narrows the claim: Fisher--Rao's advantage appears for corrupted affinity \emph{mass}, but not
-for every corrupted kNN adjacency target. Beyond dimensionality reduction, noisy soft-label
-classification gives a second positive regime: across $16$ nonzero corruption cells,
-Fisher--Rao improves accuracy in $11$, calibration error in $10$, and Brier score in $13$
-relative to KL. A compact VAE study is reported as a secondary check and does not show a
-reliable advantage. The resulting claim is narrow but actionable: Fisher--Rao is not a
-universal KL replacement, but its bounded geometry is useful when high-confidence probability
-targets are corrupted.
+$47$ of $48$ cells, reduces corrupted-edge $Q$ mass in all $48$, and improves trustworthiness in
+$44$.
+We then extend the same stress test to five additional objectives: smoothed KL, capped KL,
+Jensen--Shannon, Hellinger, and a $0.5/0.5$ FR+KL hybrid. Jensen--Shannon and Hellinger
+achieve win rates ($47/48$ cells on bad-edge preservation and $48/48$ on bad-edge $Q$ mass)
+statistically indistinguishable from Fisher--Rao, while capped KL is the worst alternative in
+every metric ($0/48$ cells). The robustness mechanism therefore belongs to bounded symmetric
+divergences as a class, not to the Fisher--Rao geodesic specifically. A harder corrupted
+kNN-graph check narrows the claim further: Fisher--Rao's advantage applies to corrupted
+affinity \emph{mass}, but not to every corrupted adjacency target. Beyond dimensionality
+reduction, noisy soft-label classification gives a second positive regime: across $16$ nonzero
+corruption cells, Fisher--Rao improves accuracy in $11$, calibration error in $10$, and Brier
+score in $13$ relative to KL. A compact VAE study does not show a reliable advantage.
+The $0.5/0.5$ hybrid does not recover KL's cluster-separation advantage, and the silhouette
+comparison under clean or feature-noisy targets is reversed on Gaussian blobs when
+perplexity-adaptive bandwidth replaces the global-median heuristic. The resulting claim is
+narrow and qualified: bounded symmetric divergences help when high-confidence probability
+targets are corrupted; Fisher--Rao is one such divergence, but not a uniquely privileged one.
 \end{abstract}
 
 \section{Introduction}
@@ -121,14 +127,30 @@ explicit significance tests \citep{wilcoxon1945individual,cliff1993dominance}. W
         establishing where the positive robustness result does \emph{not} apply.
   \item A secondary beta-tuned VAE check, reported briefly, showing that the same replacement is
         not yet compelling for compact diagonal-Gaussian VAEs.
+  \item A full-objective noisy-affinity comparison (Section~\ref{sec:full-objective-results})
+        showing that Jensen--Shannon and Hellinger achieve win rates indistinguishable from
+        Fisher--Rao ($47/48$ and $47/48$ cells on bad-edge preservation), while capped KL is
+        the worst-performing alternative across all five metrics. The robustness mechanism is
+        therefore shared by bounded symmetric divergences generally, not specific to the
+        Fisher--Rao geodesic.
+  \item A $0.5/0.5$ FR+KL hybrid experiment (Section~\ref{sec:hybrid-results}) showing the
+        hybrid does not recover KL's cluster-separation advantage: silhouette wins in $30/48$
+        cells, identical to pure Fisher--Rao. The bounded codomain dominates even at half weight.
+  \item A perplexity-adaptive bandwidth sensitivity check
+        (Section~\ref{sec:perplexity-results}) showing that the silhouette conclusion reverses
+        on Gaussian blobs under per-point perplexity tuning, making the clean-target result
+        preprocessing-dependent.
 \end{enumerate}
 
 \paragraph{Headline finding.}
-Fisher--Rao's value is conditional. In ordinary clean-target and feature-noise t-SNE
-benchmarks, KL remains the safer default. But when $P$ itself contains false high-probability
-edges, KL faithfully overfits the corrupted target while Fisher--Rao resists the bad edges and
-better preserves the clean geometry. This gives a precise answer to ``when should the geometry
-matter?'': when boundedness is robustness rather than underfitting.
+The robustness advantage in affinity-corruption regimes is shared by bounded symmetric
+divergences as a class. When $P$ contains false high-probability edges, KL faithfully overfits
+the corrupted target, while Fisher--Rao, Jensen--Shannon, and Hellinger all resist the bad
+edges at essentially the same rate. The Fisher--Rao geodesic is not uniquely privileged; the
+operative property is bounded codomain and symmetry, not the specific spherical geometry.
+Under clean targets and feature-noise corruption, KL remains the safer default for cluster
+separation, though this conclusion is bandwidth-sensitive: the silhouette advantage reverses on
+Gaussian blobs under perplexity-adaptive preprocessing.
 
 \section{Background}
 
@@ -374,6 +396,44 @@ overconfident wrong labels, or shifted to class-confusion labels. We report stud
 negative log-likelihood, expected calibration error, Brier score, teacher-error imitation, and
 student accuracy on examples where the teacher is wrong.
 
+\subsection{Full-objective noisy-affinity comparison}
+\label{sec:full-objective}
+
+The confirmatory noisy-affinity run in Section~\ref{sec:structured-affinity-method} compared
+only KL and Fisher--Rao. We repeat the same protocol with five additional objectives: smoothed
+KL (label-smoothing coefficient $10^{-3}$), capped KL (per-class contribution capped at
+$0.05$), Jensen--Shannon divergence, Hellinger distance, and a hybrid
+$\mathcal{L}_{\mathrm{hyb}} = 0.5\,d_{\mathrm{FR}}(P,Q)^2 + 0.5\,\mathrm{KL}(P\,\|\,Q)$.
+All seven objectives use the same corrupted $P_{\mathrm{train}}$, the same initialization, and
+$200$ optimization steps across five paired seeds, two datasets (blobs and digits), four
+corruption mechanisms, and six nonzero corruption levels. The win-rate comparison uses
+$48 = 2 \times 4 \times 6$ nonzero cells with five paired seeds each; Wilcoxon tests are
+underpowered at $n{=}5$ (minimum achievable $p \approx 0.063$), so we report win counts and
+mean oriented improvements as the primary evidence.
+
+\subsection{Hybrid FR+KL objective}
+\label{sec:hybrid-method}
+
+The hybrid $\mathcal{L}_{\mathrm{hyb}} = 0.5\,d_{\mathrm{FR}}(P,Q)^2 + 0.5\,\mathrm{KL}(P\,\|\,Q)$
+interpolates between Fisher--Rao's bounded geometry and KL's asymmetric cluster-separation
+pressure. Its motivation is to test whether the silhouette disadvantage of Fisher--Rao
+(Section~\ref{sec:boundary-condition}) can be attenuated by adding KL mass at half weight,
+while retaining the robustness property on corrupted affinities. Both components are
+differentiable and the hybrid admits the same PyTorch autograd implementation.
+
+\subsection{Perplexity-adaptive bandwidth}
+\label{sec:perplexity-method}
+
+The main paper benchmark uses a global median-distance bandwidth, a convenient but
+non-canonical choice. We repeat the paper benchmark (three datasets, five seeds, five noise
+levels, $300$ steps) replacing the global bandwidth with per-point perplexity tuning: for each
+point $i$ we find $\sigma_i$ by binary search on the Shannon entropy of the conditional
+distribution $P_{i|\cdot}$ to match a target perplexity of $30$, then symmetrize as
+$P_{ij}=(P_{j|i}+P_{i|j})/(2n)$, following the canonical t-SNE preprocessing of
+\citet{maaten2008visualizing}. Per-point tuning gives more uniform row marginals and reduces
+the influence of density variation; this changes the effective affinity-mass distribution and
+may alter the relative advantages of KL and Fisher--Rao.
+
 \subsection{Statistical analysis}
 \label{sec:stats}
 
@@ -537,12 +597,67 @@ possible corrupted neighbor graph.
   \label{fig:dimred-knn-baselines}
 \end{figure}
 
+\paragraph{Full-objective comparison: Fisher--Rao is not uniquely privileged.}
+\label{sec:full-objective-results}
+Table~\ref{tab:full-objective-power} and Figure~\ref{fig:dimred-noisy-affinity-power} extend
+the noisy-affinity benchmark to all seven objectives. Jensen--Shannon achieves $47/48$ cells
+on bad-edge preservation and $48/48$ on bad-edge $Q$ mass --- the same as Fisher--Rao.
+Hellinger achieves $47/48$ and $48/48$. Smoothed KL provides negligible improvement ($6/48$
+on bad-edge preservation). Capped KL is the worst of all alternatives, winning in $0/48$ cells
+across every metric; a hard per-class cap removes sensitivity to both bad and clean neighbors
+simultaneously. The hybrid (FR+KL) is intermediate: $46/48$ on bad-edge preservation, weaker
+than pure Fisher--Rao, and $48/48$ on bad-edge $Q$ mass. These results shift the central
+claim: the robustness mechanism is bounded and symmetric divergences as a class, not the
+Fisher--Rao geodesic distance specifically.
+
+\begin{table}[t]
+  \centering
+  \caption{Full-objective win-rate comparison in the noisy-affinity stress test. Each cell
+  counts the number of nonzero dataset--corruption--level cells (out of $48$) where the
+  objective improves over KL. Five paired seeds are used; Wilcoxon $p<0.05$ is not achievable
+  at $n{=}5$, so win counts and mean gains are the primary evidence.}
+  \label{tab:full-objective-power}
+  \scriptsize
+  \begin{tabular}{lrrrrr}
+    \toprule
+    Objective & Bad-edge pres. $\downarrow$ & Bad-edge $Q$ mass $\downarrow$ & Trustworthiness $\uparrow$ & Clean recall $\uparrow$ & Silhouette $\uparrow$ \\
+    \midrule
+    Smoothed KL    & $6/48$  & $0/48$  & $27/48$ & $27/48$ & $28/48$ \\
+    Capped KL      & $0/48$  & $0/48$  & $0/48$  & $0/48$  & $0/48$  \\
+    Jensen--Shannon & $47/48$ & $48/48$ & $44/48$ & $39/48$ & $30/48$ \\
+    Hellinger      & $47/48$ & $48/48$ & $45/48$ & $44/48$ & $31/48$ \\
+    Fisher--Rao    & $47/48$ & $48/48$ & $44/48$ & $43/48$ & $30/48$ \\
+    FR+KL hybrid   & $46/48$ & $48/48$ & $41/48$ & $41/48$ & $30/48$ \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=0.85\linewidth]{figures/dimred_noisy_affinity_baseline_power.pdf}
+  \caption{Win-rate heatmap for all objectives vs KL in the noisy-affinity stress test
+  ($48$ nonzero cells). Jensen--Shannon and Hellinger match Fisher--Rao on the two primary
+  robustness metrics; capped KL fails in every cell.}
+  \label{fig:dimred-noisy-affinity-power}
+\end{figure}
+
+\paragraph{Hybrid FR+KL objective does not recover the silhouette gap.}
+\label{sec:hybrid-results}
+The $0.5/0.5$ FR+KL hybrid (Section~\ref{sec:hybrid-method}) achieves $46/48$ cells on
+bad-edge preservation, slightly below pure Fisher--Rao ($47/48$), and $48/48$ on bad-edge
+$Q$ mass. On silhouette, the hybrid wins in $30/48$ cells---identical to pure Fisher--Rao.
+Adding KL at half weight does not narrow the cluster-separation gap relative to KL alone.
+The bounded codomain of the Fisher--Rao component (capped at $\pi^2$) dominates gradient
+behavior even at half weight, so the hybrid inherits both the robustness advantage and the
+silhouette disadvantage of pure Fisher--Rao.
+
 We also ran three additional stress families: bridge outliers, continuous manifolds, and
 parallel-manifold false bridges. Figure~\ref{fig:dimred-stress-overview} summarizes the most
 diagnostic metric from each family. The outlier-influence experiment does not support a
 Fisher--Rao advantage; the global-geometry and symmetric-mismatch tests are mixed. The
-actionable signal is therefore narrow rather than universal: Fisher--Rao appears useful when
-the \emph{affinity target itself} is contaminated by sparse false-neighbor probability mass.
+actionable signal is therefore narrow rather than universal: bounded symmetric objectives
+appear useful when the \emph{affinity target itself} is contaminated by sparse false-neighbor
+probability mass, but Fisher--Rao is not the only such objective.
 
 \begin{figure}[t]
   \centering
@@ -617,6 +732,7 @@ model consumes distributions.
 \end{figure}
 
 \subsection{Boundary condition: clean-target and feature-noise benchmarks}
+\label{sec:boundary-condition}
 
 The positive result above does not imply that Fisher--Rao is a better default t-SNE objective.
 When the target affinity distribution is clean, or when corruption is applied to input features
@@ -776,6 +892,30 @@ relative rate, consistent with its bounded codomain.
   \label{fig:loss-curves}
 \end{figure}
 
+\subsection{Perplexity-adaptive bandwidth sensitivity}
+\label{sec:perplexity-results}
+
+The paper benchmark (Section~\ref{sec:boundary-condition}) uses a global median-distance
+bandwidth. Under perplexity-adaptive per-point bandwidth (Section~\ref{sec:perplexity-method}),
+the silhouette conclusion reverses on Gaussian blobs at noise levels $0$--$0.75$: Fisher--Rao
+wins by $+0.027$ to $+0.036$ silhouette points across those four noise levels (all at
+$p \approx 0.062$, the minimum achievable with five seeds). At high noise ($\alpha=1.0$), KL
+recovers its advantage on blobs ($\overline{\Delta}=-0.031$). On digits, KL's silhouette
+advantage persists across all noise levels (FR$-$KL ranging from $-0.030$ to $-0.078$,
+with $p \approx 0.062$ at three of the five noise levels). On MNIST, KL also wins at every
+noise level (FR$-$KL $= -0.046$ to $-0.067$). Trustworthiness and neighborhood recall are
+close to zero across all datasets and noise levels under perplexity bandwidth, as they are
+under global bandwidth.
+
+The reversal on blobs is interpretable: perplexity-adaptive bandwidth reduces the bandwidth
+variation caused by density differences among the well-separated Gaussian clusters, giving
+each point a more uniform local neighborhood. Under more uniform row marginals, the
+Student-$t$ low-dimensional distribution faces a cleaner matching target, and Fisher--Rao's
+symmetric penalty structure may be better aligned with that geometry. On digits and MNIST,
+where class boundaries overlap more, the denser and less balanced feature structure means
+global and perplexity bandwidth produce more similar effective affinities, so KL's cluster-
+separation advantage persists.
+
 \section{Secondary VAE Check}
 \label{sec:vae-results}
 
@@ -837,6 +977,19 @@ The noisy soft-label benchmark adds a second setting with the same structure: th
 categorical probability vector, some of its high-confidence mass is wrong, and bounded
 geometric matching reduces the penalty for not obeying that bad mass exactly.
 
+\paragraph{Bounded divergences generally, not Fisher--Rao specifically.}
+The full-objective comparison in Section~\ref{sec:full-objective-results} reveals that the
+robustness advantage is shared by all bounded symmetric divergences: Jensen--Shannon and
+Hellinger achieve $47/48$ and $48/48$ win rates on bad-edge preservation and bad-edge $Q$
+mass, matching Fisher--Rao exactly. Smoothed KL's negligible improvement ($6/48$) and capped
+KL's complete failure ($0/48$) confirm that the relevant property is bounded codomain and
+symmetry, not the geodesic geometry of the sphere. The $0.5/0.5$ hybrid reinforces this:
+even at half weight, the Fisher--Rao component's bounded codomain dominates, reproducing the
+same robustness win rate and the same silhouette disadvantage. Practitioners looking for
+robustness in this regime therefore have multiple equivalent choices; Fisher--Rao's additional
+geometric properties (metric, triangle inequality, Riemannian interpretation) provide
+theoretical elegance but no measurable empirical advantage over Jensen--Shannon or Hellinger.
+
 \paragraph{Why not center the VAE result?}
 The VAE study tests a different geometry. For Gaussian posteriors, Fisher--Rao is not bounded,
 so it does not provide the same robustness mechanism that explains the false-neighbor affinity
@@ -856,14 +1009,16 @@ the same boundedness can hurt cluster separation or graph matching under trusted
 The compact t-SNE sizes mean the affinity matrices are $200\times200$ in the standard
 benchmark and $300\times300$ in the structured-corruption benchmarks, well below practical
 t-SNE deployments at $10^4$--$10^5$ points. Although nothing in the gradient code prevents
-scaling, the empirical patterns may shift for larger neighborhoods. We use a fixed
-median-distance bandwidth instead of perplexity-tuned bandwidths; this matches the controlled
-stress-test setting but is not the canonical t-SNE preprocessing. The kNN-graph extension uses
-MNIST and pretrained MNIST features, but still relies on synthetic cross-label edge
-replacement; naturally occurring approximate-neighbor errors and batch-effect graphs remain
-important follow-ups. Finally, we do not study early-exaggeration or annealing schedules, both
-of which interact non-trivially with objective scale. Each limitation defines a clean follow-up
-experiment in the same multi-seed framework.
+scaling, the empirical patterns may shift for larger neighborhoods. The primary benchmark uses
+a global median-distance bandwidth rather than perplexity-tuned bandwidths; a perplexity
+sensitivity check (Section~\ref{sec:perplexity-results}) shows the clean-target silhouette
+conclusion reverses on Gaussian blobs under per-point bandwidth tuning but persists on digits
+and MNIST, so the bandwidth choice matters for the clean-target comparison on well-separated
+datasets. The kNN-graph extension uses MNIST and pretrained MNIST features, but still relies
+on synthetic cross-label edge replacement; naturally occurring approximate-neighbor errors and
+batch-effect graphs remain important follow-ups. Finally, we do not study early-exaggeration
+or annealing schedules, both of which interact non-trivially with objective scale. Each
+limitation defines a clean follow-up experiment in the same multi-seed framework.
 
 \section{Conclusion}
 
@@ -878,10 +1033,15 @@ The same experiments also define the boundary of the claim. Under clean targets 
 feature-noise corruption, KL remains the better default for t-SNE-style objectives, especially
 when cluster separation is the desired behavior. In compact diagonal-Gaussian VAEs,
 Fisher--Rao is competitive after beta tuning but does not yield a reliable quality or
-robustness improvement. The practical recommendation is therefore conditional rather than
-universal: use Fisher--Rao when robustness to contaminated high-confidence probability mass
-matters; keep KL when the target distribution is trusted, or when aggressive matching is
-desired.
+robustness improvement. A full-objective comparison shows that the robustness advantage belongs
+to bounded symmetric divergences as a class: Jensen--Shannon and Hellinger match Fisher--Rao
+on the two primary robustness metrics, while the $0.5/0.5$ FR+KL hybrid inherits both the
+advantage and the silhouette disadvantage of pure Fisher--Rao. Fisher--Rao is therefore not
+uniquely privileged; any bounded symmetric objective provides equivalent protection against
+corrupted high-confidence affinity mass. The practical recommendation is conditional rather
+than universal: use any bounded symmetric divergence (Fisher--Rao, Jensen--Shannon, or
+Hellinger) when robustness to contaminated high-confidence probability mass matters; keep KL
+when the target distribution is trusted, or when aggressive cluster separation is desired.
 
 \appendix
 

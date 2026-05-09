@@ -26,6 +26,7 @@ from fisher_rao_ml.device import get_device
 from fisher_rao_ml.evaluation import evaluate_embedding, neighborhood_recall
 from fisher_rao_ml.tsne import (
     pairwise_student_t_affinities,
+    perplexity_gaussian_affinities,
     symmetric_gaussian_affinities,
     tsne_distribution_loss,
 )
@@ -38,6 +39,7 @@ ROBUST_OBJECTIVES = (
     "jensen_shannon",
     "hellinger",
     "fisher_rao",
+    "fr_kl_hybrid",
 )
 
 
@@ -125,6 +127,24 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--knn-neighbors", type=int, default=10)
     parser.add_argument("--knn-objectives", nargs="+", default=list(ROBUST_OBJECTIVES))
+    parser.add_argument(
+        "--noisy-affinity-objectives",
+        nargs="+",
+        default=list(ROBUST_OBJECTIVES),
+        help="Objectives compared in the noisy_affinity stress test.",
+    )
+    parser.add_argument(
+        "--bandwidth-mode",
+        default="global_median",
+        choices=["global_median", "perplexity"],
+        help="Affinity bandwidth: global median heuristic or per-point perplexity tuning.",
+    )
+    parser.add_argument(
+        "--perplexity",
+        type=float,
+        default=30.0,
+        help="Target perplexity for per-point bandwidth (only used with --bandwidth-mode perplexity).",
+    )
     return parser.parse_args()
 
 
@@ -157,6 +177,19 @@ def median_distance(x: np.ndarray) -> float:
 def gaussian_affinity_numpy(x: np.ndarray, bandwidth: float) -> np.ndarray:
     tensor = torch.tensor(x)
     return symmetric_gaussian_affinities(tensor, bandwidth=bandwidth).numpy()
+
+
+def build_affinity_matrix(
+    x: np.ndarray,
+    bandwidth: float,
+    bandwidth_mode: str,
+    perplexity: float,
+    device: torch.device,
+) -> np.ndarray:
+    tensor = torch.tensor(x, device=device)
+    if bandwidth_mode == "perplexity":
+        return perplexity_gaussian_affinities(tensor, perplexity=perplexity).cpu().numpy()
+    return symmetric_gaussian_affinities(tensor, bandwidth=bandwidth).cpu().numpy()
 
 
 def train_embedding_from_affinities(
@@ -500,12 +533,19 @@ def run_noisy_affinity_test(
         else args.save_qualitative_level
     )
 
+    noisy_affinity_objectives = tuple(args.noisy_affinity_objectives)
     print("\n[stress:noisy-affinity] Injecting cross-label high-affinity edges")
+    print(f"[stress:noisy-affinity] objectives={noisy_affinity_objectives}")
     for dataset in args.stress_datasets:
         x_clean, labels = make_noisy_affinity_dataset(dataset, args.samples, seed=13)
         bandwidth = max(median_distance(x_clean) / math.sqrt(2.0), 1e-3)
-        p_clean = gaussian_affinity_numpy(x_clean, bandwidth)
-        print(f"[stress:noisy-affinity] dataset={dataset} shape={x_clean.shape}")
+        p_clean = build_affinity_matrix(
+            x_clean, bandwidth, args.bandwidth_mode, args.perplexity, device
+        )
+        print(
+            f"[stress:noisy-affinity] dataset={dataset} shape={x_clean.shape} "
+            f"bandwidth_mode={args.bandwidth_mode}"
+        )
         for corruption_type in args.corruption_types:
             for level in args.false_edge_levels:
                 for seed in args.seeds:
@@ -536,7 +576,7 @@ def run_noisy_affinity_test(
                                     "target": j,
                                 }
                             )
-                    for objective in OBJECTIVES:
+                    for objective in noisy_affinity_objectives:
                         embedding, history = train_embedding_from_affinities(
                             p_train,
                             objective,
@@ -574,7 +614,8 @@ def run_noisy_affinity_test(
                             }
                         )
                         should_save_embedding = (
-                            dataset == args.save_qualitative_dataset
+                            objective in ("kl", "fisher_rao")
+                            and dataset == args.save_qualitative_dataset
                             and corruption_type == args.save_qualitative_corruption_type
                             and seed == args.seeds[0]
                             and (level == 0.0 or abs(level - qualitative_level) < 1e-12)
