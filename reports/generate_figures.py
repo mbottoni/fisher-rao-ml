@@ -26,6 +26,7 @@ OBJECTIVE_LABELS = {
     "jensen_shannon": "Jensen-Shannon",
     "hellinger": "Hellinger",
     "fisher_rao": "Fisher-Rao",
+    "fr_kl_hybrid": "FR+KL hybrid",
 }
 OBJECTIVE_COLORS = {
     "kl": "tab:blue",
@@ -34,6 +35,7 @@ OBJECTIVE_COLORS = {
     "jensen_shannon": "tab:orange",
     "hellinger": "tab:green",
     "fisher_rao": "tab:red",
+    "fr_kl_hybrid": "tab:brown",
 }
 OBJECTIVE_MARKERS = {
     "kl": "o",
@@ -42,6 +44,7 @@ OBJECTIVE_MARKERS = {
     "jensen_shannon": "D",
     "hellinger": "P",
     "fisher_rao": "s",
+    "fr_kl_hybrid": "*",
 }
 
 
@@ -429,9 +432,10 @@ def save_dimred_noisy_affinity_means() -> None:
         ("eval_corrupted_edge_preservation", "bad-edge preservation $\\downarrow$"),
         ("eval_corrupted_edge_q_mass", "bad-edge $Q$ mass $\\downarrow$"),
     ]
+    all_objectives = sorted({row["objective"] for row in rows})
     fig, axes = plt.subplots(1, len(metrics), figsize=(3.0 * len(metrics), 3.2), sharex=True)
     for ax, (metric, label) in zip(axes, metrics, strict=True):
-        for objective in ["kl", "fisher_rao"]:
+        for objective in all_objectives:
             selected = [row for row in rows if row["objective"] == objective]
             selected.sort(key=lambda row: float(row["stress_level"]))
             x = np.array([float(row["stress_level"]) for row in selected])
@@ -440,17 +444,17 @@ def save_dimred_noisy_affinity_means() -> None:
             ax.plot(
                 x,
                 y,
-                label=OBJECTIVE_LABELS[objective],
-                color=OBJECTIVE_COLORS[objective],
-                marker=OBJECTIVE_MARKERS[objective],
+                label=OBJECTIVE_LABELS.get(objective, objective),
+                color=OBJECTIVE_COLORS.get(objective),
+                marker=OBJECTIVE_MARKERS.get(objective, "o"),
             )
-            ax.fill_between(x, y - std, y + std, color=OBJECTIVE_COLORS[objective], alpha=0.16)
+            ax.fill_between(x, y - std, y + std, color=OBJECTIVE_COLORS.get(objective), alpha=0.12)
         ax.set_title(label)
         ax.set_xlabel("false-edge mass")
         ax.grid(alpha=0.25)
-    axes[0].legend()
+    axes[0].legend(fontsize=7)
     fig.suptitle(
-        "Noisy-affinity stress test means "
+        "Noisy-affinity stress test means — all objectives "
         f"({DATASET_LABELS.get(preferred_dataset, preferred_dataset)}, {preferred_corruption})"
     )
     fig.tight_layout(rect=(0, 0, 1, 0.9))
@@ -701,6 +705,58 @@ def save_knn_graph_baselines() -> None:
     fig.suptitle("Corrupted neighbor graph robustness across divergences")
     fig.tight_layout(rect=(0, 0, 1, 0.94))
     fig.savefig(FIGURE_DIR / "dimred_knn_graph_baselines.pdf", bbox_inches="tight")
+    plt.close(fig)
+
+
+def save_noisy_affinity_baseline_power() -> None:
+    """Win-rate heatmap: each non-KL objective vs KL in the noisy_affinity stress test."""
+    path = RESULT_DIR / "dimred_stress_baseline_power_summary.csv"
+    if not path.exists():
+        print(f"Skipping baseline power figure; missing {path}")
+        return
+    rows = read_csv_rows(path)
+    if not rows:
+        return
+
+    objectives = [
+        obj for obj in
+        ["kl_smoothed", "kl_capped", "jensen_shannon", "hellinger", "fisher_rao", "fr_kl_hybrid"]
+        if any(row["objective"] == obj for row in rows)
+    ]
+    metrics = sorted({row["metric_label"] for row in rows})
+    if not objectives or not metrics:
+        return
+
+    # Build win-rate matrix: rows = metrics, cols = objectives
+    matrix = np.full((len(metrics), len(objectives)), float("nan"))
+    for mi, metric_label in enumerate(metrics):
+        for oi, objective in enumerate(objectives):
+            matching = [
+                r for r in rows
+                if r["objective"] == objective and r["metric_label"] == metric_label
+            ]
+            if matching:
+                n_cells = int(matching[0]["n_cells"])
+                n_improves = int(matching[0]["n_improves_over_kl"])
+                matrix[mi, oi] = n_improves / n_cells if n_cells > 0 else float("nan")
+
+    fig, ax = plt.subplots(figsize=(max(6.0, 1.5 * len(objectives)), max(2.5, 0.7 * len(metrics))))
+    img = ax.imshow(matrix, aspect="auto", cmap="RdYlGn", vmin=0.0, vmax=1.0)
+    for mi in range(len(metrics)):
+        for oi in range(len(objectives)):
+            val = matrix[mi, oi]
+            if np.isfinite(val):
+                ax.text(oi, mi, f"{val:.0%}", ha="center", va="center", fontsize=8)
+    ax.set_xticks(np.arange(len(objectives)))
+    ax.set_xticklabels(
+        [OBJECTIVE_LABELS.get(o, o) for o in objectives], rotation=30, ha="right", fontsize=9
+    )
+    ax.set_yticks(np.arange(len(metrics)))
+    ax.set_yticklabels(metrics, fontsize=9)
+    ax.set_title("Fraction of noisy-affinity cells where each objective improves over KL")
+    fig.colorbar(img, ax=ax, shrink=0.8, label="win rate vs KL")
+    fig.tight_layout()
+    fig.savefig(FIGURE_DIR / "dimred_noisy_affinity_baseline_power.pdf", bbox_inches="tight")
     plt.close(fig)
 
 
@@ -1042,6 +1098,7 @@ def main() -> None:
     save_vae_best_beta_deltas()
     save_vae_training_curves()
     save_vae_latent_embeddings()
+    save_noisy_affinity_baseline_power()
     print(f"Wrote figures to {FIGURE_DIR}")
 
 

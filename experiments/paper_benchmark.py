@@ -32,6 +32,7 @@ from fisher_rao_ml.evaluation import (
 )
 from fisher_rao_ml.tsne import (
     pairwise_student_t_affinities,
+    perplexity_gaussian_affinities,
     symmetric_gaussian_affinities,
     tsne_distribution_loss,
 )
@@ -67,6 +68,18 @@ def parse_args() -> argparse.Namespace:
         type=str,
         default="digits",
         help="Save raw 2D embeddings for this dataset to enable qualitative figures",
+    )
+    parser.add_argument(
+        "--bandwidth-mode",
+        default="global_median",
+        choices=["global_median", "perplexity"],
+        help="Affinity bandwidth: global median heuristic or per-point perplexity tuning.",
+    )
+    parser.add_argument(
+        "--perplexity",
+        type=float,
+        default=30.0,
+        help="Target perplexity when --bandwidth-mode perplexity is used.",
     )
     return parser.parse_args()
 
@@ -135,21 +148,30 @@ def median_distance(x: np.ndarray) -> float:
     return float(np.median(distances[triu_idx]))
 
 
+def build_tsne_affinities(
+    x_tensor: torch.Tensor,
+    bandwidth: float,
+    bandwidth_mode: str,
+    perplexity: float,
+) -> torch.Tensor:
+    if bandwidth_mode == "perplexity":
+        return perplexity_gaussian_affinities(x_tensor, perplexity=perplexity)
+    return symmetric_gaussian_affinities(x_tensor, bandwidth=bandwidth)
+
+
 def train_tsne_embedding(
-    x_for_affinities: torch.Tensor,
+    p: torch.Tensor,
     objective: str,
     steps: int,
     seed: int,
-    bandwidth: float,
     log_every: int,
     verbose: bool = False,
 ) -> tuple[np.ndarray, list[tuple[int, float]]]:
     torch.manual_seed(seed)
     embedding = torch.nn.Parameter(
-        torch.randn(x_for_affinities.shape[0], 2, device=x_for_affinities.device) * 1e-3
+        torch.randn(p.shape[0], 2, device=p.device) * 1e-3
     )
     optimizer = torch.optim.Adam([embedding], lr=5e-2)
-    p = symmetric_gaussian_affinities(x_for_affinities, bandwidth=bandwidth)
     history: list[tuple[int, float]] = []
 
     for step in range(steps):
@@ -193,14 +215,16 @@ def run_tsne_benchmark(args: argparse.Namespace, device: torch.device) -> None:
                 perturbation = noise_rng.normal(size=x_clean.shape).astype(np.float32) * noise
                 x_noisy = (x_clean + perturbation).astype(np.float32)
                 x_tensor = torch.tensor(x_noisy, device=device)
+                p = build_tsne_affinities(
+                    x_tensor, bandwidth, args.bandwidth_mode, args.perplexity
+                )
 
                 for objective in objectives:
                     embedding, history = train_tsne_embedding(
-                        x_tensor,
+                        p,
                         objective=objective,
                         steps=args.tsne_steps,
                         seed=seed,
-                        bandwidth=bandwidth,
                         log_every=args.log_every,
                     )
                     metrics = evaluate_embedding(
