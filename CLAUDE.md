@@ -5,54 +5,75 @@ in ML objectives. The goal is publications at top-tier venues (NeurIPS, ICML, IC
 
 ---
 
-## Project Goal
+## The Unified Finding
 
-The central research question: **When does replacing KL divergence with a bounded symmetric
-divergence improve robustness in representation learning?**
+**The operative property is not Fisher-Rao geometry specifically — it is bounded codomain +
+symmetry.** FR helps when *corruption concentrates probability mass on wrong targets*
+(overconfident false neighbors, wrong soft labels). It hurts or is neutral when *corruption
+is in which samples are paired* (symmetric label noise, graph corruption), because that
+requires a different structural property: the constant-sum condition (Ghosh 2017), which MAE
+satisfies and FR does not.
 
-Key finding so far: bounded symmetric divergences (Fisher-Rao, Jensen-Shannon, Hellinger) all
-resist high-confidence false-neighbor edges equally well. Fisher-Rao is not uniquely privileged
-— the operative property is bounded codomain + symmetry, not the geodesic geometry. The most
-compelling positive signal is in **soft-label classification and distillation under
-confidently-wrong labels** (+5–13% accuracy, p<0.05 in 10/16 cells).
-
-The paper in `reports/fisher_rao_vs_kl_arxiv.tex` documents all experiments. The branch
-`feat/improv` contains the full extended results.
+| Setting | FR vs KL | Mechanism |
+|---|---|---|
+| Affinity-mass corruption (t-SNE) | +++ | Bounded gradient Θ(u^{-1/2}) on false edges |
+| Soft-label / distillation overconfidence | ++ | Same — bounded pressure on wrong distributions |
+| **Symmetric label noise** | **−− hurts** | Violates Ghosh noise-tolerance condition |
+| kNN-graph corruption | neutral | Different corruption type; condition doesn't apply |
+| VAE regularization | neutral | No clear advantage after beta tuning |
+| Clean training | neutral | KL and FR equivalent |
 
 ---
 
 ## Repository Layout
 
 ```
-src/fisher_rao_ml/          Core library (import as fisher_rao_ml)
-  losses.py                 categorical_fisher_rao_distance/squared
-                            diagonal_gaussian_fisher_rao_distance/squared
-  distribution_losses.py    distribution_loss() — 7 objectives (kl, kl_smoothed,
-                            kl_capped, jensen_shannon, hellinger, fisher_rao, fr_kl_hybrid)
-  tsne.py                   pairwise_student_t_affinities, symmetric_gaussian_affinities,
-                            perplexity_gaussian_affinities, tsne_distribution_loss
-  evaluation.py             trustworthiness, neighborhood_recall, silhouette, knn_accuracy,
-                            corrupted_edge_preservation, corrupted_edge_q_mass
-  vae.py                    VAE model (diagonal Gaussian encoder/decoder)
-  device.py                 get_device() — returns MPS on Apple Silicon, else CPU
+src/fisher_rao_ml/
+  losses.py                   categorical_fisher_rao_distance/squared
+                              diagonal_gaussian_fisher_rao_distance/squared
+  distribution_losses.py      distribution_loss() — 10 objectives:
+                              kl, kl_smoothed, kl_capped, jensen_shannon,
+                              hellinger, fisher_rao, fr_kl_hybrid, gce, mae, sce
+  representation_distance.py  fr_representation_distance(), pairwise_fr_rd(),
+                              cka_linear(), fr_ood_score()
+  tsne.py                     pairwise_student_t_affinities,
+                              symmetric_gaussian_affinities,
+                              perplexity_gaussian_affinities, tsne_distribution_loss
+  evaluation.py               trustworthiness, neighborhood_recall, silhouette,
+                              knn_accuracy, corrupted_edge_preservation,
+                              corrupted_edge_q_mass
+  vae.py                      VAE model (diagonal Gaussian encoder/decoder)
+  device.py                   get_device() — MPS on Apple Silicon, else CPU
 
-experiments/                Runnable scripts (all accept --help)
-  paper_benchmark.py        Main t-SNE benchmark (3 datasets, feature-noise levels,
-                            --bandwidth-mode global_median|perplexity, --perplexity 30)
-  dimred_stress_benchmark.py Noisy-affinity + kNN-graph corruption stress tests
-  soft_label_benchmark.py   Soft-label classification under noisy targets
-  distillation_benchmark.py Corrupted teacher-student distillation
-  vae_benchmark.py          VAE with KL vs Fisher-Rao regularizer
-  aggregate_results.py      Aggregates paper_benchmark → tsne_robustness_{full,aggregated,significance}.csv
-  aggregate_dimred_stress.py Aggregates dimred_stress → dimred_stress_{aggregated,significance,
-                            baseline_significance,power_summary,baseline_power_summary}.csv
-  aggregate_ml_stress.py    Aggregates soft_label + distillation → ml_stress_*.csv
-  aggregate_vae_results.py  Aggregates vae → vae_*.csv
+experiments/
+  paper_benchmark.py          Main t-SNE benchmark (3 datasets, feature-noise levels)
+  dimred_stress_benchmark.py  Noisy-affinity + kNN-graph corruption stress tests
+  soft_label_benchmark.py     Soft-label classification under noisy targets
+  distillation_benchmark.py   Corrupted teacher-student distillation
+  vae_benchmark.py            VAE with KL vs Fisher-Rao regularizer
+  noisy_label_benchmark.py    Direction 1: 6-objective noisy-label benchmark
+                              (kl, gce, mae, sce, hellinger, fisher_rao;
+                               6 noise regimes; resumable; outputs to reports/results/)
+  representation_distance_benchmark.py
+                              Direction 2: 25-model FR-RD experiment
+                              (5 training conditions × 5 seeds on UCI Digits)
+  fr_contrastive_benchmark.py Direction 3: NT-Xent vs FR-Contrastive
+                              with false-negative injection
+  aggregate_results.py        paper_benchmark → tsne_robustness_*.csv
+  aggregate_dimred_stress.py  dimred_stress → dimred_stress_*.csv
+  aggregate_ml_stress.py      soft_label + distillation → ml_stress_*.csv
+  aggregate_vae_results.py    vae → vae_*.csv
 
 reports/
-  fisher_rao_vs_kl_arxiv.tex  Main paper (LaTeX)
-  references.bib              Bibliography
-  generate_figures.py         Reads all CSVs → writes figures/*.pdf
+  fisher_rao_vs_kl_arxiv.tex  Main paper (26 pages, all original experiments)
+  fr_noisy_labels.tex         Direction 1 paper (6 pages)
+  fr_representation_distance.tex  Direction 2 paper (7 pages)
+  fr_contrastive.tex          Direction 3 paper (5 pages, theory + null result)
+  references.bib              Shared bibliography (all papers)
+  generate_figures.py         Main paper figures
+  generate_noisy_label_figures.py  Direction 1 figures
+  generate_fr_rd_figures.py   Direction 2 figures
+  generate_fr_contrastive_figures.py  Direction 3 figures
   results/                    All experiment output CSVs (committed)
   figures/                    All generated figures (committed)
 ```
@@ -73,29 +94,23 @@ uv run --project . pytest tests
 # Lint
 uv run --project . --extra dev ruff check .
 
-# Run individual experiments
-uv run --project . python experiments/paper_benchmark.py
-uv run --project . python experiments/dimred_stress_benchmark.py
-uv run --project . python experiments/soft_label_benchmark.py
-uv run --project . python experiments/distillation_benchmark.py
-
-# Aggregate results
-uv run --project . python experiments/aggregate_results.py
-uv run --project . python experiments/aggregate_dimred_stress.py
-uv run --project . python experiments/aggregate_ml_stress.py
+# Run experiments
+uv run --project . python experiments/noisy_label_benchmark.py        # Direction 1
+uv run --project . python experiments/representation_distance_benchmark.py  # Direction 2
+uv run --project . python experiments/fr_contrastive_benchmark.py     # Direction 3
 
 # Regenerate figures
 uv run --project . python reports/generate_figures.py
+uv run --project . python reports/generate_noisy_label_figures.py
+uv run --project . python reports/generate_fr_rd_figures.py
+uv run --project . python reports/generate_fr_contrastive_figures.py
 
-# Rebuild paper PDF (run from reports/)
-cd reports && pdflatex fisher_rao_vs_kl_arxiv.tex && bibtex fisher_rao_vs_kl_arxiv \
-  && pdflatex fisher_rao_vs_kl_arxiv.tex && pdflatex fisher_rao_vs_kl_arxiv.tex
-
-# Full pipeline
-make paper-all
+# Rebuild any paper PDF (run from reports/)
+cd reports && pdflatex <paper>.tex && bibtex <paper> \
+  && pdflatex <paper>.tex && pdflatex <paper>.tex
 ```
 
-**Device:** Apple Silicon MPS. `get_device()` in `device.py` handles selection automatically.
+**Device:** Apple Silicon MPS. `get_device()` handles selection automatically.
 
 ---
 
@@ -104,143 +119,176 @@ make paper-all
 ### Fisher-Rao distance on the categorical simplex
 
 ```python
-d_FR(p, q) = 2 * arccos(sum_i sqrt(p_i * q_i))     # bounded by π, symmetric, metric
+d_FR(p, q) = 2 * arccos(sum_i sqrt(p_i * q_i))   # bounded by π, symmetric, metric
 ```
 
-Implemented in `losses.py`:
-- `categorical_fisher_rao_distance(p, q, eps)` — returns distance
-- `categorical_fisher_rao_squared(p, q, eps)` — returns distance², used as t-SNE objective
+- `categorical_fisher_rao_distance(p, q, eps)` — distance
+- `categorical_fisher_rao_squared(p, q, eps)` — distance², used as t-SNE objective
 
-### Distribution loss objectives
+### Distribution loss dispatch
 
-`distribution_loss(target, prediction, objective, eps)` in `distribution_losses.py` dispatches
-to one of 7 objectives. `target` and `prediction` must be normalized probability vectors of
-shape `(..., classes)`. Returns a scalar (mean over batch).
+`distribution_loss(target, prediction, objective, eps)` in `distribution_losses.py`.
+Both `target` and `prediction` must be normalized probability vectors `(..., classes)`.
+Returns a scalar averaged over the batch.
 
-### t-SNE affinity construction
+All 10 objectives: `kl`, `kl_smoothed`, `kl_capped`, `jensen_shannon`, `hellinger`,
+`fisher_rao`, `fr_kl_hybrid`, `gce`, `mae`, `sce`.
 
-- `symmetric_gaussian_affinities(x, bandwidth)` — global bandwidth heuristic (default)
-- `perplexity_gaussian_affinities(x, perplexity=30)` — per-point bandwidth via binary search
-  on Shannon entropy; symmetrizes as P_ij = (P_{j|i} + P_{i|j}) / 2n, then normalizes
+New tests must be added to `test_distribution_objectives_have_gradients` — it auto-iterates
+over `OBJECTIVES` in `distribution_losses.py`.
+
+### FR Representation Distance
+
+`fr_representation_distance(probs_a, probs_b)` in `representation_distance.py`.
+A proper pseudometric on model output distributions:
+```python
+FR-RD(θ, φ; X) = E_{x~X}[d_FR(P_θ(x), P_φ(x))]
+```
+Also exports: `pairwise_fr_rd()`, `cka_linear()` (CKA baseline), `fr_ood_score()`.
 
 ---
 
-## Key Experimental Results
+## Detailed Experimental Results
 
-### What works (positive signal)
-| Experiment | Metric | Result |
-|---|---|---|
-| Noisy-affinity stress (10 seeds) | Bad-edge preservation | 48/48 cells, 43/48 p<0.05 |
-| Noisy-affinity stress (10 seeds) | Bad-edge Q mass | 48/48 cells, 48/48 p<0.05 |
-| Soft-label classification | Accuracy | 11/16 cells, 9/16 p<0.05, mean +2.3% |
-| Soft-label classification | ECE | 10/16 cells, 9/16 p<0.05 |
-| Soft-label classification | Brier score | 13/16 cells, 10/16 p<0.05 |
-| Distillation (corrupted teacher) | Teacher-error imitation | 10/16 cells, 8/16 p<0.05 |
+### Original paper (main t-SNE experiments)
 
-### What does NOT work (negative/boundary)
-- **Silhouette under clean targets:** KL wins consistently (Fisher-Rao bounded codomain
-  hurts cluster separation). Reverses on blobs only under perplexity-adaptive bandwidth.
-- **kNN-graph corruption:** Fisher-Rao does not help when the neighbor graph (not affinity
-  mass) is corrupted. 4/27 cells on bad-edge preservation.
-- **VAE regularization:** Not compelling after beta tuning. Fisher-Rao is competitive but
-  no reliable improvement on reconstruction or latent classification.
-- **Jensen-Shannon and Hellinger match Fisher-Rao** on the affinity-corruption task exactly
-  (both 47/48 and 48/48). FR is not uniquely privileged.
+**What works:**
+- Noisy-affinity stress (10 seeds): bad-edge preservation 48/48 cells, 43/48 p<0.05
+- Noisy-affinity stress (10 seeds): bad-edge Q-mass 48/48, 48/48 p<0.05
+- Soft-label classification: accuracy 11/16 cells, 9/16 p<0.05, mean +2.3%
+- Distillation (corrupted teacher): teacher-error imitation 10/16 cells, 8/16 p<0.05
 
-### Data integrity note
-The original confirmatory noisy-affinity run (10 seeds, KL+FR only) that produces Table 1's
-p<0.05 numbers was **overwritten** by the 5-seed 7-objective run in commit `bbe914f`. Table 1
-numbers (48/48, 43/48 p<0.05) come from commit `HEAD~2` (recoverable from git). The current
-`dimred_stress_full.csv` has only 5 seeds → 0/48 at p<0.05 (minimum Wilcoxon p ≈ 0.063).
-**Do not regenerate Table 1 from current CSV — it will produce wrong p-value counts.**
+**What does NOT work:**
+- Silhouette under clean targets: KL wins consistently (bounded codomain hurts separation)
+- kNN-graph corruption: only 4/27 cells on bad-edge preservation
+- VAE regularization: competitive but no reliable improvement
+- JS and Hellinger match FR exactly — FR is not uniquely privileged
+
+### Direction 1: Noisy label learning (`fr_noisy_labels.tex`)
+
+Benchmark: 6 objectives × 6 noise regimes × 10 seeds on UCI Digits.
+
+| Noise | KL | FR | MAE | GCE | SCE |
+|---|---|---|---|---|---|
+| Clean | 97.9% | 97.9% | 98.0% | 98.0% | 97.9% |
+| Sym 20% | 86.2% | 86.4% | **96.6%** | 92.4% | 91.9% |
+| Sym 40% | 70.0% | **66.8%** ↓ | **89.6%** | 76.3% | 76.1% |
+| Sym 60% | 47.1% | **45.1%** ↓ | **68.2%** | 50.7% | 50.6% |
+| Sym 80% | 21.7% | 22.0% | **29.5%** | 23.1% | 23.6% |
+| Asym 40% | 61.1% | 60.3% | **67.3%** | 60.9% | 61.2% |
+
+**Key result:** FR is significantly worse than KL at sym_40 (−3.2%, p=0.002, 0/10 wins)
+and sym_60 (−2.0%, p=0.004, 0/10 wins). MAE dominates (+19.6% at sym_40, 10/10 wins).
+
+**Why:** FR does not satisfy the Ghosh (2017) noise-tolerance condition (constant per-class
+sum). MAE does. This is a definitive negative result, not a gap to be fixed.
+
+**Practical rule:** Use MAE or GCE for symmetric label noise. Use FR only when targets are
+soft probability distributions with overconfident wrong mass.
+
+### Direction 2: FR Representation Distance (`fr_representation_distance.tex`)
+
+25 MLP classifiers (5 conditions × 5 seeds, UCI Digits).
+- Between/within condition FR-RD ratio: **1.50×**
+- Pearson(FR-RD, |accuracy difference|) = **0.74**
+- noisy_60 condition has highest within-condition variability (FR-RD = 2.23), as expected
+- Complementary to CKA (output distributions vs hidden layer geometry)
+
+### Direction 3: FR-Contrastive (`fr_contrastive.tex`)
+
+Theory: NT-Xent = (1/2N) Σ KL(e_i ‖ p_i). Replacing KL with d_FR² gives gradient
+Θ(u^{-1/2}) on false negatives vs KL's Θ(u^{-1}).
+
+Experiment: UCI Digits with explicit false-negative injection (0–30% rate, 5 seeds).
+Both NT-Xent and FR-Contrastive achieve ~98.5% 5-NN at all rates — **null result**.
+Dataset too easy; false-negative confusion doesn't degrade performance at this scale.
+CIFAR-100/ImageNet needed to test the theoretical prediction.
 
 ---
 
-## Next Research Directions (Toward Publication)
+## Data Integrity Warning
 
-The research agenda is moving toward top-tier conference submissions. Current priorities:
+The original 10-seed confirmatory noisy-affinity run backing Table 1 of the main paper was
+**overwritten** by the 5-seed 7-objective run (commit `bbe914f`). Table 1 claims 43/48 p<0.05
+but current `dimred_stress_full.csv` has only 5 seeds → 0/48 at p<0.05 (min Wilcoxon p ≈ 0.063).
 
-### Priority 1: Noisy Label Learning at Scale (NeurIPS 2026 target)
-**Why:** The soft-label signal is the strongest in the paper (+5–13% accuracy under
-random-wrong and class-confusion corruption at p=0.002). Scale this to CIFAR-10/100 with
-ResNet-18, CIFAR-N (real human noisy labels), and Clothing1M.
+**Do not regenerate Table 1 from current CSV.** Original data is recoverable from commit
+`2667d09` (git show 2667d09:reports/results/...).
 
-**Theory needed:** A formal noise-tolerance lemma showing FR's gradient is O(ε · u^{-1/2})
-under a corrupted label distribution, vs KL's O(ε · u^{-1}). This is the information-geometric
-extension of Ghosh et al. (2017) for MAE. Add to `reports/fisher_rao_vs_kl_arxiv.tex` as a
-theorem (not just a proposition sketch).
+---
 
-**Baselines to add:** Symmetric Cross-Entropy (SCE), GCE (q-loss), MAE, NCE+MAE. These are
-all in the noisy-label literature and must be beaten to justify a top-venue submission.
+## Research Priorities Going Forward
 
-**Key claim:** Fisher-Rao is the *natural* bounded robust loss on the categorical simplex —
-it is the geodesic distance under the Fisher information metric, not an ad hoc engineering
-choice like GCE or SCE.
+### Priority 1 — Nail the noisy-label story (most publishable, clearest finding)
 
-### Priority 2: FR as a Representation Similarity Metric (ICLR 2027)
-**Why:** This requires no expensive training. CKA (Kornblith et al. 2019) is the dominant
-metric for comparing neural network representations and has known limitations (not a metric,
-not invariant under isometries). FR-distance between model output distributions is a proper
-metric with bounded, interpretable values.
+The Direction 1 result is scientifically complete and honest: FR is not suitable for
+symmetric label noise; the right loss is MAE. The remaining work to make this publishable:
 
-**Definition:**
-```
-d_FR(θ, φ; X) = E_{x~X}[d_FR(P_θ(x), P_φ(x))]
-```
+1. **Scale to CIFAR-10 with ResNet-18.** The UCI Digits result is convincing theoretically
+   but reviewers will ask for a standard vision benchmark. 10 seeds, same 6 objectives.
+2. **Add CIFAR-N (real human noisy labels).** Symmetric noise is synthetic; real noise has
+   class structure. Does FR perform better or worse on real noise?
+3. **Find where FR does beat MAE/GCE.** The hypothesis: when training targets are soft
+   distributions (label smoothing, knowledge distillation, mixture targets), FR's advantage
+   reappears. Design a mixed-noise experiment to find the crossover point.
+4. **Frame as a diagnostic.** "When to use which robust loss" is a more publishable angle
+   than "FR is the best." Ghosh condition as a unifying framework.
 
-**Applications:** training dynamics, fine-tuning divergence, OOD detection, model compression
-quality. Implement in `src/fisher_rao_ml/representation_distance.py`.
+### Priority 2 — FR-RD as a model analysis tool (low-hanging fruit, ICLR workshop target)
 
-### Priority 3: Contrastive Learning with False Negatives (NeurIPS 2027)
-**Why:** False negatives in contrastive learning are structurally identical to false
-high-confidence affinity edges in t-SNE. NT-Xent can be written as a KL divergence;
-replacing it with FR gives bounded gradient pressure on false negatives.
+The Direction 2 results are solid for a workshop paper. To make it a full conference paper:
 
-**Challenge:** Needs ImageNet-scale experiments (~4 A100-days). Highest impact if it works.
+1. **Scale to fine-tuning divergence.** Take a pretrained ResNet, fine-tune on CIFAR variants
+   with different data fractions, and show FR-RD tracks generalization gaps.
+2. **OOD detection application.** FR-RD from ID centroid as an OOD score; compare to
+   Mahalanobis distance and energy score on standard benchmarks (CIFAR-10 vs SVHN).
+3. **Training dynamics.** Plot FR-RD between checkpoints every N epochs across different
+   architectures — does it reveal phase transitions in learning?
+
+### Priority 3 — FR-Contrastive (needs GPU compute, deferred)
+
+Theory is established (`fr_contrastive.tex`). The null result on UCI Digits is expected and
+honestly reported. Next step requires ~4 GPU-hours on CIFAR-10 under SimCLR protocol.
+Do not invest further until Priority 1 and 2 are in submission shape.
 
 ---
 
 ## Statistical Framework
 
-All experiments follow this protocol:
-- **Paired comparison:** same seeds, same initialization, same data across objectives
-- **Test:** Two-sided Wilcoxon signed-rank test on paired differences (does not assume normality)
-- **Effect size:** Cliff's delta ∈ [-1, 1] (positive = Fisher-Rao tends to exceed KL)
-- **Significance threshold:** p < 0.05 (not Bonferroni-corrected; all p-values reported)
-- **Power note:** With n=5 seeds, minimum achievable Wilcoxon p ≈ 0.063. Never claim p<0.05
-  significance in 5-seed experiments. Use win counts and mean oriented improvement instead.
-  With n=10 seeds, minimum p ≈ 0.021.
+All experiments use this protocol:
+- **Paired comparison:** same seeds, same initialization, same data split across objectives
+- **Test:** Two-sided Wilcoxon signed-rank test on paired differences
+- **Effect size:** Cliff's delta ∈ [-1, 1] (positive = FR tends to exceed KL)
+- **Significance threshold:** p < 0.05 (all p-values reported, none Bonferroni-corrected)
+- **Power note:**
+  - n=5 seeds: min achievable p ≈ 0.063 → never claim p<0.05 with 5 seeds
+  - n=10 seeds: min achievable p ≈ 0.002 → sufficient for strong claims
+  - Always report win counts and mean oriented improvement alongside p-values
 
 ---
 
 ## Code Conventions
 
-- All source code in `src/fisher_rao_ml/` — import with `from fisher_rao_ml.X import Y`
-- Experiments write to `reports/results/*.csv` (raw and aggregated). Never hardcode paths;
-  use argparse defaults so paths are overridable.
-- Results CSVs are committed to the repo. Figures are committed after `generate_figures.py`.
-- Never write `pip install`. Always use `uv run --project .`.
-- Ruff lint passes before every commit (`uv run --project . --extra dev ruff check .`).
-- Tests live in `tests/`. Run `pytest tests` before committing. New objectives must be covered
-  by `test_distribution_objectives_have_gradients` (it auto-covers all items in `OBJECTIVES`).
-- No comments explaining what the code does. Comments only for non-obvious WHY (constraint,
-  workaround, invariant).
-- Experiments are resumable: completed cells are detected by reading existing CSVs and skipped
-  unless `--force` is passed. Maintain this pattern for all new experiments.
+- All source in `src/fisher_rao_ml/` — import as `from fisher_rao_ml.X import Y`
+- Experiments write to `reports/results/*.csv`. Never hardcode paths; use argparse defaults.
+- Results CSVs and compiled `.bbl` files are committed. PDFs are gitignored.
+- Always use `uv run --project .` — never `pip install`.
+- Ruff lint must pass before committing: `uv run --project . --extra dev ruff check .`
+- New distribution objectives must be added to `OBJECTIVES` in `distribution_losses.py`
+  and are automatically covered by `test_distribution_objectives_have_gradients`.
+- All experiments are resumable: read existing CSV on startup, skip completed (dataset,
+  noise_regime, objective, seed) tuples unless `--force` is passed.
+- No explanatory comments in code. Comments only for non-obvious constraints or invariants.
 
 ---
 
 ## Paper Status
 
-**Branch:** `feat/improv`
-**File:** `reports/fisher_rao_vs_kl_arxiv.tex` (26 pages)
+| Paper | File | Status | Blocking issues |
+|---|---|---|---|
+| Main (t-SNE) | `fisher_rao_vs_kl_arxiv.tex` | Draft, 26 pages | Table 1 data integrity; no related work; small datasets |
+| Direction 1 | `fr_noisy_labels.tex` | Complete, 6 pages | Scale to CIFAR-10 for venue submission |
+| Direction 2 | `fr_representation_distance.tex` | Complete, 7 pages | Scale to fine-tuning / OOD experiments |
+| Direction 3 | `fr_contrastive.tex` | Theory only, 5 pages | Needs CIFAR/ImageNet experiments |
 
-**Current issues to fix before submission:**
-1. Table 1 (lines ~533-545) claims 48/48 FR improves and 43/48 p<0.05 for bad-edge
-   preservation — but the current data CSV reflects the 5-seed run (47/48, 0 p<0.05).
-   Either re-run the original 10-seed experiment or recover from git and store separately.
-2. No figure exists for the perplexity-bandwidth results (Section `sec:perplexity-results`).
-   Add `save_perplexity_bandwidth_comparison()` to `reports/generate_figures.py`.
-3. No related work section covering robust t-SNE/UMAP variants, UMAP, PaCMAP, and the
-   noisy-label literature (GCE, SCE, MAE). Required for any venue submission.
-4. Scale: all results are on 200-300 point datasets. For NeurIPS, add ResNet-18 on CIFAR-10.
+**Branch:** All work is now on `main`. Feature branches have been merged.
