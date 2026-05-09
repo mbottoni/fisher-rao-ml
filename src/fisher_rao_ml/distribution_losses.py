@@ -13,6 +13,9 @@ OBJECTIVES = (
     "hellinger",
     "fisher_rao",
     "fr_kl_hybrid",
+    "gce",
+    "mae",
+    "sce",
 )
 
 
@@ -64,6 +67,17 @@ def distribution_loss(
         kl = (target * (target.log() - prediction.log())).sum(dim=-1).mean()
         fr2 = categorical_fisher_rao_squared(target, prediction, eps=eps).mean()
         return 0.5 * kl + 0.5 * fr2
+    if objective == "gce":
+        q = 0.7
+        p_y = (target * prediction).sum(dim=-1)
+        return ((1.0 - p_y.clamp_min(eps).pow(q)) / q).mean()
+    if objective == "mae":
+        return (target - prediction).abs().sum(dim=-1).mean()
+    if objective == "sce":
+        alpha, beta = 0.1, 1.0
+        ce = -(target * prediction.log()).sum(dim=-1)
+        rce = -(prediction * target.log()).sum(dim=-1)
+        return (alpha * ce + beta * rce).mean()
     raise ValueError(f"Unknown objective: {objective}")
 
 
