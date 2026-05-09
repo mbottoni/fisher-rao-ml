@@ -131,44 +131,51 @@ without requiring any detection or debiasing step.
 \section{Experiments}
 \label{sec:experiments}
 
-\paragraph{Setup (preliminary).}
-We train a two-layer projection head on ResNet-18 features from CIFAR-10 using NT-Xent
-and FR-Contrastive under controlled false-negative injection: with probability $\varepsilon$,
-each negative in a batch is replaced by a different augmented view of the same class. We
-vary $\varepsilon \in \{0, 0.1, 0.2, 0.3\}$ and measure linear probe accuracy after $200$
-epochs.
+\paragraph{Setup.}
+We train a three-layer MLP encoder (256--128--64 hidden units, batch normalisation, ReLU)
+on UCI Handwritten Digits (1,797 samples, 64 features, 10 classes) using NT-Xent and
+FR-Contrastive. Following the self-supervised contrastive setting, each sample is assigned
+one positive (a different sample of the same class) and $K=31$ negatives. With probability
+$\varepsilon$, each negative slot is filled by a \emph{same-class} sample (false negative)
+instead of a different-class sample. We vary $\varepsilon \in \{0, 0.1, 0.2, 0.3\}$,
+train for 200 epochs, and evaluate with 5-nearest-neighbour classification on a held-out
+test set. We run 5 seeds per cell.
 
 \begin{table}[h]
   \centering
-  \caption{Linear probe accuracy on CIFAR-10 under false-negative injection (preliminary,
-  single run). Full multi-seed evaluation is ongoing.}
+  \caption{5-NN accuracy (\%) on UCI Digits under false-negative injection (mean $\pm$ std,
+  5 seeds). Neither method degrades on this dataset.}
   \label{tab:contrastive-prelim}
-  \scriptsize
+  \small
   \begin{tabular}{lrrrr}
     \toprule
     Objective & $\varepsilon=0$ & $\varepsilon=0.1$ & $\varepsilon=0.2$ & $\varepsilon=0.3$ \\
     \midrule
-    NT-Xent (KL) & \multicolumn{4}{c}{\emph{[results pending]}} \\
-    FR-Contrastive & \multicolumn{4}{c}{\emph{[results pending]}} \\
+    NT-Xent (KL)   & $98.7 \pm 0.2$ & $98.6 \pm 0.1$ & $98.4 \pm 0.2$ & $98.6 \pm 0.1$ \\
+    FR-Contrastive & $98.5 \pm 0.2$ & $98.6 \pm 0.2$ & $98.4 \pm 0.2$ & $98.6 \pm 0.2$ \\
     \bottomrule
   \end{tabular}
 \end{table}
 
-\paragraph{Planned experiments.}
-The full evaluation plan:
-\begin{enumerate}
-  \item \textbf{CIFAR-10/100} with synthetic false-negative injection ($\varepsilon \in
-        \{0, 0.1, 0.2, 0.3, 0.5\}$), $5$ seeds, $200$ epochs, ResNet-18 backbone.
-        Metrics: linear probe top-1 accuracy, $k$-NN accuracy, uniformity--alignment
-        decomposition \citep{wang2020understanding}.
-  \item \textbf{ImageNet-100} subset to test scale. This is the minimal experiment
-        needed for a top-venue submission.
-  \item \textbf{Comparison} to Debiased Contrastive \citep{chuang2020debiased} and
-        RINCE \citep{hoffmann2022ranking} as specialized false-negative methods.
-        FR-Contrastive is a \emph{drop-in} replacement with no detection overhead.
-  \item \textbf{Ablation}: temperature $\tau$ sensitivity. NT-Xent is sensitive to $\tau$;
-        does FR-Contrastive reduce this sensitivity (consistent with bounded gradients)?
-\end{enumerate}
+\paragraph{Discussion of null result.}
+Both objectives achieve $\approx 98.5$\% 5-NN accuracy across all false-negative rates,
+with no statistically distinguishable difference (Wilcoxon, all $p > 0.5$). We attribute
+this to UCI Digits being too easy for false-negative injection to matter: with only 10
+classes and $\approx 144$ training samples per class, even 30\% false negatives in 31
+negatives ($\approx 9$ per anchor) still leave strong discriminative signal from the single
+true positive. The model achieves near-ceiling performance regardless.
+
+The theoretical prediction is that the FR-Contrastive advantage should manifest when:
+\textbf{(a)} the task is harder (many classes, ambiguous features), \textbf{(b)}
+false-negative rates are high enough to suppress the true-positive gradient, and
+\textbf{(c)} the batch is large relative to the number of classes (as in SimCLR).
+These conditions hold on CIFAR-100 or ImageNet but not UCI Digits.
+
+\paragraph{Next steps.}
+The key remaining experiment is CIFAR-10/100 with a ResNet-18 backbone under the
+SimCLR self-supervised protocol (no label information), where same-class pairs appear
+as negatives naturally. This requires $\sim$4 GPU-hours per run. The gradient analysis
+in Proposition~\ref{prop:gradient} provides a clear, testable prediction for that setting.
 
 \section{Related Work}
 

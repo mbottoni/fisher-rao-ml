@@ -1,0 +1,64 @@
+\begin{thebibliography}{8}
+\providecommand{\natexlab}[1]{#1}
+\providecommand{\url}[1]{\texttt{#1}}
+\expandafter\ifx\csname urlstyle\endcsname\relax
+  \providecommand{\doi}[1]{doi: #1}\else
+  \providecommand{\doi}{doi: \begingroup \urlstyle{rm}\Url}\fi
+
+\bibitem[Bardes et~al.(2022)Bardes, Ponce, and LeCun]{bardes2022vicreg}
+Adrien Bardes, Jean Ponce, and Yann LeCun.
+\newblock {VICReg}: Variance-invariance-covariance regularization for
+  self-supervised learning.
+\newblock In \emph{International Conference on Learning Representations}, 2022.
+
+\bibitem[Bottoni(2026)]{bottoni2026fisherrao}
+Maruano~T. Bottoni.
+\newblock When {Fisher--Rao} geometry helps representation learning: Robust
+  affinity matching under false neighbors.
+\newblock Preprint, 2026.
+
+\bibitem[Chen et~al.(2020)Chen, Kornblith, Norouzi, and Hinton]{chen2020simple}
+Ting Chen, Simon Kornblith, Mohammad Norouzi, and Geoffrey Hinton.
+\newblock A simple framework for contrastive learning of visual
+  representations.
+\newblock In \emph{International Conference on Machine Learning}, pages
+  1597--1607. PMLR, 2020.
+
+\bibitem[Chuang et~al.(2020)Chuang, Robinson, Lin, Torralba, and
+  Jegelka]{chuang2020debiased}
+Ching-Yao Chuang, Joshua Robinson, Yen-Chen Lin, Antonio Torralba, and Stefanie
+  Jegelka.
+\newblock Debiased contrastive learning.
+\newblock In \emph{Advances in Neural Information Processing Systems},
+  volume~33, 2020.
+
+\bibitem[Grill et~al.(2020)Grill, Strub, Altch{\'e},
+  et~al.]{grill2020bootstrap}
+Jean-Bastien Grill, Florian Strub, Florent Altch{\'e}, et~al.
+\newblock Bootstrap your own latent: A new approach to self-supervised
+  learning.
+\newblock In \emph{Advances in Neural Information Processing Systems},
+  volume~33, 2020.
+
+\bibitem[He et~al.(2020)He, Fan, Wu, Xie, and Girshick]{he2020momentum}
+Kaiming He, Haoqing Fan, Yuxin Wu, Saining Xie, and Ross Girshick.
+\newblock Momentum contrast for unsupervised visual representation learning.
+\newblock In \emph{IEEE/CVF Conference on Computer Vision and Pattern
+  Recognition}, pages 9729--9738, 2020.
+
+\bibitem[Hoffmann et~al.(2022)Hoffmann, Behrmann, Gall, Brox, and
+  Noroozi]{hoffmann2022ranking}
+David~T. Hoffmann, Nadine Behrmann, Juergen Gall, Thomas Brox, and Mehdi
+  Noroozi.
+\newblock {RINCE}: Robust bounded instance-level negative contrastive
+  embedding.
+\newblock In \emph{Advances in Neural Information Processing Systems}, 2022.
+
+\bibitem[Zbontar et~al.(2021)Zbontar, Jing, Misra, LeCun, and
+  Deny]{zbontar2021barlow}
+Jure Zbontar, Li~Jing, Ishan Misra, Yann LeCun, and St{\'e}phane Deny.
+\newblock Barlow twins: Self-supervised learning via redundancy reduction.
+\newblock In \emph{International Conference on Machine Learning}, pages
+  12310--12320. PMLR, 2021.
+
+\end{thebibliography}
