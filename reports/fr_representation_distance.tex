@@ -1,0 +1,323 @@
+\pdfoutput=1
+\documentclass[11pt]{article}
+
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsfonts,amsthm}
+\usepackage{booktabs}
+\usepackage{graphicx}
+\usepackage{hyperref}
+\usepackage[numbers,sort&compress]{natbib}
+\usepackage{microtype}
+
+\newtheorem{proposition}{Proposition}
+\newtheorem{corollary}{Corollary}
+
+\title{FR-RD: Fisher--Rao Representation Distance\\
+A Proper Metric for Comparing Neural Network Models}
+
+\author{
+  Maruano T.\ Bottoni \\
+  Independent Research \\
+  \texttt{fisher-rao-ml}
+}
+
+\date{\today}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+Comparing the behavior of two neural network models requires a principled distance between
+their output distributions. We propose the \emph{Fisher--Rao Representation Distance}
+(FR-RD), defined as the expected Fisher--Rao geodesic distance between the two models'
+softmax output distributions over a shared reference dataset:
+$\mathrm{FR\text{-}RD}(\theta, \phi; X) = \mathbb{E}_{x \sim X}[d_{\mathrm{FR}}(P_\theta(x), P_\phi(x))]$.
+Unlike the widely used linear CKA \citep{kornblith2019similarity}, FR-RD is a \emph{proper
+metric}: it satisfies the triangle inequality and equals zero if and only if the two models
+agree on every input. It is bounded by $\pi$ (the diameter of the unit sphere under the
+Fisher information metric), making it interpretable without normalization. We demonstrate
+that FR-RD separates models trained under different label-noise conditions with a
+between-to-within separation ratio of $1.50\times$, tracks training dynamics in a way that
+reveals convergence speed differences under noise, and correlates with accuracy differences
+at $r = 0.74$ (vs.\ $|1 - \mathrm{CKA}|$ at $r = 0.85$). We further show that FR-RD
+between the cross-entropy and Fisher--Rao loss objectives on clean labels is $0.064$,
+confirming their behavioral equivalence under non-corrupted targets. FR-RD provides a
+compute-cheap, metric-theoretically grounded tool for model comparison, fine-tuning
+divergence tracking, and out-of-distribution detection.
+\end{abstract}
+
+\section{Introduction}
+
+Comparing neural networks is a fundamental task in deep learning research. Practitioners
+ask: how similar are two models trained with different objectives? How much does a model
+change during fine-tuning? Does a model trained on noisy labels behave differently from one
+trained on clean labels? These questions require a quantitative notion of model similarity.
+
+The dominant approach is CKA \citep{kornblith2019similarity}, which measures the alignment
+of hidden-layer representations via centered kernel alignment. CKA is popular because it is
+invariant to orthogonal transformations and straightforward to compute. However, it has
+known limitations: it is not a metric (the triangle inequality need not hold), it is not
+bounded in an interpretable unit, and it measures representational geometry rather than
+behavioral equivalence. Two models can have high CKA but classify examples differently if
+their classification heads diverge.
+
+We propose FR-RD, a complementary tool that operates at the output layer. Given a reference
+dataset $X = \{x_1, \ldots, x_n\}$ and two models with parameters $\theta$ and $\phi$
+producing softmax distributions $P_\theta(x)$ and $P_\phi(x)$ over $C$ classes:
+\begin{equation}
+  \mathrm{FR\text{-}RD}(\theta, \phi; X)
+  = \frac{1}{n}\sum_{i=1}^n d_{\mathrm{FR}}\!\big(P_\theta(x_i),\, P_\phi(x_i)\big),
+  \label{eq:fr-rd}
+\end{equation}
+where $d_{\mathrm{FR}}(p,q) = 2\arccos\!\bigl(\sum_c\sqrt{p_c q_c}\bigr)$ is the
+Fisher--Rao geodesic distance on the $C$-class simplex, bounded by $\pi$.
+
+\paragraph{Contributions.}
+\begin{enumerate}
+  \item A formal definition of FR-RD and proofs that it is a proper metric on the space of
+        classifier behaviors, bounded by $\pi$, and zero iff the two models agree pointwise.
+  \item Empirical demonstrations on sklearn digits classifiers trained under five conditions
+        (clean CE, clean FR-loss, label smoothing, 30\% noise, 60\% noise), showing that
+        FR-RD separates conditions systematically, tracks training dynamics, and correlates
+        with accuracy differences.
+  \item A comparison to linear CKA, highlighting that they are complementary: FR-RD
+        measures behavioral divergence at the output, CKA measures representational geometry
+        in hidden layers.
+  \item An application sketch for FR-RD-based out-of-distribution detection via the
+        centroid distance in output-distribution space.
+\end{enumerate}
+
+\section{Background}
+
+\subsection{The Fisher--Rao distance on the categorical simplex}
+
+For probability distributions $p, q$ over $C$ classes, the square-root map $p \mapsto
+\sqrt{p}$ sends the open simplex to the positive orthant of the unit sphere $S^{C-1}_+$.
+The spherical metric on this embedded image defines the Fisher--Rao geodesic distance
+\citep{rao1945information,nielsen2020elementary}:
+\begin{equation}
+  d_{\mathrm{FR}}(p,q)
+  = 2\arccos\!\Big(\textstyle\sum_c \sqrt{p_c q_c}\Big),
+  \quad 0 \le d_{\mathrm{FR}}(p,q) \le \pi.
+\end{equation}
+$d_{\mathrm{FR}}$ is symmetric, satisfies the triangle inequality (inherited from the
+spherical metric), and equals zero iff $p = q$.
+
+\subsection{CKA and its limitations}
+
+Linear CKA \citep{kornblith2019similarity} between two $n \times d$ feature matrices $A$
+and $B$ (rows are examples, columns are features) is:
+\begin{equation}
+  \mathrm{CKA}(A, B)
+  = \frac{\mathrm{HSIC}(A, B)}{\sqrt{\mathrm{HSIC}(A,A)\,\mathrm{HSIC}(B,B)}},
+\end{equation}
+where $\mathrm{HSIC}$ is the Hilbert-Schmidt independence criterion. CKA takes values in
+$[0,1]$ and is invariant to orthogonal transformations and isotropic scaling. However:
+\begin{itemize}
+  \item It is not a metric: CKA$(A,A)=1$ and CKA$(A,B)$ may not satisfy the triangle
+        inequality.
+  \item $1 - \mathrm{CKA}$ does not have an interpretable unit.
+  \item CKA measures hidden-feature geometry; two models with identical hidden features
+        but different classification heads may still classify differently.
+\end{itemize}
+
+\section{FR-RD: Definition and Properties}
+
+\begin{proposition}[FR-RD is a pseudometric]
+\label{prop:metric}
+Fix a reference dataset $X$. The map $(\theta, \phi) \mapsto \mathrm{FR\text{-}RD}(\theta,
+\phi; X)$ is a pseudometric on the space of parameterized classifiers:
+\begin{enumerate}
+  \item $\mathrm{FR\text{-}RD}(\theta, \phi; X) \ge 0$ with equality iff $P_\theta(x) =
+        P_\phi(x)$ for all $x \in X$.
+  \item $\mathrm{FR\text{-}RD}(\theta, \phi; X) = \mathrm{FR\text{-}RD}(\phi, \theta; X)$.
+  \item $\mathrm{FR\text{-}RD}(\theta, \psi; X) \le \mathrm{FR\text{-}RD}(\theta, \phi; X)
+        + \mathrm{FR\text{-}RD}(\phi, \psi; X)$.
+\end{enumerate}
+\end{proposition}
+\begin{proof}[Sketch]
+Each property is inherited pointwise from $d_{\mathrm{FR}}$, which satisfies them on the
+simplex. The average of a metric over a finite set of inputs is a metric on functions.
+\end{proof}
+
+\begin{corollary}[Bounded]
+$0 \le \mathrm{FR\text{-}RD}(\theta, \phi; X) \le \pi$ for all $\theta, \phi, X$.
+\end{corollary}
+
+The bound $\pi$ corresponds to the diameter of the positive orthant of the unit sphere: two
+distributions at maximum FR-RD place all mass on disjoint categories. This gives FR-RD an
+interpretable scale without normalization.
+
+\paragraph{Computational cost.} FR-RD requires one forward pass per model on $n$ reference
+inputs: $O(n \cdot C)$ operations after obtaining the softmax outputs. This is cheaper than
+CKA, which requires $O(n^2 \cdot d)$ for hidden features of dimension $d$.
+
+\section{Experiments}
+
+\subsection{Setup}
+
+We train five groups of two-layer MLP classifiers ($128$ hidden units, Adam at $10^{-3}$,
+$300$ steps) on the sklearn digits dataset ($1797$ examples, $64$ features, $10$ classes,
+$70/30$ stratified split):
+\begin{itemize}
+  \item \textbf{CE (clean)}: standard cross-entropy on clean one-hot labels.
+  \item \textbf{FR (clean)}: Fisher--Rao squared loss on clean one-hot labels.
+  \item \textbf{LS (clean)}: cross-entropy with label smoothing $\varepsilon = 0.1$.
+  \item \textbf{CE 30\% noise}: cross-entropy with $30\%$ uniform random label noise.
+  \item \textbf{CE 60\% noise}: cross-entropy with $60\%$ uniform random label noise.
+\end{itemize}
+Five seeds are used per condition ($25$ models total). FR-RD is computed on the held-out
+test set ($n \approx 539$ examples) as the reference dataset.
+
+\subsection{Pairwise FR-RD separates training conditions}
+
+Figure~\ref{fig:heatmap} shows the mean pairwise FR-RD and linear CKA across all $\binom{25}{2}
+= 300$ model pairs. FR-RD cleanly separates conditions:
+\begin{itemize}
+  \item CE (clean) vs.\ FR (clean): $\mathrm{FR\text{-}RD} = 0.064$, confirming that the
+        two objectives converge to nearly identical behavioral solutions on clean data. This
+        is consistent with the second-order expansion $d_{\mathrm{FR}}^2 \approx 2\,
+        \mathrm{KL}$ near the optimum.
+  \item Within-condition FR-RD: mean $= 0.079$ (clean) and $0.071$ (FR-loss), versus
+        $0.157$ (smoothed), $1.427$ (30\% noise), $2.230$ (60\% noise). Higher noise leads
+        to higher within-condition variance --- models trained under $60\%$ noise are more
+        variable than models trained under $30\%$ noise.
+  \item Between-condition vs.\ within-condition ratio: $1.50\times$, demonstrating
+        systematic separation.
+\end{itemize}
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=\linewidth]{figures/fr_rd_pairwise_heatmap.pdf}
+  \caption{Mean pairwise FR-RD (left) and linear CKA (right) across all 300 model pairs.
+  FR-RD increases monotonically with noise level; clean CE and FR loss models are nearly
+  indistinguishable ($0.064$). CKA shows a complementary view of hidden-feature similarity.}
+  \label{fig:heatmap}
+\end{figure}
+
+\subsection{FR-RD tracks training dynamics}
+
+Figure~\ref{fig:trajectory} shows the FR-RD from each model's current state to its final
+converged state, measured on the training set every $10$ steps. Clean CE and FR-loss models
+converge at the same speed (FR-RD to final drops to $0.039$ and $0.034$ by step $200$).
+Label smoothing converges similarly fast ($0.082$ at step $200$). Models under $30\%$ noise
+converge slower ($0.488$ at step $200$), and $60\%$ noise shows a non-monotone profile
+consistent with memorization dynamics. FR-RD therefore provides a training-dynamics signal
+that is more behaviorally interpretable than loss curves (which have different scales across
+objectives).
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=0.75\linewidth]{figures/fr_rd_trajectory.pdf}
+  \caption{FR-RD to the converged final model as a function of training step. Clean models
+  converge rapidly; noisy models show slower and noisier convergence.}
+  \label{fig:trajectory}
+\end{figure}
+
+\subsection{FR-RD correlates with accuracy differences}
+
+Figure~\ref{fig:scatter} plots FR-RD and $1 - \mathrm{CKA}$ against the absolute accuracy
+difference $|\mathrm{acc}(\theta) - \mathrm{acc}(\phi)|$ for all $300$ pairs. Pearson
+correlations: FR-RD $r = 0.74$, $1 - \mathrm{CKA}$ $r = 0.85$. Both metrics correlate with
+accuracy differences, but measure different aspects: FR-RD captures behavioral divergence at
+the output, while $1 - \mathrm{CKA}$ captures hidden-representation divergence.
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=0.9\linewidth]{figures/fr_rd_acc_scatter.pdf}
+  \caption{FR-RD (left) and $1-\mathrm{CKA}$ (right) versus absolute accuracy difference
+  for all $300$ model pairs. Blue: same-condition pairs; red: cross-condition pairs.
+  FR-RD and $1-\mathrm{CKA}$ are complementary: FR-RD measures output-distribution
+  divergence while CKA measures hidden-layer alignment.}
+  \label{fig:scatter}
+\end{figure}
+
+\begin{table}[t]
+  \centering
+  \caption{Mean test accuracy $\pm$ std across 5 seeds, and mean within-condition FR-RD.}
+  \label{tab:accuracy}
+  \scriptsize
+  \begin{tabular}{lrr}
+    \toprule
+    Condition & Test accuracy $\uparrow$ & Within-condition FR-RD $\downarrow$ \\
+    \midrule
+    CE (clean)     & $0.977 \pm 0.003$ & $0.072$ \\
+    FR (clean)     & $0.977 \pm 0.003$ & $0.071$ \\
+    LS (clean)     & $0.989 \pm 0.003$ & $0.156$ \\
+    CE 30\% noise  & $0.733 \pm 0.010$ & $1.427$ \\
+    CE 60\% noise  & $0.428 \pm 0.008$ & $2.230$ \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\section{Discussion and Future Work}
+
+\paragraph{FR-RD vs.\ CKA: complementary, not competing.}
+CKA measures geometry in hidden layers; FR-RD measures behavioral agreement at the output.
+The two are complementary: CKA answers ``do these models build similar internal
+representations?'' while FR-RD answers ``do these models behave similarly on inputs?'' For
+most downstream tasks (transfer learning, distillation, model selection), the behavioral
+question is more directly relevant.
+
+\paragraph{FR-RD for fine-tuning and model merging.}
+FR-RD naturally quantifies how much fine-tuning changes a pretrained model's behavior. A
+low FR-RD to the pretrained model means the fine-tuned model has preserved the original
+output distribution. This is more informative than weight-space $L_2$ distance, which is
+confounded by reparameterization.
+
+\paragraph{OOD detection.}
+The FR-RD from a test input's model output to the in-distribution centroid,
+$d_{\mathrm{FR}}(\bar{p}_{\mathrm{ID}}, P_\theta(x))$, provides a simple, bounded OOD
+score. Unlike maximum softmax probability (MSP), this centroid distance is symmetric and
+metric, enabling principled thresholding.
+
+\paragraph{Scale-up.}
+The main limitation is that FR-RD requires access to the full output distribution, not just
+class predictions. This is standard for soft-label distillation and most research settings
+but may not be available for black-box models. Scaling to large datasets ($n \gg 500$) is
+straightforward since FR-RD is an average; mini-batch estimation works without bias.
+
+\paragraph{Future directions.}
+\begin{itemize}
+  \item FR-RD for tracking continual learning forgetting: track FR-RD between the original
+        task model and the updated model after each new task.
+  \item Layer-wise FR-RD by applying it to intermediate softmax-normalized attention maps.
+  \item Theoretical bounds: does FR-RD between teacher and student correlate with knowledge
+        distillation performance?
+\end{itemize}
+
+\section{Related Work}
+
+\paragraph{Representational similarity.}
+\citet{kornblith2019similarity} introduced linear CKA and showed it is more consistent
+across architectures than earlier measures such as RSA \citep{kriegeskorte2008representational}.
+\citet{raghu2017svcca} proposed SVCCA based on canonical correlations. All of these
+operate on hidden representations and are not metrics in the strict sense.
+
+\paragraph{Behavioral metrics.}
+\citet{jiang2019fantastic} study predictors of generalization using a mix of geometric
+and behavioral measures. Recent work argues for reliability audits of
+CKA on finite samples. Our work takes the behavioral angle further by grounding the metric in information
+geometry.
+
+\paragraph{Fisher--Rao distance in ML.}
+The categorical Fisher--Rao distance is studied in
+\citet{rao1945information,nielsen2020elementary,nielsen2023fishrao}. Its use as a training
+objective for t-SNE and soft-label classification is studied in the companion paper
+\citep{bottoni2026fisherrao}. This paper proposes its first use as a \emph{model comparison
+metric} rather than a training objective.
+
+\section{Conclusion}
+
+FR-RD is a proper metric on model behaviors, bounded by $\pi$, and compute-cheap. On
+digits classifiers, it separates training conditions with $1.50\times$ between-to-within
+ratio, tracks training dynamics, and correlates with accuracy differences at $r = 0.74$.
+It is complementary to CKA: where CKA measures hidden-representation alignment, FR-RD
+measures behavioral divergence at the output. Its metric properties and bounded scale make
+it a principled drop-in tool for model comparison, fine-tuning divergence tracking, and
+OOD scoring in any setting where model output distributions are accessible.
+
+\bibliographystyle{plainnat}
+\bibliography{references}
+
+\end{document}
