@@ -13,7 +13,6 @@ OBJECTIVES = (
     "hellinger",
     "fisher_rao",
     "fr_kl_hybrid",
-    # noisy-label baselines (Zhang & Sabuncu 2018; Wang et al. 2019; Ghosh et al. 2017)
     "gce",
     "mae",
     "sce",
@@ -69,15 +68,12 @@ def distribution_loss(
         fr2 = categorical_fisher_rao_squared(target, prediction, eps=eps).mean()
         return 0.5 * kl + 0.5 * fr2
     if objective == "gce":
-        # Generalized Cross Entropy (Zhang & Sabuncu 2018), q=0.7
         q = 0.7
-        p_y = (target * prediction).sum(dim=-1)  # dot product gives p_correct when target is one-hot
+        p_y = (target * prediction).sum(dim=-1)
         return ((1.0 - p_y.clamp_min(eps).pow(q)) / q).mean()
     if objective == "mae":
-        # Mean Absolute Error — noise-tolerant (Ghosh et al. 2017)
         return (target - prediction).abs().sum(dim=-1).mean()
     if objective == "sce":
-        # Symmetric Cross Entropy (Wang et al. 2019): alpha*CE(y,p) + beta*RCE(y,p)
         alpha, beta = 0.1, 1.0
         ce = -(target * prediction.log()).sum(dim=-1)
         rce = -(prediction * target.log()).sum(dim=-1)
