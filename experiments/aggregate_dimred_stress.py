@@ -320,6 +320,55 @@ def power_summary(significance_rows: list[dict[str, object]]) -> list[dict[str, 
     return records
 
 
+def noisy_affinity_baseline_power_summary(
+    baseline_rows: list[dict[str, object]],
+) -> list[dict[str, object]]:
+    """Per-objective win rate over KL for the noisy_affinity experiment."""
+    summary_specs = [
+        ("bad_edge_preservation", "eval_corrupted_edge_preservation", -1.0),
+        ("bad_edge_q_mass", "eval_corrupted_edge_q_mass", -1.0),
+        ("trustworthiness", "eval_trustworthiness", 1.0),
+        ("clean_recall", "eval_neighborhood_recall", 1.0),
+        ("silhouette", "eval_silhouette", 1.0),
+    ]
+    rows = [
+        row
+        for row in baseline_rows
+        if row.get("experiment") == "noisy_affinity"
+        and float(row.get("stress_level", 0)) > 0
+    ]
+    objectives = sorted({row["objective"] for row in rows})
+    records: list[dict[str, object]] = []
+    for objective in objectives:
+        obj_rows = [row for row in rows if row["objective"] == objective]
+        for label, metric, sign in summary_specs:
+            available = [r for r in obj_rows if r.get(f"{metric}_mean_diff") is not None]
+            if not available:
+                continue
+            improved = [
+                r for r in available if float(r[f"{metric}_mean_diff"]) * sign > 0
+            ]
+            significant = [
+                r for r in improved
+                if float(r.get(f"{metric}_wilcoxon_p", float("nan"))) < 0.05
+            ]
+            records.append(
+                {
+                    "experiment": "noisy_affinity",
+                    "objective": objective,
+                    "metric_label": label,
+                    "metric": metric,
+                    "n_cells": len(available),
+                    "n_improves_over_kl": len(improved),
+                    "n_improves_p_lt_0_05": len(significant),
+                    "mean_oriented_improvement": float(
+                        np.mean([float(r[f"{metric}_mean_diff"]) * sign for r in available])
+                    ),
+                }
+            )
+    return records
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Aggregate dimensionality-reduction stress tests.")
     parser.add_argument("--input", default="reports/results/dimred_stress_full.csv")
@@ -335,6 +384,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--power-summary",
         default="reports/results/dimred_stress_power_summary.csv",
+    )
+    parser.add_argument(
+        "--baseline-power-summary",
+        default="reports/results/dimred_stress_baseline_power_summary.csv",
     )
     return parser.parse_args()
 
@@ -363,6 +416,12 @@ def main() -> None:
     power_rows = power_summary(significance_rows)
     write_rows(Path(args.power_summary), power_rows)
     print(f"[stress-aggregate] Wrote {len(power_rows)} rows to {args.power_summary}")
+
+    baseline_power_rows = noisy_affinity_baseline_power_summary(baseline_rows)
+    write_rows(Path(args.baseline_power_summary), baseline_power_rows)
+    print(
+        f"[stress-aggregate] Wrote {len(baseline_power_rows)} rows to {args.baseline_power_summary}"
+    )
 
     print("\n[stress-aggregate] Significance head:")
     for record in significance_rows[:6]:
