@@ -237,11 +237,62 @@ def save_ood_comparison() -> None:
     print("saved fr_rd_ood_comparison.pdf")
 
 
+def save_finetuning_scatter() -> None:
+    path = RESULTS / "fr_rd_finetuning.csv"
+    if not path.exists():
+        return
+    rows = read_rows(path)
+    fracs = sorted({float(r["fraction"]) for r in rows})
+    mean_frd = []
+    std_frd = []
+    mean_gap = []
+    std_gap = []
+    for frac in fracs:
+        subset = [r for r in rows if float(r["fraction"]) == frac]
+        frds = [float(r["fr_rd_to_ref"]) for r in subset]
+        gaps = [float(r["acc_gap"]) for r in subset]
+        mean_frd.append(np.mean(frds))
+        std_frd.append(np.std(frds))
+        mean_gap.append(np.mean(gaps))
+        std_gap.append(np.std(gaps))
+
+    fig, axes = plt.subplots(1, 2, figsize=(10, 4))
+
+    # left: FR-RD vs fraction
+    ax = axes[0]
+    ax.errorbar(fracs, mean_frd, yerr=std_frd, fmt="o-", color="tab:blue", capsize=4)
+    ax.set_xlabel("Training data fraction")
+    ax.set_ylabel("FR-RD to reference model")
+    ax.set_title("FR-RD decreases with more training data")
+    ax.grid(alpha=0.3)
+
+    # right: scatter FR-RD vs accuracy gap (5 seeds × 5 fractions, excluding ref)
+    ax = axes[1]
+    frd_all = [float(r["fr_rd_to_ref"]) for r in rows if float(r["fraction"]) < 1.0]
+    gap_all = [float(r["acc_gap"]) for r in rows if float(r["fraction"]) < 1.0]
+    frac_all = [float(r["fraction"]) for r in rows if float(r["fraction"]) < 1.0]
+    sc = ax.scatter(frd_all, gap_all, c=frac_all, cmap="viridis_r", alpha=0.7, s=40)
+    plt.colorbar(sc, ax=ax, label="Data fraction")
+    # correlation
+    r_val = np.corrcoef(frd_all, gap_all)[0, 1]
+    ax.set_xlabel("FR-RD to reference model")
+    ax.set_ylabel("Accuracy gap to reference")
+    ax.set_title(f"Pearson r = {r_val:.3f}")
+    ax.grid(alpha=0.3)
+
+    fig.tight_layout()
+    out = FIGURES / "fr_rd_finetuning.pdf"
+    fig.savefig(out, bbox_inches="tight")
+    plt.close(fig)
+    print(f"[fr-rd] saved {out}")
+
+
 def main() -> None:
     save_pairwise_heatmap()
     save_trajectory_curves()
     save_scatter_acc_diff()
     save_ood_comparison()
+    save_finetuning_scatter()
 
 
 if __name__ == "__main__":
