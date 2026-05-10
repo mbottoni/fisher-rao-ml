@@ -231,19 +231,24 @@ Validated on two datasets:
 Both datasets show consistent separation and r=0.74 — confirms dataset-agnostic stability.
 noisy_60 highest within-condition variability (FR-RD ≈ 2.26-2.30) on both datasets.
 
-**OOD detection experiment (fr_rd_digits_ood.csv):**
+**OOD detection experiment (fr_rd_digits_ood.csv, 10 seeds):**
 
-| Condition | Global centroid sep | CC centroid sep | CC wins |
-|---|---|---|---|
-| CE (clean) | −0.315 (0/5) | **+0.271** (4/5) | ✓ |
-| FR (clean) | −0.419 (0/5) | **+0.441** (4/5) | ✓ |
-| LS (clean) | −0.930 (0/5) | **+0.861** (5/5) | ✓ |
-| 30% noise | −0.001 (2/5) | **+0.148** (4/5) | ✓ |
-| 60% noise | +0.191 (4/5) | **+0.143** (4/5) | ✓ |
+| Condition | Global centroid | FR-RD CC | MSP | Mahalanobis |
+|---|---|---|---|---|
+| CE (clean)  | 0/10 | **9/10** | 9/10 | 4/10 |
+| FR (clean)  | 0/10 | **9/10** | 9/10 | 4/10 |
+| LS (clean)  | 0/10 | **10/10** | 10/10 | 10/10 |
+| 30% noise  | 7/10 | 7/10 | 3/10 | **10/10** |
+| 60% noise  | 9/10 | **10/10** | 2/10 | **10/10** |
+| **Total** | 16/50 | **45/50** | 33/50 | 28/50 |
 
-**Key finding:** Global centroid fails (≈uniform for confident models). Class-conditional
-centroid `fr_ood_score_class_conditional()` in representation_distance.py achieves positive
-separation for all 5 conditions. Documented as §4.4 in paper with Table 4 and Figure 4.
+**Key finding:** FR-RD CC is the only method that works consistently for both clean and noisy models.
+MSP fails for noisy models (low confidence everywhere); Mahalanobis fails for clean models (feature cluster structure). 
+
+**Fine-tuning divergence (fr_rd_finetuning.csv, 5 seeds × 6 fractions):**
+- FR-RD to reference decreases monotonically with data fraction (0.41 → ~0 for 10%→100%)
+- Pearson r = 0.963 with accuracy gap (p < 0.0001)
+- FR-RD as proxy for generalization gap without requiring held-out accuracy
 
 ### Direction 3: FR-Contrastive (`fr_contrastive.tex`)
 
@@ -280,11 +285,10 @@ The architecture-dependent reversal is the publishable hook. Current paper statu
   real-world benchmarks CIFAR-N/Clothing-1M, architecture interactions, info geometry)
 - BN ablation section added with preliminary results showing GCE collapses without BN
 
-**Currently running experiments (as of 2026-05-10):**
-- `cifar10_noisy_label_benchmark.py --seeds 10`: expanding CIFAR-10 to 10 seeds for p<0.05
-  (at 157/300 rows as of session start; seeds 0-5 clean, seeds 0-4 for other regimes)
-- `cifar10_no_bn_ablation.py --seeds 5`: batch-norm ablation on ConvNet
-  (at 7/150 rows; only clean/seed=0 and sym_20/kl/seed=0 done)
+**Currently running experiments (as of 2026-05-10, session 2):**
+- `cifar10_noisy_label_benchmark.py --seeds 10` (PID 22247): at ~201/300 rows; max seed=6 for most regimes, 5 for asym_40
+- `cifar10_no_bn_ablation.py --seeds 5` (PID 22246): at 56/150 rows; seeds 0-1 complete
+- `cifar10_noisy_label_benchmark.py --seeds 3 --n-train 50000` (PID 50996): at 6/90 rows; clean/seed=0 complete
 
 **CRITICAL BUG FIXED:** The `random_crop_flip` function in both CIFAR-10 scripts had a
 PyTorch advanced-indexing bug: mixing a bare `:` slice with non-contiguous advanced indices
@@ -309,19 +313,17 @@ Remaining work:
 
 ### Priority 2 — FR-RD as a model analysis tool (ICLR 2027 target)
 
-Direction 2 is now quite mature. Paper (fr_representation_distance.tex) is 13 pages:
+Direction 2 is now **near-submission**. Paper (fr_representation_distance.tex) is 14 pages:
 - Digits: 10 seeds, ratio=1.49×, r=0.741 (confirmed)
-- MNIST: 5 seeds, ratio=1.47×, r=0.74 (confirmed)
-- OOD: CC centroid positive for all 5 conditions (Table 4, Figure 4)
-- Related work: 5 paragraphs
-- Formal Limitations section
+- MNIST: 10 seeds, ratio=1.47×, r=0.740 (confirmed)
+- OOD: FR-RD CC 45/50 wins vs MSP 33/50 vs Mahalanobis 28/50 (Table 4, Figure 4)
+- Fine-tuning divergence: r=0.963 with accuracy gap (Table 5, Figure 5)
+- Related work: 5 paragraphs; Formal Limitations section
 
 Remaining steps for full submission:
-1. **Scale to fine-tuning divergence.** Take a pretrained ResNet, fine-tune on CIFAR
-   variants with different data fractions, show FR-RD tracks generalization gaps.
-2. **Compare OOD to baselines.** MSP, energy score, Mahalanobis distance on standard
-   benchmarks (CIFAR-10 vs SVHN) — currently only Digits vs MNIST.
-3. **Extend MNIST to 10 seeds.** Consistent with Digits upgrade.
+1. **Scale to larger models/datasets.** Show FR-RD works with ResNets on CIFAR-10/100,
+   not just small MLPs on Digits/MNIST.
+2. **Energy score baseline.** Add `score=-log Σ exp(logits)` to OOD comparison table.
 
 ### Priority 3 — FR-Contrastive (needs GPU compute, deferred)
 
@@ -362,23 +364,27 @@ All experiments use this protocol:
 
 ## Paper Status
 
-| Paper | File | Status | Blocking issues |
-|---|---|---|---|
-| Main (t-SNE) | `fisher_rao_vs_kl_arxiv.tex` | Draft, 26 pages | Table 1 data integrity; no related work; small datasets |
-| Direction 1 | `fr_noisy_labels.tex` | Near-complete, 11 pages | 10-seed CIFAR-10 for p-values; full BN ablation (5-seed) |
-| Direction 2 | `fr_representation_distance.tex` | Near-complete, 13 pages | Fine-tuning experiment; compare OOD to MSP/Mahal baselines |
-| Direction 3 | `fr_contrastive.tex` | Theory only, 5 pages | Needs CIFAR/ImageNet experiments |
+| Paper | File | Pages | Status | Blocking issues |
+|---|---|---|---|---|
+| Main (t-SNE) | `fisher_rao_vs_kl_arxiv.tex` | 27 | Draft | Table 1 data integrity; small datasets |
+| Direction 1 | `fr_noisy_labels.tex` | 11 | Near-complete | 10-seed CIFAR-10 for p-values; full BN ablation (5-seed); 50k size ablation |
+| Direction 2 | `fr_representation_distance.tex` | 14 | Near-submission | Scale to larger models; energy score OOD baseline |
+| Direction 3 | `fr_contrastive.tex` | 5 | Theory only | Needs CIFAR/ImageNet GPU experiments |
+
+**Main paper (fisher_rao_vs_kl_arxiv.tex, 27 pages) now includes:**
+- Related Work section (5 paragraphs): DR methods, objective choice, info geometry, bounded divergences, evaluation methodology
+- 3 new references: McInnes 2018 (UMAP), Böhm 2022 (attraction-repulsion), Kobak 2019 (t-SNE art)
 
 **Direction 1 paper (fr_noisy_labels.tex, 11 pages) now includes:**
 - Theorem 1 + Corollary 1 (formal noise-tolerance analysis for FR/Hellinger)
 - 5-paragraph related work section with 9 new references
-- BN ablation section (§3.2) with seed-0 results including FR (−7.1%, smallest drop)
+- BN ablation section (§3.2) with seed-0 and seed-1 results; FR most robust (−7.1%)
 - Updated Discussion: FR robust to BN removal, suggesting bounded gradient = implicit clipping
 
-**Direction 2 paper (fr_representation_distance.tex, 11 pages) now includes:**
-- §4.4: Empirical OOD experiment — centroid failure mode documented
-- Updated contributions, abstract, limitations, conclusion
-- 5-paragraph related work
-- Formal Limitations section
+**Direction 2 paper (fr_representation_distance.tex, 14 pages) now includes:**
+- §4.4: OOD 4-method comparison — FR-RD CC 45/50 vs MSP 33/50 vs Mahal 28/50
+- §4.5: Fine-tuning divergence — r=0.963 with accuracy gap (Table 5, Figure 5)
+- Updated contributions (5 items), updated Discussion
+- 5-paragraph related work; Formal Limitations section
 
-**Branch:** All work is now on `main`. Feature branches have been merged.
+**Branch:** All work is on `main`. Feature branches have been merged.
