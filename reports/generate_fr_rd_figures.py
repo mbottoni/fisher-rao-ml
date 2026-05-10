@@ -214,14 +214,17 @@ def save_ood_comparison() -> None:
         return float(np.mean(vals)) if vals else 0.0
 
     x = np.arange(len(conds))
-    n_methods = 4
-    width = 0.18
-    offsets = np.linspace(-1.5 * width, 1.5 * width, n_methods)
-    colors = ["tab:blue", "tab:orange", "tab:green", "tab:red"]
-    labels = ["Global FR-RD", "FR-RD CC (ours)", "MSP", "Mahalanobis"]
-    sep_cols = ["separation", "cc_separation", "msp_separation", "mahal_separation"]
+    n_methods = 5
+    width = 0.14
+    offsets = np.linspace(-2 * width, 2 * width, n_methods)
+    colors = ["tab:blue", "tab:orange", "tab:green", "tab:red", "tab:purple"]
+    labels = ["Global FR-RD", "FR-RD CC (ours)", "MSP", "Mahalanobis", "Energy"]
+    sep_cols = [
+        "separation", "cc_separation", "msp_separation",
+        "mahal_separation", "energy_separation",
+    ]
 
-    fig, ax = plt.subplots(figsize=(9, 4))
+    fig, ax = plt.subplots(figsize=(10, 4))
     for mi, (col, label, color) in enumerate(zip(sep_cols, labels, colors, strict=True)):
         win_vals = [win_rate_sep(col, c) for c in conds]
         ax.bar(x + offsets[mi], win_vals, width, label=label, color=color, alpha=0.8)
@@ -234,7 +237,7 @@ def save_ood_comparison() -> None:
     ax.set_ylabel("Win rate (fraction of seeds with correct OOD ranking)")
     ax.set_ylim(0, 1.1)
     ax.set_title(
-        "OOD detection: FR-RD CC vs MSP vs Mahalanobis\n(UCI Digits ID vs MNIST-8×8 OOD, 10 seeds)"
+        "OOD detection: 5-method comparison\n(UCI Digits ID vs MNIST-8×8 OOD, 10 seeds)"
     )
     ax.legend(fontsize=8)
     fig.tight_layout()

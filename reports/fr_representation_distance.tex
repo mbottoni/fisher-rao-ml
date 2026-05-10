@@ -185,8 +185,8 @@ flattened pixels, 400 steps. Ten seeds per condition (50 models total, 1,225 mod
 \subsection{Pairwise FR-RD separates training conditions}
 
 Figure~\ref{fig:heatmap} shows the mean pairwise FR-RD and linear CKA across all
-$\binom{50}{2} = 1{,}225$ model pairs (Digits, 10 seeds) and $\binom{25}{2} = 300$
-pairs (MNIST, 5 seeds). FR-RD cleanly separates conditions on both datasets:
+$\binom{50}{2} = 1{,}225$ model pairs per dataset (both Digits and MNIST, 10 seeds each).
+FR-RD cleanly separates conditions on both datasets:
 \begin{itemize}
   \item CE (clean) vs.\ FR (clean): $\mathrm{FR\text{-}RD} = 0.070$ on Digits and $0.125$
         on MNIST, confirming that the two objectives converge to nearly identical behavioral
@@ -277,7 +277,7 @@ the output, while $1 - \mathrm{CKA}$ captures hidden-representation divergence.
 \subsection{OOD detection via centroid FR-RD}
 \label{sec:ood}
 
-We compare four OOD scorers on the same models:
+We compare five OOD scorers on the same models:
 
 \textbf{Global centroid (FR-RD).} Score $s(x) = d_{\mathrm{FR}}(\bar{p}, P_\theta(x))$,
 where $\bar{p}$ is the mean softmax over the ID reference set.
@@ -293,30 +293,34 @@ Score $s(x) = 1 - \max_c P_\theta(x)_c$; higher score indicates lower confidence
 $\mu_c = \mathbb{E}[f_\theta(x) \mid y=c]$ and shared covariance $\Sigma$; score
 $s(x) = \min_c (f_\theta(x)-\mu_c)^\top \Sigma^{-1}(f_\theta(x)-\mu_c)$.
 
+\textbf{Energy score~\citep{liu2020energy}.} Score $s(x) = -\log\sum_c \exp(f_c(x))$
+where $f_c$ are the pre-softmax logits; lower energy (higher negative log-sum-exp) indicates
+an out-of-distribution input.
+
 We evaluate on UCI Digits (ID) vs.\ MNIST resized to $8\times 8$ (OOD),
 300 OOD samples, 10 seeds per condition.
 \emph{Win} = seed where mean OOD score $>$ mean ID score (correct ranking).
 
 \begin{table}[h]
   \centering
-  \caption{OOD detection win counts (correct-ranking seeds out of 10) for four methods.
-  FR-RD CC is the only method that achieves positive separation for both clean and noisy
-  models. MSP fails for 60\%-noise models (model is uniformly uncertain);
-  Mahalanobis fails for clean/FR-loss models (feature clusters are well-separated from
-  OOD inputs in feature space, but feature distribution drifts confound the score).}
+  \caption{OOD detection win counts (correct-ranking seeds out of 10) for five methods.
+  FR-RD CC (45/50) is the only method that achieves positive separation for both clean
+  and noisy models. Energy score (36/50) and MSP (33/50) fail for noisy models (energy
+  0/10 at 60\% noise). Mahalanobis (38/50) fails for clean models (4/10). Global FR-RD
+  (16/50) fails for all clean models.}
   \label{tab:ood}
   \small
-  \begin{tabular}{lrrrr}
+  \begin{tabular}{lrrrrr}
     \toprule
-    Condition & Global FR-RD & FR-RD CC & MSP & Mahalanobis \\
+    Condition & Global FR-RD & FR-RD CC & MSP & Mahalanobis & Energy \\
     \midrule
-    CE (clean)    & 0/10 & \textbf{9/10} & 9/10        & 4/10 \\
-    FR (clean)    & 0/10 & \textbf{9/10} & 9/10        & 4/10 \\
-    LS (clean)    & 0/10 & \textbf{10/10}& \textbf{10/10} & 10/10 \\
-    CE 30\% noise & 7/10 & 7/10          & 3/10        & \textbf{10/10} \\
-    CE 60\% noise & 9/10 & \textbf{10/10}& 2/10        & \textbf{10/10} \\
+    CE (clean)    & 0/10 & \textbf{9/10} & 9/10        & 4/10  & \textbf{10/10} \\
+    FR (clean)    & 0/10 & \textbf{9/10} & 9/10        & 4/10  & \textbf{10/10} \\
+    LS (clean)    & 0/10 & \textbf{10/10}& \textbf{10/10} & 10/10& \textbf{10/10} \\
+    CE 30\% noise & 7/10 & 7/10          & 3/10        & \textbf{10/10} & 6/10 \\
+    CE 60\% noise & 9/10 & \textbf{10/10}& 2/10        & \textbf{10/10} & 0/10 \\
     \midrule
-    Total         & 16/50 & \textbf{45/50} & 33/50 & 28/50 \\
+    Total         & 16/50 & \textbf{45/50} & 33/50 & 38/50 & 36/50 \\
     \bottomrule
   \end{tabular}
 \end{table}
@@ -326,9 +330,14 @@ $\bar{p} \approx \mathbf{1}/C$ (near-uniform). Confident ID predictions are far 
 this uniform centroid, while uncertain OOD predictions are closer — \emph{inverting}
 the intended ranking.
 
+\textbf{Energy score} \citep{liu2020energy} uses $s(x) = -\log\sum_c \exp(f_c(x))$ where
+$f_c$ are logits (higher = more OOD). Energy achieves 10/10 for all three clean model conditions but fails
+completely at 60\% noise (0/10): when logits are small and diffuse, both ID and OOD
+inputs produce similar energy levels.
+
 \textbf{MSP failure on noisy models.} For 60\%-noise models (test accuracy $\approx 50\%$),
 both ID and OOD inputs produce low-confidence predictions; MSP cannot distinguish them
-(only 2/10 wins at 60\% noise).
+(only 2/10 wins at 60\% noise). The energy score exhibits the same failure mode.
 
 \textbf{Mahalanobis failure on clean models.} For clean, well-calibrated classifiers,
 the feature-space cluster structure is well-defined for ID classes but the covariance
@@ -336,8 +345,9 @@ estimate is dominated by within-class variance; OOD inputs land in low-density r
 that score poorly under the shared Gaussian assumption (4/10 wins for clean/FR models).
 
 \textbf{FR-RD CC is the most reliable.} The class-conditional centroid achieves 45/50
-wins across all five conditions and both model quality regimes ($> $ MSP's 33/50 and
-Mahalanobis's 28/50). The mechanism: $\bar{p}_c$ represents the model's expected output
+wins across all five conditions and both model quality regimes, outperforming Mahalanobis
+(38/50), Energy (36/50), and MSP (33/50). The mechanism: $\bar{p}_c$ represents the model's
+expected output
 for class $c$. For confident clean models, ID inputs score low (close to $\bar{p}_c$)
 while uncertain OOD inputs score high (diffuse predictions far from all class centroids).
 For noisy models, $\bar{p}_c$ is diffuse but still class-specific; ID inputs tend to
@@ -347,10 +357,10 @@ Figure~\ref{fig:ood} shows per-condition win rates.
 \begin{figure}[h]
   \centering
   \includegraphics[width=0.85\linewidth]{figures/fr_rd_ood_comparison.pdf}
-  \caption{OOD detection win counts (out of 10 seeds) for four methods across five
-  training conditions. FR-RD CC is the only method that achieves $\ge 7/10$ wins for
-  every condition. MSP fails for noisy models; Mahalanobis fails for clean/FR-loss models;
-  global FR-RD centroid fails for all clean models.}
+  \caption{OOD detection win counts (out of 10 seeds) for five methods across five
+  training conditions. FR-RD CC (45/50) is the only method with $\ge 7/10$ wins for
+  every condition. Energy (36/50) and MSP (33/50) fail for noisy models;
+  Mahalanobis (38/50) fails for clean models; global FR-RD (16/50) fails for all clean models.}
   \label{fig:ood}
 \end{figure}
 
