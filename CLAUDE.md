@@ -225,8 +225,8 @@ Validated on two datasets:
 **UCI Digits** (1,797 samples, 5 conditions × **10 seeds** = 50 models, 1,225 pairs):
   between/within ratio=**1.49×**, r=**0.741**, CE vs FR RD=0.070
 
-**MNIST** (3,000 train, 5 conditions × 5 seeds = 25 models, 300 pairs):
-  between/within ratio=1.47×, r=0.74, CE vs FR RD=0.121
+**MNIST** (3,000 train, 5 conditions × 10 seeds = 50 models, 1,225 pairs):
+  between/within ratio=1.472×, r=0.740, CE vs FR RD=0.125
 
 Both datasets show consistent separation and r=0.74 — confirms dataset-agnostic stability.
 noisy_60 highest within-condition variability (FR-RD ≈ 2.26-2.30) on both datasets.
@@ -240,7 +240,7 @@ noisy_60 highest within-condition variability (FR-RD ≈ 2.26-2.30) on both data
 | LS (clean)  | 0/10 | **10/10** | 10/10 | 10/10 |
 | 30% noise  | 7/10 | 7/10 | 3/10 | **10/10** |
 | 60% noise  | 9/10 | **10/10** | 2/10 | **10/10** |
-| **Total** | 16/50 | **45/50** | 33/50 | 28/50 |
+| **Total** | 16/50 | **45/50** | 33/50 | 38/50 |
 
 **Key finding:** FR-RD CC is the only method that works consistently for both clean and noisy models.
 MSP fails for noisy models (low confidence everywhere); Mahalanobis fails for clean models (feature cluster structure). 
@@ -313,10 +313,10 @@ Remaining work:
 
 ### Priority 2 — FR-RD as a model analysis tool (ICLR 2027 target)
 
-Direction 2 is now **near-submission**. Paper (fr_representation_distance.tex) is 14 pages:
+Direction 2 is now **near-submission**. Paper (fr_representation_distance.tex) is 13 pages:
 - Digits: 10 seeds, ratio=1.49×, r=0.741 (confirmed)
 - MNIST: 10 seeds, ratio=1.47×, r=0.740 (confirmed)
-- OOD: FR-RD CC 45/50 wins vs MSP 33/50 vs Mahalanobis 28/50 (Table 4, Figure 4)
+- OOD: FR-RD CC 45/50 wins vs MSP 33/50 vs Mahalanobis 38/50 (Table 4, Figure 4)
 - Fine-tuning divergence: r=0.963 with accuracy gap (Table 5, Figure 5)
 - Related work: 5 paragraphs; Formal Limitations section
 
@@ -382,7 +382,7 @@ All experiments use this protocol:
 - Updated Discussion: FR robust to BN removal, suggesting bounded gradient = implicit clipping
 
 **Direction 2 paper (fr_representation_distance.tex, 14 pages) now includes:**
-- §4.4: OOD 4-method comparison — FR-RD CC 45/50 vs MSP 33/50 vs Mahal 28/50
+- §4.4: OOD 4-method comparison — FR-RD CC 45/50 vs MSP 33/50 vs Mahal 38/50
 - §4.5: Fine-tuning divergence — r=0.963 with accuracy gap (Table 5, Figure 5)
 - Updated contributions (5 items), updated Discussion
 - 5-paragraph related work; Formal Limitations section

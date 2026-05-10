@@ -242,11 +242,12 @@ def get_probs_and_features(
     model: MLP,
     x: torch.Tensor,
     device: torch.device,
-) -> tuple[torch.Tensor, torch.Tensor]:
+) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    """Returns (probs, features, logits), all on CPU."""
     model.eval()
     logits, features = model(x.to(device))
     probs = torch.softmax(logits, dim=-1).cpu()
-    return probs, features.cpu()
+    return probs, features.cpu(), logits.cpu()
 
 
 @torch.no_grad()
@@ -309,6 +310,7 @@ def main() -> None:
     traj_steps = list(range(10, args.n_steps + 1, 10))
     probs_map: dict[tuple[str, int], torch.Tensor] = {}
     features_map: dict[tuple[str, int], torch.Tensor] = {}
+    logits_map: dict[tuple[str, int], torch.Tensor] = {}
     weights_map: dict[tuple[str, int], torch.Tensor] = {}
     acc_map: dict[tuple[str, int], float] = {}
     traj_map: dict[tuple[str, int], list[tuple[int, torch.Tensor]]] = {}
@@ -323,9 +325,10 @@ def main() -> None:
                 n_steps=args.n_steps, hidden=args.hidden,
                 trajectory_steps=traj_steps,
             )
-            probs, feats = get_probs_and_features(model, x_te, device)
+            probs, feats, logits = get_probs_and_features(model, x_te, device)
             probs_map[key] = probs
             features_map[key] = feats
+            logits_map[key] = logits
             acc_map[key] = accuracy(model, x_te, y_te, device)
             traj_map[key] = traj
             weights_map[key] = torch.cat([p.data.cpu().flatten() for p in model.parameters()])
@@ -435,7 +438,7 @@ def main() -> None:
 
                 for seed in seeds:
                     model_key = (cond, seed)
-                    probs_ood, feats_ood = get_probs_and_features(
+                    probs_ood, feats_ood, logits_ood = get_probs_and_features(
                         models_map[model_key], x_mnist_ood, device
                     )
                     # Global centroid OOD scores
@@ -469,6 +472,9 @@ def main() -> None:
                     mahal_id = _mahal(
                         features_map[model_key].cpu(), feat_means_t, cov_inv, n_classes
                     )
+                    # Energy score: -logsumexp(logits); higher = more OOD
+                    energy_ood = -torch.logsumexp(logits_ood, dim=-1).numpy()
+                    energy_id = -torch.logsumexp(logits_map[model_key], dim=-1).numpy()
                     ood_rows.append({
                         "condition": cond,
                         "seed": seed,
@@ -484,17 +490,22 @@ def main() -> None:
                         "mahal_mean_ood_score_ood": float(mahal_ood.mean()),
                         "mahal_mean_ood_score_id": float(mahal_id.mean()),
                         "mahal_separation": float(mahal_ood.mean() - mahal_id.mean()),
+                        "energy_mean_ood_score_ood": float(energy_ood.mean()),
+                        "energy_mean_ood_score_id": float(energy_id.mean()),
+                        "energy_separation": float(energy_ood.mean() - energy_id.mean()),
                     })
-            print("[fr-rd] OOD separation summary (global / cc / MSP / Mahal):")
+            print("[fr-rd] OOD separation summary (global / cc / MSP / Mahal / Energy):")
             for cond in conditions:
                 cond_rows = [r for r in ood_rows if r["condition"] == cond]
                 sep = np.mean([r["separation"] for r in cond_rows])
                 cc_sep = np.mean([r["cc_separation"] for r in cond_rows])
                 msp_sep = np.mean([r["msp_separation"] for r in cond_rows])
-                msp_sep2 = np.mean([r["mahal_separation"] for r in cond_rows])
+                mahal_sep = np.mean([r["mahal_separation"] for r in cond_rows])
+                energy_sep = np.mean([r["energy_separation"] for r in cond_rows])
                 print(
                     f"  {cond:12s}: global={sep:+.4f}  cc={cc_sep:+.4f}"
-                    f"  msp={msp_sep:+.4f}  mahal={msp_sep2:+.4f}"
+                    f"  msp={msp_sep:+.4f}  mahal={mahal_sep:+.4f}"
+                    f"  energy={energy_sep:+.4f}"
                 )
         except Exception as e:
             print(f"[fr-rd] OOD section skipped: {e}")
