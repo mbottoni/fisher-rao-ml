@@ -220,26 +220,30 @@ intrinsic gradient clipping that partially substitutes for BN's adaptive normali
 
 ### Direction 2: FR Representation Distance (`fr_representation_distance.tex`)
 
-Validated on two datasets, both 25 MLP classifiers (5 conditions × 5 seeds):
+Validated on two datasets:
 
-**UCI Digits** (1,797 samples): between/within ratio=1.50×, r=0.74, CE vs FR RD=0.064
-**MNIST** (3,000 train): between/within ratio=1.47×, r=0.74, CE vs FR RD=0.121
+**UCI Digits** (1,797 samples, 5 conditions × **10 seeds** = 50 models, 1,225 pairs):
+  between/within ratio=**1.49×**, r=**0.741**, CE vs FR RD=0.070
 
-Near-identical statistics confirm dataset-agnostic stability of FR-RD properties.
-noisy_60 highest within-condition variability (FR-RD ≈ 2.23-2.30) on both datasets.
-Complementary to CKA: 1-CKA achieves r=0.87 on MNIST (vs FR-RD r=0.74), but CKA
-is not a proper metric and measures representational geometry, not behavioral equivalence.
+**MNIST** (3,000 train, 5 conditions × 5 seeds = 25 models, 300 pairs):
+  between/within ratio=1.47×, r=0.74, CE vs FR RD=0.121
+
+Both datasets show consistent separation and r=0.74 — confirms dataset-agnostic stability.
+noisy_60 highest within-condition variability (FR-RD ≈ 2.26-2.30) on both datasets.
 
 **OOD detection experiment (fr_rd_digits_ood.csv):**
-Centroid-based FR-RD OOD scoring FAILS for well-trained classifiers:
-- clean/fr_loss/smoothed: mean separation = −0.38 to −0.94 (inverted — ID > OOD)
-- noisy_30: mixed (3 neg, 2 pos)
-- noisy_60: slight positive separation (mean +0.21, 4/5 seeds positive)
 
-**Root cause:** centroid of N near-one-hot predictions ≈ uniform distribution.
-Confident ID predictions are FAR from uniform → high FR-RD. Uncertain OOD predictions
-are closer → lower FR-RD. Fix: use class-conditional centroids instead.
-This is documented as §4.4 in fr_representation_distance.tex and as a key limitation.
+| Condition | Global centroid sep | CC centroid sep | CC wins |
+|---|---|---|---|
+| CE (clean) | −0.315 (0/5) | **+0.271** (4/5) | ✓ |
+| FR (clean) | −0.419 (0/5) | **+0.441** (4/5) | ✓ |
+| LS (clean) | −0.930 (0/5) | **+0.861** (5/5) | ✓ |
+| 30% noise | −0.001 (2/5) | **+0.148** (4/5) | ✓ |
+| 60% noise | +0.191 (4/5) | **+0.143** (4/5) | ✓ |
+
+**Key finding:** Global centroid fails (≈uniform for confident models). Class-conditional
+centroid `fr_ood_score_class_conditional()` in representation_distance.py achieves positive
+separation for all 5 conditions. Documented as §4.4 in paper with Table 4 and Figure 4.
 
 ### Direction 3: FR-Contrastive (`fr_contrastive.tex`)
 
@@ -305,17 +309,19 @@ Remaining work:
 
 ### Priority 2 — FR-RD as a model analysis tool (ICLR 2027 target)
 
-Direction 2 is now validated on two datasets (Digits + MNIST): consistent r=0.74 and
-ratio≈1.47-1.50×. OOD experiment done — centroid approach fails for clean models
-(documented as limitation + future work in paper). Remaining steps for full submission:
+Direction 2 is now quite mature. Paper (fr_representation_distance.tex) is 13 pages:
+- Digits: 10 seeds, ratio=1.49×, r=0.741 (confirmed)
+- MNIST: 5 seeds, ratio=1.47×, r=0.74 (confirmed)
+- OOD: CC centroid positive for all 5 conditions (Table 4, Figure 4)
+- Related work: 5 paragraphs
+- Formal Limitations section
 
-1. **Class-conditional centroid OOD experiment.** Score OOD samples as
-   `min_c d_FR(centroid_c, P_θ(x))` where centroid_c is per-class. Expected to fix
-   the inversion problem for well-trained models.
-2. **Scale to fine-tuning divergence.** Take a pretrained ResNet, fine-tune on CIFAR variants
-   with different data fractions, and show FR-RD tracks generalization gaps.
-3. **Add 10-seed runs.** Currently 5 seeds per condition; 10 seeds would allow confidence
-   intervals on the separation ratio and correlation.
+Remaining steps for full submission:
+1. **Scale to fine-tuning divergence.** Take a pretrained ResNet, fine-tune on CIFAR
+   variants with different data fractions, show FR-RD tracks generalization gaps.
+2. **Compare OOD to baselines.** MSP, energy score, Mahalanobis distance on standard
+   benchmarks (CIFAR-10 vs SVHN) — currently only Digits vs MNIST.
+3. **Extend MNIST to 10 seeds.** Consistent with Digits upgrade.
 
 ### Priority 3 — FR-Contrastive (needs GPU compute, deferred)
 
@@ -360,7 +366,7 @@ All experiments use this protocol:
 |---|---|---|---|
 | Main (t-SNE) | `fisher_rao_vs_kl_arxiv.tex` | Draft, 26 pages | Table 1 data integrity; no related work; small datasets |
 | Direction 1 | `fr_noisy_labels.tex` | Near-complete, 11 pages | 10-seed CIFAR-10 for p-values; full BN ablation (5-seed) |
-| Direction 2 | `fr_representation_distance.tex` | Near-complete, 11 pages | Class-conditional OOD fix; fine-tuning experiment |
+| Direction 2 | `fr_representation_distance.tex` | Near-complete, 13 pages | Fine-tuning experiment; compare OOD to MSP/Mahal baselines |
 | Direction 3 | `fr_contrastive.tex` | Theory only, 5 pages | Needs CIFAR/ImageNet experiments |
 
 **Direction 1 paper (fr_noisy_labels.tex, 11 pages) now includes:**
