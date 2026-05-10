@@ -245,17 +245,37 @@ but current `dimred_stress_full.csv` has only 5 seeds → 0/48 at p<0.05 (min Wi
 ### Priority 1 — Nail the noisy-label story (most publishable, clearest finding)
 
 The core Direction 1 finding is now a two-part story: FR hurts MLP, helps ConvNet.
-The architecture-dependent reversal is the publishable hook. Remaining work:
+The architecture-dependent reversal is the publishable hook. Current paper status:
+- Theorem 1 formally proves FR/Hellinger cannot satisfy the Ghosh noise-tolerance condition
+- Corollary 1 connects Theorem 1 to Bayes-optimality failure under symmetric noise
+- Related work expanded to 5 paragraphs (noise-tolerant losses, sample-selection,
+  real-world benchmarks CIFAR-N/Clothing-1M, architecture interactions, info geometry)
+- BN ablation section added with preliminary results showing GCE collapses without BN
 
-1. **Expand CIFAR-10 to 10 seeds for statistical significance** (currently 5 seeds, p=0.063
-   minimum). 10 seeds would yield min p≈0.002. Run: `python experiments/cifar10_noisy_label_benchmark.py --seeds 10`.
-2. **Add CIFAR-N (real human noisy labels).** Does the ConvNet advantage persist on
+**Currently running experiments (as of 2026-05-10):**
+- `cifar10_noisy_label_benchmark.py --seeds 10`: expanding CIFAR-10 to 10 seeds for p<0.05
+- `cifar10_no_bn_ablation.py --seeds 5`: batch-norm ablation on ConvNet
+
+**CRITICAL BUG FIXED:** The `random_crop_flip` function in both CIFAR-10 scripts had a
+PyTorch advanced-indexing bug: mixing a bare `:` slice with non-contiguous advanced indices
+produces `(b,h,w,c)` instead of `(b,c,h,w)`, causing Conv2d to crash. Fixed by indexing
+all four dims explicitly:
+```python
+out = padded[
+    torch.arange(b).view(b,1,1,1), torch.arange(c).view(1,c,1,1),
+    rows.view(b,1,h,1), cols.view(b,1,1,w),
+]
+```
+
+Remaining work:
+1. **When 10-seed CIFAR-10 completes:** re-aggregate all datasets, update Table 3 with
+   Wilcoxon p-values, update Limitations section to remove "pending" language.
+2. **When no-BN ablation completes:** update the BN ablation table in Section 3.2, add
+   interpretation of whether BN is the primary mediator of the ConvNet reversal.
+3. **Add CIFAR-N (real human noisy labels).** Does the ConvNet advantage persist on
    real-world instance-dependent noise? Controlled experiment with 10k subsample.
-3. **Ablation: remove batch normalization.** Test whether the ConvNet reversal is due to
-   BN interaction specifically. Also vary dataset size (10k vs 50k) to test the MAE
-   gradient hypothesis.
-4. **Frame as a diagnostic.** The paper's angle: "which robust loss is right for which
-   architecture?" Ghosh condition + optimization dynamics as complementary frameworks.
+4. **Vary dataset size (10k vs 50k).** To isolate the MAE flat-gradient hypothesis:
+   does MAE recover on ConvNet when trained on the full 50k CIFAR-10?
 
 ### Priority 2 — FR-RD as a model analysis tool (ICLR 2027 target)
 
@@ -311,8 +331,14 @@ All experiments use this protocol:
 | Paper | File | Status | Blocking issues |
 |---|---|---|---|
 | Main (t-SNE) | `fisher_rao_vs_kl_arxiv.tex` | Draft, 26 pages | Table 1 data integrity; no related work; small datasets |
-| Direction 1 | `fr_noisy_labels.tex` | Complete, 6 pages | Scale to CIFAR-10 for venue submission |
+| Direction 1 | `fr_noisy_labels.tex` | Near-complete, 9 pages | 10-seed CIFAR-10 for p-values; full BN ablation table |
 | Direction 2 | `fr_representation_distance.tex` | Complete, 7 pages | Scale to fine-tuning / OOD experiments |
 | Direction 3 | `fr_contrastive.tex` | Theory only, 5 pages | Needs CIFAR/ImageNet experiments |
+
+**Direction 1 paper now includes:**
+- Theorem 1 + Corollary 1 (formal noise-tolerance analysis for FR/Hellinger)
+- 5-paragraph related work section with 9 new references
+- BN ablation section (§3.2) with preliminary data
+- T1 fontenc, enumitem packages added
 
 **Branch:** All work is now on `main`. Feature branches have been merged.
