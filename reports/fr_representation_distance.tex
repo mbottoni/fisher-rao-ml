@@ -313,6 +313,17 @@ while an OOD input producing diffuse or wrong-class outputs is far from all
 $\bar{p}_c$ (high score). This yields positive separation for all five conditions.
 The improvement is most pronounced for label-smoothed models ($-0.93 \to +0.86$)
 where the global centroid is farthest from the per-class means.
+Figure~\ref{fig:ood} shows the comparison across all conditions.
+
+\begin{figure}[h]
+  \centering
+  \includegraphics[width=0.85\linewidth]{figures/fr_rd_ood_comparison.pdf}
+  \caption{OOD detection: mean separation (OOD score $-$ ID score, mean $\pm$ std across 5
+  seeds) for global vs.\ class-conditional centroid. Positive bars indicate correct ranking.
+  The global centroid fails for clean/smoothed models; the class-conditional centroid achieves
+  positive separation across all conditions.}
+  \label{fig:ood}
+\end{figure}
 
 \section{Discussion and Future Work}
 
