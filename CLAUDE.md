@@ -201,6 +201,19 @@ FR's bounded gradient (max π²) likely prevent confident memorization of corrup
 **Why (MAE failure on ConvNet):** MAE's flat gradient (constant loss magnitude) prevents
 ConvNets from learning discriminative filters at moderate dataset scales (10k samples).
 
+**BN ablation result (seed 0, clean regime only):**
+| Objective | With BN | Without BN | Drop |
+|---|---|---|---|
+| FR | 84.2% | 77.2% | **−7.1%** (smallest drop!) |
+| KL | 83.8% | 70.9% | −12.9% |
+| SCE | 77.4% | 69.0% | −8.4% |
+| GCE | 81.9% | 48.8% | −33.1% |
+| Hellinger | 82.5% | 46.3% | −36.2% |
+| MAE | 72.4% | 20.2% | −52.2% |
+
+**FR is MORE robust to BN removal than KL** — consistent with bounded gradient providing
+intrinsic gradient clipping that partially substitutes for BN's adaptive normalization.
+
 **Practical rule:**
 - MLP/tabular: use MAE or GCE for symmetric noise
 - ConvNet/image: use FR or GCE; avoid MAE at moderate dataset sizes
@@ -216,6 +229,17 @@ Near-identical statistics confirm dataset-agnostic stability of FR-RD properties
 noisy_60 highest within-condition variability (FR-RD ≈ 2.23-2.30) on both datasets.
 Complementary to CKA: 1-CKA achieves r=0.87 on MNIST (vs FR-RD r=0.74), but CKA
 is not a proper metric and measures representational geometry, not behavioral equivalence.
+
+**OOD detection experiment (fr_rd_digits_ood.csv):**
+Centroid-based FR-RD OOD scoring FAILS for well-trained classifiers:
+- clean/fr_loss/smoothed: mean separation = −0.38 to −0.94 (inverted — ID > OOD)
+- noisy_30: mixed (3 neg, 2 pos)
+- noisy_60: slight positive separation (mean +0.21, 4/5 seeds positive)
+
+**Root cause:** centroid of N near-one-hot predictions ≈ uniform distribution.
+Confident ID predictions are FAR from uniform → high FR-RD. Uncertain OOD predictions
+are closer → lower FR-RD. Fix: use class-conditional centroids instead.
+This is documented as §4.4 in fr_representation_distance.tex and as a key limitation.
 
 ### Direction 3: FR-Contrastive (`fr_contrastive.tex`)
 
@@ -254,7 +278,9 @@ The architecture-dependent reversal is the publishable hook. Current paper statu
 
 **Currently running experiments (as of 2026-05-10):**
 - `cifar10_noisy_label_benchmark.py --seeds 10`: expanding CIFAR-10 to 10 seeds for p<0.05
+  (at 157/300 rows as of session start; seeds 0-5 clean, seeds 0-4 for other regimes)
 - `cifar10_no_bn_ablation.py --seeds 5`: batch-norm ablation on ConvNet
+  (at 7/150 rows; only clean/seed=0 and sym_20/kl/seed=0 done)
 
 **CRITICAL BUG FIXED:** The `random_crop_flip` function in both CIFAR-10 scripts had a
 PyTorch advanced-indexing bug: mixing a bare `:` slice with non-contiguous advanced indices
@@ -280,12 +306,14 @@ Remaining work:
 ### Priority 2 — FR-RD as a model analysis tool (ICLR 2027 target)
 
 Direction 2 is now validated on two datasets (Digits + MNIST): consistent r=0.74 and
-ratio≈1.47-1.50×. Remaining steps for full conference submission:
+ratio≈1.47-1.50×. OOD experiment done — centroid approach fails for clean models
+(documented as limitation + future work in paper). Remaining steps for full submission:
 
-1. **Scale to fine-tuning divergence.** Take a pretrained ResNet, fine-tune on CIFAR variants
+1. **Class-conditional centroid OOD experiment.** Score OOD samples as
+   `min_c d_FR(centroid_c, P_θ(x))` where centroid_c is per-class. Expected to fix
+   the inversion problem for well-trained models.
+2. **Scale to fine-tuning divergence.** Take a pretrained ResNet, fine-tune on CIFAR variants
    with different data fractions, and show FR-RD tracks generalization gaps.
-2. **OOD detection application.** FR-RD from ID centroid as an OOD score; compare to
-   Mahalanobis distance and energy score on standard benchmarks (CIFAR-10 vs SVHN).
 3. **Add 10-seed runs.** Currently 5 seeds per condition; 10 seeds would allow confidence
    intervals on the separation ratio and correlation.
 
@@ -331,14 +359,20 @@ All experiments use this protocol:
 | Paper | File | Status | Blocking issues |
 |---|---|---|---|
 | Main (t-SNE) | `fisher_rao_vs_kl_arxiv.tex` | Draft, 26 pages | Table 1 data integrity; no related work; small datasets |
-| Direction 1 | `fr_noisy_labels.tex` | Near-complete, 9 pages | 10-seed CIFAR-10 for p-values; full BN ablation table |
-| Direction 2 | `fr_representation_distance.tex` | Complete, 7 pages | Scale to fine-tuning / OOD experiments |
+| Direction 1 | `fr_noisy_labels.tex` | Near-complete, 11 pages | 10-seed CIFAR-10 for p-values; full BN ablation (5-seed) |
+| Direction 2 | `fr_representation_distance.tex` | Near-complete, 11 pages | Class-conditional OOD fix; fine-tuning experiment |
 | Direction 3 | `fr_contrastive.tex` | Theory only, 5 pages | Needs CIFAR/ImageNet experiments |
 
-**Direction 1 paper now includes:**
+**Direction 1 paper (fr_noisy_labels.tex, 11 pages) now includes:**
 - Theorem 1 + Corollary 1 (formal noise-tolerance analysis for FR/Hellinger)
 - 5-paragraph related work section with 9 new references
-- BN ablation section (§3.2) with preliminary data
-- T1 fontenc, enumitem packages added
+- BN ablation section (§3.2) with seed-0 results including FR (−7.1%, smallest drop)
+- Updated Discussion: FR robust to BN removal, suggesting bounded gradient = implicit clipping
+
+**Direction 2 paper (fr_representation_distance.tex, 11 pages) now includes:**
+- §4.4: Empirical OOD experiment — centroid failure mode documented
+- Updated contributions, abstract, limitations, conclusion
+- 5-paragraph related work
+- Formal Limitations section
 
 **Branch:** All work is now on `main`. Feature branches have been merged.
