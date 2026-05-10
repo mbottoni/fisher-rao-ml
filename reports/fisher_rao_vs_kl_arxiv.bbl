@@ -1,4 +1,4 @@
-\begin{thebibliography}{10}
+\begin{thebibliography}{15}
 \providecommand{\natexlab}[1]{#1}
 \providecommand{\url}[1]{\texttt{#1}}
 \expandafter\ifx\csname urlstyle\endcsname\relax
@@ -10,11 +10,29 @@ Shun-ichi Amari.
 \newblock \emph{Information Geometry and Its Applications}.
 \newblock Springer, 2016.
 
+\bibitem[B{\"o}hm et~al.(2022)B{\"o}hm, Berens, and Kobak]{bohm2022attraction}
+Jan~Niklas B{\"o}hm, Philipp Berens, and Dmitry Kobak.
+\newblock Attraction-repulsion spectrum in neighbor embeddings.
+\newblock \emph{Journal of Machine Learning Research}, 23\penalty0
+  (95):\penalty0 1--32, 2022.
+
 \bibitem[Cliff(1993)]{cliff1993dominance}
 Norman Cliff.
 \newblock Dominance statistics: Ordinal analyses to answer ordinal questions.
 \newblock \emph{Psychological Bulletin}, 114\penalty0 (3):\penalty0 494--509,
   1993.
+
+\bibitem[Duchi and Namkoong(2021)]{duchi2021learning}
+John~C. Duchi and Hongseok Namkoong.
+\newblock Learning models with uniform performance via distributionally robust
+  optimization.
+\newblock \emph{The Annals of Statistics}, 49\penalty0 (3):\penalty0
+  1378--1406, 2021.
+
+\bibitem[Kobak and Berens(2019)]{kobak2019art}
+Dmitry Kobak and Philipp Berens.
+\newblock The art of using t-{SNE} for single-cell transcriptomics.
+\newblock \emph{Nature Communications}, 10:\penalty0 5416, 2019.
 
 \bibitem[Kullback and Leibler(1951)]{kullback1951information}
 S.~Kullback and R.~A. Leibler.
@@ -29,6 +47,12 @@ Yann LeCun, L{\'e}on Bottou, Yoshua Bengio, and Patrick Haffner.
 \newblock \emph{Proceedings of the IEEE}, 86\penalty0 (11):\penalty0
   2278--2324, 1998.
 
+\bibitem[McInnes et~al.(2018)McInnes, Healy, and Melville]{mcinnes2018umap}
+Leland McInnes, John Healy, and James Melville.
+\newblock {UMAP}: Uniform manifold approximation and projection for dimension
+  reduction.
+\newblock \emph{arXiv:1802.03426}, 2018.
+
 \bibitem[Nielsen(2020)]{nielsen2020elementary}
 Frank Nielsen.
 \newblock An elementary introduction to information geometry.
@@ -39,6 +63,13 @@ Frank Nielsen.
 \newblock A simple approximation method for the {Fisher--Rao} distance between
   multivariate normal distributions.
 \newblock \emph{Entropy}, 25\penalty0 (4):\penalty0 654, 2023.
+
+\bibitem[Nowozin et~al.(2016)Nowozin, Cseke, and Tomioka]{nowozin2016fgan}
+Sebastian Nowozin, Botond Cseke, and Ryota Tomioka.
+\newblock f-{GAN}: Training generative neural samplers using variational
+  divergence minimization.
+\newblock In \emph{Advances in Neural Information Processing Systems},
+  volume~29, 2016.
 
 \bibitem[Rao(1945)]{rao1945information}
 C.~R. Rao.

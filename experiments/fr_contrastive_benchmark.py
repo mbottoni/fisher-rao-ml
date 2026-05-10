@@ -17,7 +17,6 @@ from __future__ import annotations
 
 import argparse
 import csv
-import math
 from pathlib import Path
 
 import numpy as np
@@ -214,7 +213,7 @@ def train_and_eval(
 
     n_batches_per_epoch = max(1, len(x_tr) // batch_size)
 
-    for epoch in range(n_epochs):
+    for _epoch in range(n_epochs):
         model.train()
         epoch_loss = 0.0
         for _ in range(n_batches_per_epoch):

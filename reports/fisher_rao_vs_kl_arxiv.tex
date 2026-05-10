@@ -152,6 +152,71 @@ Under clean targets and feature-noise corruption, KL remains the safer default f
 separation, though this conclusion is bandwidth-sensitive: the silhouette advantage reverses on
 Gaussian blobs under perplexity-adaptive preprocessing.
 
+% ------------------------------------------------------------------
+\section{Related Work}
+% ------------------------------------------------------------------
+
+\paragraph{Nonlinear dimensionality reduction.}
+t-SNE \citep{maaten2008visualizing} frames dimensionality reduction as minimizing the KL
+divergence between high- and low-dimensional affinity distributions.
+UMAP \citep{mcinnes2018umap} replaces normalized affinities with a fuzzy simplicial set
+representation and minimizes a binary cross-entropy objective, achieving faster runtime and
+better global structure preservation.
+Other neighbor-embedding methods optimize edge-sampling approximations or alternative
+reconstruction costs \citep{venna2010information}.
+Our contribution is orthogonal to these architectural choices: we ask whether replacing the
+\emph{comparison primitive} from KL to Fisher--Rao changes robustness to corrupted affinities,
+holding the rest of the t-SNE pipeline fixed.
+
+\paragraph{Choice of objective in neighbor embedding.}
+\citet{bohm2022attraction} characterize the family of neighbor-embedding objectives through an
+attraction-repulsion spectrum: the repulsive force on non-neighbor pairs controls how strongly
+global structure is preserved.
+Within this framework, the divergence between high- and low-dimensional affinity matrices
+determines the asymptotic gradient behavior near false-neighbor edges.
+Our Proposition~\ref{prop:false-edge-gradient} quantifies this directly: KL's
+$\Theta(u^{-1})$ attraction on false edges is strictly stronger than Fisher--Rao's
+$\Theta(u^{-1/2})$, making bounded objectives more tolerant of corrupted high-confidence
+affinity mass.
+\citet{venna2010information} study NeRV, which balances recall and precision through a
+mixture of forward and reverse KL; we complement this with stress tests that surgically
+corrupt the target distribution.
+
+\paragraph{Information geometry in machine learning.}
+The Fisher information matrix induces a Riemannian metric on parametric families of
+distributions, and the resulting geodesics define a theoretically principled alternative to
+divergence-based distances \citep{rao1945information,amari2016information}.
+Natural gradient descent exploits the inverse Fisher information as a preconditioner for
+steepest descent in distribution space \citep{amari2016information}.
+\citet{nielsen2020elementary} give an elementary derivation of the closed form in
+Equation~\eqref{eq:dfr}; \citet{nielsen2023fishrao} study approximations for the Gaussian
+case.
+We apply Fisher--Rao geometry as an optimization \emph{objective} rather than a preconditioner,
+probing where the Riemannian structure of the simplex provides practical advantage over KL.
+
+\paragraph{Bounded and symmetric divergences.}
+The $f$-divergence family encompasses KL, Hellinger, $\chi^2$, Jensen--Shannon, and related
+measures; \citet{nowozin2016fgan} use $f$-divergences as generative adversarial training
+objectives.
+Among symmetric members, Hellinger satisfies $0\le H^2(p,q)\le 2$ and Jensen--Shannon
+satisfies $0\le\mathrm{JSD}(p,q)\le\ln 2$, both bounded above.
+\citet{duchi2021learning} connect $f$-divergences to distributional robustness, showing
+$\chi^2$-constrained risk minimization provides worst-case guarantees over small
+distributional shifts.
+Our full-objective comparison (Section~\ref{sec:full-objective-results}) shows that the
+robustness advantage in corrupted affinity matching is shared by all bounded symmetric
+divergences: the operative property is bounded codomain and symmetry, not geodesic geometry.
+
+\paragraph{Evaluation methodology for dimensionality reduction.}
+Quantitative evaluation of DR quality requires metrics that go beyond visual inspection.
+\citet{venna2010information} propose information-retrieval metrics (precision and recall of
+neighborhoods) that directly capture what DR preserves.
+We adopt trustworthiness, neighborhood recall, silhouette, and kNN accuracy, running each
+over ten paired seeds with Wilcoxon signed-rank tests and Cliff's delta \citep{wilcoxon1945individual,cliff1993dominance}.
+\citet{kobak2019art} survey best practices for t-SNE, emphasizing that perplexity and
+initialization affect final embeddings; our sensitivity check (Section~\ref{sec:perplexity-results})
+confirms that the silhouette conclusion is bandwidth-sensitive on well-separated Gaussian blobs.
+
 \section{Background}
 
 \subsection{KL divergence}

@@ -143,7 +143,10 @@ def parse_args() -> argparse.Namespace:
         "--perplexity",
         type=float,
         default=30.0,
-        help="Target perplexity for per-point bandwidth (only used with --bandwidth-mode perplexity).",
+        help=(
+            "Target perplexity for per-point bandwidth"
+            " (only used with --bandwidth-mode perplexity)."
+        ),
     )
     return parser.parse_args()
 
