@@ -1,0 +1,109 @@
+\begin{thebibliography}{15}
+\providecommand{\natexlab}[1]{#1}
+\providecommand{\url}[1]{\texttt{#1}}
+\expandafter\ifx\csname urlstyle\endcsname\relax
+  \providecommand{\doi}[1]{doi: #1}\else
+  \providecommand{\doi}{doi: \begingroup \urlstyle{rm}\Url}\fi
+
+\bibitem[Amari(2016)]{amari2016information}
+Shun-ichi Amari.
+\newblock \emph{Information Geometry and Its Applications}.
+\newblock Springer, 2016.
+
+\bibitem[Bhattacharyya(1943)]{bhattacharyya1943measure}
+Anil Bhattacharyya.
+\newblock On a measure of divergence between two statistical populations
+  defined by their probability distributions.
+\newblock \emph{Bulletin of the Calcutta Mathematical Society}, 35:\penalty0
+  99--110, 1943.
+
+\bibitem[Bottoni(2026)]{bottoni2026fisherrao}
+Maruano~T. Bottoni.
+\newblock When {Fisher--Rao} geometry helps representation learning: Robust
+  affinity matching under false neighbors.
+\newblock Preprint, 2026.
+
+\bibitem[Hinton et~al.(2015)Hinton, Vinyals, and Dean]{hinton2015distilling}
+Geoffrey Hinton, Oriol Vinyals, and Jeff Dean.
+\newblock Distilling the knowledge in a neural network.
+\newblock In \emph{NIPS Deep Learning and Representation Learning Workshop},
+  2015.
+
+\bibitem[Jiang et~al.(2020)Jiang, Neyshabur, Mobahi, Krishnan, and
+  Bengio]{jiang2019fantastic}
+Yiding Jiang, Behnam Neyshabur, Hossein Mobahi, Dilip Krishnan, and Samy
+  Bengio.
+\newblock Fantastic generalization measures and where to find them.
+\newblock In \emph{International Conference on Learning Representations}, 2020.
+
+\bibitem[Kornblith et~al.(2019)Kornblith, Norouzi, Lee, and
+  Hinton]{kornblith2019similarity}
+Simon Kornblith, Mohammad Norouzi, Honglak Lee, and Geoffrey Hinton.
+\newblock Similarity of neural network representations revisited.
+\newblock In \emph{International Conference on Machine Learning}, pages
+  3519--3529. PMLR, 2019.
+
+\bibitem[Kriegeskorte et~al.(2008)Kriegeskorte, Mur, and
+  Bandettini]{kriegeskorte2008representational}
+Nikolaus Kriegeskorte, Marieke Mur, and Peter Bandettini.
+\newblock Representational similarity analysis --- connecting the branches of
+  systems neuroscience.
+\newblock In \emph{Frontiers in Systems Neuroscience}, volume~2, page~4, 2008.
+
+\bibitem[Lenc and Vedaldi(2015)]{lenc2015understanding}
+Karel Lenc and Andrea Vedaldi.
+\newblock Understanding image representations by measuring their equivariance
+  and equivalence.
+\newblock In \emph{IEEE/CVF Conference on Computer Vision and Pattern
+  Recognition}, pages 991--999, 2015.
+
+\bibitem[Nguyen et~al.(2021)Nguyen, Raghu, and Kornblith]{nguyen2021wide}
+Thao Nguyen, Maithra Raghu, and Simon Kornblith.
+\newblock Do wide and deep networks learn the same things? uncovering how
+  neural network representations vary with width and depth.
+\newblock In \emph{International Conference on Learning Representations}, 2021.
+
+\bibitem[Nielsen(2020)]{nielsen2020elementary}
+Frank Nielsen.
+\newblock An elementary introduction to information geometry.
+\newblock \emph{Entropy}, 22\penalty0 (10):\penalty0 1100, 2020.
+
+\bibitem[Nielsen(2023)]{nielsen2023fishrao}
+Frank Nielsen.
+\newblock A simple approximation method for the {Fisher--Rao} distance between
+  multivariate normal distributions.
+\newblock \emph{Entropy}, 25\penalty0 (4):\penalty0 654, 2023.
+
+\bibitem[Raghu et~al.(2017)Raghu, Gilmer, Yosinski, and
+  Sohl-Dickstein]{raghu2017svcca}
+Maithra Raghu, Justin Gilmer, Jason Yosinski, and Jascha Sohl-Dickstein.
+\newblock {SVCCA}: Singular vector canonical correlation analysis for deep
+  learning dynamics and interpretability.
+\newblock In \emph{Advances in Neural Information Processing Systems},
+  volume~30, 2017.
+
+\bibitem[Rame et~al.(2024)Rame, Couairon, Shukor, Cord, Dancette, Soulier, and
+  Cord]{rame2024warp}
+Alexandre Rame, Guillaume Couairon, Mustafa Shukor, Matthieu Cord, Corentin
+  Dancette, Laure Soulier, and Matthieu Cord.
+\newblock {WARP}: On the benefits of weight averaged rewarded policies.
+\newblock In \emph{Advances in Neural Information Processing Systems}, 2024.
+
+\bibitem[Rao(1945)]{rao1945information}
+C.~R. Rao.
+\newblock Information and the accuracy attainable in the estimation of
+  statistical parameters.
+\newblock \emph{Bulletin of the Calcutta Mathematical Society}, 37:\penalty0
+  81--91, 1945.
+
+\bibitem[Wortsman et~al.(2022)Wortsman, Ilharco, Gadre, Roelofs, Gontijo-Lopes,
+  Morcos, Namkoong, Farhadi, Carlin, Kornblith, et~al.]{wortsman2022model}
+Mitchell Wortsman, Gabriel Ilharco, Samir~Ya Gadre, Rebecca Roelofs, Raphael
+  Gontijo-Lopes, Ari~S Morcos, Hongseok Namkoong, Ali Farhadi, Yair Carlin,
+  Simon Kornblith, et~al.
+\newblock Model soups: Averaging weights of multiple fine-tuned models improves
+  accuracy without increasing inference time.
+\newblock In \emph{International Conference on Machine Learning}, pages
+  23965--23998. PMLR, 2022.
+
+\end{thebibliography}
