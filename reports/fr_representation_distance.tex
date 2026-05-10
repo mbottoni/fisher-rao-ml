@@ -294,24 +294,61 @@ straightforward since FR-RD is an average; mini-batch estimation works without b
 
 \section{Related Work}
 
-\paragraph{Representational similarity.}
-\citet{kornblith2019similarity} introduced linear CKA and showed it is more consistent
-across architectures than earlier measures such as RSA \citep{kriegeskorte2008representational}.
-\citet{raghu2017svcca} proposed SVCCA based on canonical correlations. All of these
-operate on hidden representations and are not metrics in the strict sense.
+\paragraph{Hidden-layer representational similarity.}
+The dominant approach to measuring neural network similarity operates on internal
+representations rather than output distributions.
+\citet{raghu2017svcca} introduced SVCCA, which uses canonical correlation analysis
+on hidden-layer activations.
+\citet{kornblith2019similarity} proposed linear CKA, showing it is more consistent
+across architectures than RSA \citep{kriegeskorte2008representational} or SVCCA.
+\citet{nguyen2021wide} later showed CKA can be biased on finite samples and proposed
+correction factors. None of these measures is a proper metric: CKA does not satisfy
+the triangle inequality and equals 1 only for orthogonally equivalent representations,
+not necessarily behaviorally equivalent classifiers.
 
-\paragraph{Behavioral metrics.}
-\citet{jiang2019fantastic} study predictors of generalization using a mix of geometric
-and behavioral measures. Recent work argues for reliability audits of
-CKA on finite samples. Our work takes the behavioral angle further by grounding the metric in information
-geometry.
+\paragraph{Output-distribution metrics.}
+Measuring divergence between model output distributions has been studied in several
+contexts.
+\citet{hinton2015distilling} implicitly use per-example KL divergence between teacher
+and student softmax distributions for knowledge distillation, but this is not symmetric
+and diverges as the student grows more confident.
+The total variation distance $d_{\mathrm{TV}}(p,q) = \tfrac{1}{2}\|p-q\|_1$ is a
+symmetric, bounded metric on output distributions but has zero gradient everywhere
+except near the boundary of the simplex, making it unsuitable as a training objective.
+The Bhattacharyya distance \citep{bhattacharyya1943measure} is closely related to
+the Fisher--Rao distance: $d_B(p,q) = -\log\!\sum_c\sqrt{p_c q_c}$, and
+$d_{\mathrm{FR}}(p,q) = 2\arccos(\sum_c\sqrt{p_c q_c}) \approx d_B^{1/2}$
+near the uniform distribution.
+To our knowledge, FR-RD is the first proposal to use the Fisher--Rao geodesic as
+a \emph{model comparison metric} computed as an expectation over a reference dataset.
 
-\paragraph{Fisher--Rao distance in ML.}
-The categorical Fisher--Rao distance is studied in
-\citet{rao1945information,nielsen2020elementary,nielsen2023fishrao}. Its use as a training
-objective for t-SNE and soft-label classification is studied in the companion paper
-\citep{bottoni2026fisherrao}. This paper proposes its first use as a \emph{model comparison
-metric} rather than a training objective.
+\paragraph{Functional and behavioral model equivalence.}
+A complementary line of work studies behavioral equivalence of models beyond their
+representations. \citet{jiang2019fantastic} survey predictors of generalization
+including sharpness, margin, and noise sensitivity, finding no single measure
+dominates. Model stitching \citep{lenc2015understanding} measures functional
+compatibility by inserting a linear layer between two networks and measuring
+fine-tuning cost; this is qualitatively related to FR-RD but requires gradient
+computation and is architecture-specific.
+
+\paragraph{Model merging and fine-tuning divergence.}
+Recent work on model merging \citep{wortsman2022model} uses interpolation in weight
+space; measuring the output-distribution drift during merging is a natural application
+for FR-RD. Fine-tuning divergence is quantified in recent work on \emph{model soups}
+and \emph{WARP} \citep{rame2024warp}, which track weight-space distances. FR-RD
+offers an output-space complement that is reparameterization-invariant.
+
+\paragraph{Fisher--Rao distance in machine learning.}
+The categorical Fisher--Rao distance has its roots in \citet{rao1945information}
+and is connected to the information geometry of statistical manifolds
+\citep{amari2016information,nielsen2020elementary}.
+Approximation methods for Gaussian FR distance are studied in
+\citet{nielsen2023fishrao}.
+Its use as a training loss for t-SNE-style dimensionality reduction and
+soft-label classification is studied in the companion paper
+\citep{bottoni2026fisherrao}, which establishes theoretical advantages over KL
+in settings where false affinities are present.
+The present paper proposes its first use as a \emph{model comparison metric}.
 
 \section{Conclusion}
 

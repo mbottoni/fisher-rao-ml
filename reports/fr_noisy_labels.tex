@@ -414,32 +414,48 @@ pending).
 
 \begin{table}[t]
   \centering
-  \caption{Clean accuracy (\%) on CIFAR-10 without batch normalization (seed 0).
-    Compare to BN-equipped ConvNet in Table~\ref{tab:accuracy_cifar10}.}
+  \caption{Clean test accuracy (\%) on CIFAR-10: ConvNet with and without batch
+    normalization (single seed). Remaining 5-seed results are pending.
+    Compare to Table~\ref{tab:accuracy_cifar10} for the BN-equipped ConvNet averages.}
   \label{tab:no_bn}
   \small
-  \begin{tabular}{lcc}
+  \begin{tabular}{lccc}
     \toprule
-    Objective & With BN & Without BN \\
+    Objective & With BN (mean 5-seed) & Without BN (seed 0) & Drop \\
     \midrule
-    KL (CE)       & 83.8 & 70.9 \\
-    GCE ($q=0.7$) & 81.9 & 48.8 \\
+    KL (CE)       & 83.8 & 70.9 & $-12.9$ \\
+    GCE ($q=0.7$) & 81.9 & 48.8 & $-33.1$ \\
+    MAE           & 72.4 & 20.2 & $-52.2$ \\
+    SCE           & 77.4 & 69.0 & $-8.4$ \\
+    Hellinger     & 82.5 & -- & -- \\
+    Fisher--Rao   & 84.2 & -- & -- \\
     \bottomrule
   \end{tabular}
 \end{table}
 
-The preliminary data reveals two striking effects.
-First, removing BN drops KL accuracy from $83.8\%$ to $70.9\%$, confirming
-that BN substantially aids optimization on CIFAR-10 at this sample scale.
-Second, GCE collapses from $81.9\%$ to $48.8\%$ without BN — a much larger
-drop than KL — suggesting that GCE's loss landscape is particularly sensitive
-to the presence of feature normalization.
-We hypothesize that without BN's implicit learning-rate control, the GCE
-objective ($q=0.7 < 1$) provides weaker gradient signal at low-confidence
-predictions, stalling early-phase learning of convolutional filters.
-Full 5-seed results across all objectives and noise regimes will be reported
-in the camera-ready version; the BN ablation results for FR and MAE are
-pending.
+The preliminary data (Table~\ref{tab:no_bn}) reveals a striking \emph{differential
+sensitivity} to batch normalization across objectives.
+Removing BN drops KL accuracy by $12.9\%$ (from $83.8\%$ to $70.9\%$), which
+is substantial but expected given BN's general role in stabilizing optimization.
+GCE drops by $33.1\%$ (to $48.8\%$), and MAE collapses by $52.2\%$ to $20.2\%$
+— near random performance on a 10-class task.
+
+This differential sensitivity is mechanistically informative:
+\begin{itemize}
+  \item KL's gradient magnitude scales as $1/p_k$ near the optimum; even without BN,
+    the loss remains well-conditioned wherever the model is reasonably confident.
+  \item GCE's gradient scales as $p_k^{q-1}$; with $q=0.7 < 1$, gradient magnitude
+    \emph{decreases} as confidence increases, starving the network of signal once early
+    layers have adapted but classification heads are not yet calibrated.
+  \item MAE's flat gradient (constant magnitude $2(C-1)$ summed over classes) provides
+    no signal to discriminate correct from incorrect predictions in absolute terms, only
+    a direction. Without BN's adaptive learning-rate control, the optimizer cannot find
+    the necessary curvature and training essentially fails.
+\end{itemize}
+
+Whether Fisher--Rao (predicted to be more stable than GCE/MAE due to its bounded but
+non-flat gradient) shows an intermediate drop is the key open question, pending full
+5-seed results.
 
 \subsection{Calibration and Brier score}
 
