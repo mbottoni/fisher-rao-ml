@@ -93,6 +93,62 @@ def fr_ood_score(probs_id: Tensor, probs_query: Tensor, eps: float = 1e-8) -> Te
 
     The centroid is the mean probability vector over in-distribution samples.
     Returns a (len(probs_query),) OOD score; higher = more OOD.
+
+    Note: this global centroid approach fails for confident classifiers because the
+    centroid of many near-one-hot vectors approximates uniform, making ID predictions
+    (far from uniform) score higher than uncertain OOD predictions. Use
+    fr_ood_score_class_conditional for reliable OOD detection with confident models.
     """
     centroid = probs_id.mean(dim=0, keepdim=True).expand(probs_query.shape[0], -1)
     return categorical_fisher_rao_distance(centroid, probs_query, eps=eps)
+
+
+def fr_ood_score_class_conditional(
+    probs_id: Tensor,
+    labels_id: Tensor,
+    probs_query: Tensor,
+    eps: float = 1e-8,
+) -> Tensor:
+    """Per-sample FR OOD score using class-conditional centroids.
+
+    For each class c, computes the centroid of in-distribution softmax outputs
+    where the predicted class is c. Scores a query sample as the minimum FR
+    distance to any class centroid.
+
+    This avoids the global-centroid failure mode: confident ID samples are near
+    their class centroid → low score; OOD samples (uncertain, diffuse predictions)
+    are far from all centroids → high score.
+
+    Args:
+        probs_id: (n, C) in-distribution softmax outputs.
+        labels_id: (n,) integer ground-truth or predicted class labels for ID samples.
+        probs_query: (m, C) query softmax outputs.
+        eps: numerical stability floor.
+
+    Returns:
+        (m,) OOD scores; higher = more OOD.
+    """
+    n_classes = probs_id.shape[1]
+    centroids = []
+    for c in range(n_classes):
+        mask = labels_id == c
+        if mask.sum() == 0:
+            # Fallback: global centroid for unseen class
+            centroids.append(probs_id.mean(dim=0))
+        else:
+            centroids.append(probs_id[mask].mean(dim=0))
+    centroids_t = torch.stack(centroids, dim=0)  # (C, C)
+
+    # For each query, compute FR distance to each centroid, take min
+    # probs_query: (m, C) → expand to (m, C, C)
+    m = probs_query.shape[0]
+    # d[i, c] = FR(centroid_c, probs_query[i])
+    scores = torch.zeros(m, device=probs_query.device)
+    for c in range(n_classes):
+        centroid_c = centroids_t[c].unsqueeze(0).expand(m, -1)
+        d_c = categorical_fisher_rao_distance(centroid_c, probs_query, eps=eps)
+        if c == 0:
+            scores = d_c
+        else:
+            scores = torch.minimum(scores, d_c)
+    return scores
