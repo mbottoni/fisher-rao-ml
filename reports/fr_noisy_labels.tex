@@ -39,9 +39,9 @@ Our results reveal a striking \emph{architecture-dependent reversal}:
 on MLP models, FR under-performs standard cross-entropy at moderate symmetric
 noise rates (Digits sym\,40: $\Delta\mathrm{acc} = -3.2\%$, $p=0.002$,
 0/10 wins); on the ConvNet, FR \emph{outperforms} KL at the same regime
-(CIFAR-10 sym\,40: $+2.1\%$, 5/5 wins; sym\,60: $+2.7\%$, 5/5 wins).
+(CIFAR-10 sym\,40: $+2.2\%$, 7/7 wins, $p=0.016$; sym\,60: $+3.5\%$, 7/7 wins, $p=0.016$).
 By contrast, MAE---the theoretically optimal noise-tolerant loss---reverses
-direction on ConvNets, falling $-10\%$ below KL at sym\,40 on CIFAR-10.
+direction on ConvNets, falling $-9.9\%$ below KL at sym\,40 on CIFAR-10.
 We trace the MLP failure to the Ghosh et al.\ noise-tolerance condition and
 provide a formal analysis showing FR and Hellinger belong to the same family
 that cannot satisfy it.
@@ -95,6 +95,9 @@ Our contributions are:
     Hellinger, and any loss of the form $\ell(p, e_k) = f(\langle \sqrt{p},
     \sqrt{e_k} \rangle)$ cannot satisfy the noise-tolerance condition,
     explaining the MLP failure.
+  \item A batch-normalization ablation showing FR is the most robust objective to
+    BN removal ($-5.8\%$ mean drop vs.\ KL's $-13.6\%$), consistent with FR's
+    bounded gradient providing implicit gradient clipping.
   \item Practical guidance: for MLP/tabular data under symmetric noise use MAE
     or GCE; for ConvNet/image data, FR is competitive and may outperform KL.
 \end{enumerate}
