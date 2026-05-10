@@ -311,6 +311,7 @@ def main() -> None:
     weights_map: dict[tuple[str, int], torch.Tensor] = {}
     acc_map: dict[tuple[str, int], float] = {}
     traj_map: dict[tuple[str, int], list[tuple[int, torch.Tensor]]] = {}
+    models_map: dict[tuple[str, int], nn.Module] = {}
 
     for cond in conditions:
         for seed in seeds:
@@ -327,6 +328,7 @@ def main() -> None:
             acc_map[key] = accuracy(model, x_te, y_te, device)
             traj_map[key] = traj
             weights_map[key] = torch.cat([p.data.cpu().flatten() for p in model.parameters()])
+            models_map[key] = model
 
     # Pairwise distances
     all_keys = [(c, s) for c in conditions for s in seeds]
@@ -376,33 +378,54 @@ def main() -> None:
     write_rows(out_trajectory, traj_rows)
     print(f"[fr-rd] wrote {len(traj_rows)} trajectory rows → {out_trajectory}")
 
-    # --- Part 3: OOD detection (digits only — MNIST OOD against digits ID) ---
+    # --- Part 3: OOD detection (digits only) ---
+    # OOD data: MNIST images resized to 8×8 → 64 features (same space as Digits).
+    # In-distribution centroid = mean softmax over all ID test samples.
+    # We use the already-computed probs_map (no retraining needed).
     ood_rows = []
-    if args.dataset == "digits":
+    if args.dataset == "digits" and probs_map:
         try:
+            import torchvision.transforms as T
             from sklearn.preprocessing import StandardScaler as SS
-            data = load_digits()
-            scaler_for_mnist = SS().fit(data.data.astype(np.float32))
-            x_mnist_ood, _ = load_mnist_subset(n=300, seed=0, scaler=scaler_for_mnist)
-            if x_mnist_ood is not None:
-                for cond in conditions:
-                    all_probs_id = torch.cat([probs_map[(cond, s)] for s in seeds], dim=0)
-                    for seed in seeds:
-                        model_key = (cond, seed)
-                        model, _ = train_model(
-                            x_tr, y_tr, n_classes, cond, seed, device,
-                            n_steps=args.n_steps, hidden=args.hidden,
-                        )
-                        probs_ood, _ = get_probs_and_features(model, x_mnist_ood, device)
-                        ood_scores_ood = fr_ood_score(all_probs_id, probs_ood).numpy()
-                        ood_scores_id = fr_ood_score(all_probs_id, probs_map[model_key]).numpy()
-                        ood_rows.append({
-                            "condition": cond,
-                            "seed": seed,
-                            "mean_ood_score_ood": float(ood_scores_ood.mean()),
-                            "mean_ood_score_id": float(ood_scores_id.mean()),
-                            "separation": float(ood_scores_ood.mean() - ood_scores_id.mean()),
-                        })
+            from torchvision.datasets import MNIST
+
+            data_digits = load_digits()
+            scaler_digits = SS().fit(data_digits.data.astype(np.float32))
+
+            mnist_ds = MNIST(
+                root="data", train=False, download=True,
+                transform=T.Compose([T.Resize(8), T.ToTensor(),
+                                     T.Lambda(lambda x: x.view(-1))]),
+            )
+            rng_ood = np.random.default_rng(0)
+            idx_ood = rng_ood.choice(len(mnist_ds), size=300, replace=False)
+            x_mnist_raw = torch.stack(
+                [mnist_ds[int(i)][0] for i in idx_ood]
+            ).numpy().astype(np.float32)
+            x_mnist_ood = torch.from_numpy(scaler_digits.transform(x_mnist_raw))
+
+            for cond in conditions:
+                # Reference: mean over all in-distribution probs (all seeds concatenated)
+                all_probs_id = torch.cat([probs_map[(cond, s)] for s in seeds], dim=0)
+                for seed in seeds:
+                    model_key = (cond, seed)
+                    probs_ood, _ = get_probs_and_features(
+                        models_map[model_key], x_mnist_ood, device
+                    )
+                    ood_scores_ood = fr_ood_score(all_probs_id, probs_ood).numpy()
+                    ood_scores_id = fr_ood_score(all_probs_id, probs_map[model_key]).numpy()
+                    ood_rows.append({
+                        "condition": cond,
+                        "seed": seed,
+                        "mean_ood_score_ood": float(ood_scores_ood.mean()),
+                        "mean_ood_score_id": float(ood_scores_id.mean()),
+                        "separation": float(ood_scores_ood.mean() - ood_scores_id.mean()),
+                    })
+            print("[fr-rd] OOD separation summary:")
+            for cond in conditions:
+                cond_rows = [r for r in ood_rows if r["condition"] == cond]
+                sep = np.mean([r["separation"] for r in cond_rows])
+                print(f"  {cond:12s}: mean separation = {sep:.4f}")
         except Exception as e:
             print(f"[fr-rd] OOD section skipped: {e}")
 
