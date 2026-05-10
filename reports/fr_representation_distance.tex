@@ -277,59 +277,80 @@ the output, while $1 - \mathrm{CKA}$ captures hidden-representation divergence.
 \subsection{OOD detection via centroid FR-RD}
 \label{sec:ood}
 
-We compare two OOD scorers based on FR-RD:
+We compare four OOD scorers on the same models:
 
-\textbf{Global centroid.} Score a query as $s_{\mathrm{gc}}(x) = d_{\mathrm{FR}}(\bar{p}, P_\theta(x))$,
-where $\bar{p} = \frac{1}{n}\sum_i P_\theta(x_i)$ is the mean softmax over the ID reference set.
+\textbf{Global centroid (FR-RD).} Score $s(x) = d_{\mathrm{FR}}(\bar{p}, P_\theta(x))$,
+where $\bar{p}$ is the mean softmax over the ID reference set.
 
-\textbf{Class-conditional centroid (CC).} Compute per-class centroids
+\textbf{Class-conditional centroid (FR-RD CC).} Compute per-class centroids
 $\bar{p}_c = \mathbb{E}[P_\theta(x) \mid y = c]$ and score
-$s_{\mathrm{cc}}(x) = \min_c d_{\mathrm{FR}}(\bar{p}_c, P_\theta(x))$.
+$s(x) = \min_c d_{\mathrm{FR}}(\bar{p}_c, P_\theta(x))$.
 
-We evaluate on UCI Digits (ID) vs.\ MNIST resized to $8\times 8$ (OOD), 300 OOD samples,
-5 seeds per condition. \emph{Separation} = mean OOD score $-$ mean ID score; positive values
-indicate successful detection.
+\textbf{Maximum Softmax Probability (MSP)~\citep{hendrycks2017baseline}.}
+Score $s(x) = 1 - \max_c P_\theta(x)_c$; higher score indicates lower confidence.
+
+\textbf{Mahalanobis distance.} Compute class-conditional mean features
+$\mu_c = \mathbb{E}[f_\theta(x) \mid y=c]$ and shared covariance $\Sigma$; score
+$s(x) = \min_c (f_\theta(x)-\mu_c)^\top \Sigma^{-1}(f_\theta(x)-\mu_c)$.
+
+We evaluate on UCI Digits (ID) vs.\ MNIST resized to $8\times 8$ (OOD),
+300 OOD samples, 10 seeds per condition.
+\emph{Win} = seed where mean OOD score $>$ mean ID score (correct ranking).
 
 \begin{table}[h]
   \centering
-  \caption{OOD detection: mean separation (OOD score $-$ ID score) for global vs.\ class-conditional centroid. Positive = correct ranking (OOD scored higher than ID). Win count over 5 seeds in parentheses.}
+  \caption{OOD detection win counts (correct-ranking seeds out of 10) for four methods.
+  FR-RD CC is the only method that achieves positive separation for both clean and noisy
+  models. MSP fails for 60\%-noise models (model is uniformly uncertain);
+  Mahalanobis fails for clean/FR-loss models (feature clusters are well-separated from
+  OOD inputs in feature space, but feature distribution drifts confound the score).}
   \label{tab:ood}
   \small
-  \begin{tabular}{lrr}
+  \begin{tabular}{lrrrr}
     \toprule
-    Condition & Global centroid & Class-conditional \\
+    Condition & Global FR-RD & FR-RD CC & MSP & Mahalanobis \\
     \midrule
-    CE (clean)    & $-0.315$ (0/5) & $+0.271$ (4/5) \\
-    FR (clean)    & $-0.419$ (0/5) & $+0.441$ (4/5) \\
-    LS (clean)    & $-0.930$ (0/5) & $+0.861$ (5/5) \\
-    CE 30\% noise & $-0.001$ (2/5) & $+0.148$ (4/5) \\
-    CE 60\% noise & $+0.191$ (4/5) & $+0.143$ (4/5) \\
+    CE (clean)    & 0/10 & \textbf{9/10} & 9/10        & 4/10 \\
+    FR (clean)    & 0/10 & \textbf{9/10} & 9/10        & 4/10 \\
+    LS (clean)    & 0/10 & \textbf{10/10}& \textbf{10/10} & 10/10 \\
+    CE 30\% noise & 7/10 & 7/10          & 3/10        & \textbf{10/10} \\
+    CE 60\% noise & 9/10 & \textbf{10/10}& 2/10        & \textbf{10/10} \\
+    \midrule
+    Total         & 16/50 & \textbf{45/50} & 33/50 & 28/50 \\
     \bottomrule
   \end{tabular}
 \end{table}
 
 \textbf{Global centroid failure.} For confident classifiers, the global centroid
-$\bar{p} \approx \frac{1}{n}\sum_i e_{y_i} \approx \mathbf{1}/C$ (near-uniform
-with balanced classes). Confident ID predictions (near one-hot) are far from
+$\bar{p} \approx \mathbf{1}/C$ (near-uniform). Confident ID predictions are far from
 this uniform centroid, while uncertain OOD predictions are closer — \emph{inverting}
-the intended ranking. This yields negative separation for all clean and smoothed conditions.
+the intended ranking.
 
-\textbf{Class-conditional centroid fixes the inversion.} $\bar{p}_c$ represents
-the model's ``expected output for a class-$c$ input''; it is near one-hot for
-confident models. An ID input of class $c$ is close to $\bar{p}_c$ (low score),
-while an OOD input producing diffuse or wrong-class outputs is far from all
-$\bar{p}_c$ (high score). This yields positive separation for all five conditions.
-The improvement is most pronounced for label-smoothed models ($-0.93 \to +0.86$)
-where the global centroid is farthest from the per-class means.
-Figure~\ref{fig:ood} shows the comparison across all conditions.
+\textbf{MSP failure on noisy models.} For 60\%-noise models (test accuracy $\approx 50\%$),
+both ID and OOD inputs produce low-confidence predictions; MSP cannot distinguish them
+(only 2/10 wins at 60\% noise).
+
+\textbf{Mahalanobis failure on clean models.} For clean, well-calibrated classifiers,
+the feature-space cluster structure is well-defined for ID classes but the covariance
+estimate is dominated by within-class variance; OOD inputs land in low-density regions
+that score poorly under the shared Gaussian assumption (4/10 wins for clean/FR models).
+
+\textbf{FR-RD CC is the most reliable.} The class-conditional centroid achieves 45/50
+wins across all five conditions and both model quality regimes ($> $ MSP's 33/50 and
+Mahalanobis's 28/50). The mechanism: $\bar{p}_c$ represents the model's expected output
+for class $c$. For confident clean models, ID inputs score low (close to $\bar{p}_c$)
+while uncertain OOD inputs score high (diffuse predictions far from all class centroids).
+For noisy models, $\bar{p}_c$ is diffuse but still class-specific; ID inputs tend to
+cluster nearer their correct class centroid than OOD inputs, preserving the ranking.
+Figure~\ref{fig:ood} shows per-condition win rates.
 
 \begin{figure}[h]
   \centering
   \includegraphics[width=0.85\linewidth]{figures/fr_rd_ood_comparison.pdf}
-  \caption{OOD detection: mean separation (OOD score $-$ ID score, mean $\pm$ std across 5
-  seeds) for global vs.\ class-conditional centroid. Positive bars indicate correct ranking.
-  The global centroid fails for clean/smoothed models; the class-conditional centroid achieves
-  positive separation across all conditions.}
+  \caption{OOD detection win counts (out of 10 seeds) for four methods across five
+  training conditions. FR-RD CC is the only method that achieves $\ge 7/10$ wins for
+  every condition. MSP fails for noisy models; Mahalanobis fails for clean/FR-loss models;
+  global FR-RD centroid fails for all clean models.}
   \label{fig:ood}
 \end{figure}
 

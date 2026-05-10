@@ -202,33 +202,39 @@ def save_ood_comparison() -> None:
         "clean": "CE (clean)", "fr_loss": "FR (clean)", "smoothed": "LS (clean)",
         "noisy_30": "CE 30% noise", "noisy_60": "CE 60% noise",
     }
-    global_sep = {c: [] for c in conds}
-    cc_sep = {c: [] for c in conds}
-    for r in rows:
-        c = r.get("condition")
-        if c in conds:
-            global_sep[c].append(float(r["separation"]))
-            if "cc_separation" in r:
-                cc_sep[c].append(float(r["cc_separation"]))
+
+    # Win rates: proportion of seeds where OOD score > ID score
+    def win_rate(col_ood: str, col_id: str, c: str) -> tuple[float, float]:
+        vals = [(float(r[col_ood]) > float(r[col_id])) for r in rows if r.get("condition") == c]
+        return (float(np.mean(vals)) if vals else 0.0, float(np.std(vals)) if vals else 0.0)
+
+    # For global and cc we already have the separation column
+    def win_rate_sep(col: str, c: str) -> float:
+        vals = [(float(r[col]) > 0) for r in rows if r.get("condition") == c and col in r]
+        return float(np.mean(vals)) if vals else 0.0
 
     x = np.arange(len(conds))
-    width = 0.35
-    fig, ax = plt.subplots(figsize=(7, 4))
-    g_means = [np.mean(global_sep[c]) for c in conds]
-    g_stds = [np.std(global_sep[c]) for c in conds]
-    cc_means = [np.mean(cc_sep[c]) if cc_sep[c] else 0 for c in conds]
-    cc_stds = [np.std(cc_sep[c]) if cc_sep[c] else 0 for c in conds]
+    n_methods = 4
+    width = 0.18
+    offsets = np.linspace(-1.5 * width, 1.5 * width, n_methods)
+    colors = ["tab:blue", "tab:orange", "tab:green", "tab:red"]
+    labels = ["Global FR-RD", "FR-RD CC (ours)", "MSP", "Mahalanobis"]
+    sep_cols = ["separation", "cc_separation", "msp_separation", "mahal_separation"]
 
-    ax.bar(x - width / 2, g_means, width, yerr=g_stds, capsize=4,
-           label="Global centroid", color="tab:blue", alpha=0.8)
-    ax.bar(x + width / 2, cc_means, width, yerr=cc_stds, capsize=4,
-           label="Class-conditional centroid", color="tab:orange", alpha=0.8)
-    ax.axhline(0, color="black", linewidth=0.8, linestyle="--")
+    fig, ax = plt.subplots(figsize=(9, 4))
+    for mi, (col, label, color) in enumerate(zip(sep_cols, labels, colors, strict=True)):
+        win_vals = [win_rate_sep(col, c) for c in conds]
+        ax.bar(x + offsets[mi], win_vals, width, label=label, color=color, alpha=0.8)
+
+    ax.axhline(0.5, color="black", linewidth=0.8, linestyle="--", label="chance")
     ax.set_xticks(x)
-    ax.set_xticklabels([cond_labels_ood[c] for c in conds], rotation=20, ha="right", fontsize=8)
-    ax.set_ylabel("Mean separation (OOD score − ID score)")
+    ax.set_xticklabels(
+        [cond_labels_ood[c] for c in conds], rotation=20, ha="right", fontsize=8
+    )
+    ax.set_ylabel("Win rate (fraction of seeds with correct OOD ranking)")
+    ax.set_ylim(0, 1.1)
     ax.set_title(
-        "OOD detection: global vs class-conditional centroid\n(UCI Digits ID vs MNIST OOD)"
+        "OOD detection: FR-RD CC vs MSP vs Mahalanobis\n(UCI Digits ID vs MNIST-8×8 OOD, 10 seeds)"
     )
     ax.legend(fontsize=8)
     fig.tight_layout()

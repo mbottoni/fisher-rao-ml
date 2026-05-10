@@ -411,9 +411,31 @@ def main() -> None:
                 # Global centroid: mean over all in-distribution probs (all seeds)
                 all_probs_id = torch.cat([probs_map[(cond, s)] for s in seeds], dim=0)
                 all_labels_id = labels_id.repeat(len(seeds))
+                # Mahalanobis: class-conditional mean features + shared covariance
+                all_feats_id = torch.cat([features_map[(cond, s)] for s in seeds], dim=0)
+                n_feat = all_feats_id.shape[1]
+                feat_means = []
+                for c in range(n_classes):
+                    mask = all_labels_id == c
+                    feat_means.append(
+                        all_feats_id[mask].mean(dim=0) if mask.sum() > 0
+                        else all_feats_id.mean(dim=0)
+                    )
+                feat_means_t = torch.stack(feat_means, dim=0)
+                # shared covariance (pooled, regularized)
+                centered = []
+                for c in range(n_classes):
+                    mask = all_labels_id == c
+                    if mask.sum() > 1:
+                        centered.append(all_feats_id[mask] - feat_means_t[c])
+                cov_pool = torch.cat(centered, dim=0)
+                cov_mat = (cov_pool.T @ cov_pool) / len(cov_pool)
+                cov_mat += 1e-4 * torch.eye(n_feat)
+                cov_inv = torch.linalg.inv(cov_mat)
+
                 for seed in seeds:
                     model_key = (cond, seed)
-                    probs_ood, _ = get_probs_and_features(
+                    probs_ood, feats_ood = get_probs_and_features(
                         models_map[model_key], x_mnist_ood, device
                     )
                     # Global centroid OOD scores
@@ -426,6 +448,27 @@ def main() -> None:
                     cc_id = fr_ood_score_class_conditional(
                         all_probs_id, all_labels_id, probs_map[model_key]
                     ).numpy()
+                    # MSP: 1 - max(softmax); higher = more OOD
+                    msp_ood = (1.0 - probs_ood.max(dim=-1).values).numpy()
+                    msp_id = (1.0 - probs_map[model_key].max(dim=-1).values).numpy()
+                    # Mahalanobis: min_c (f - μ_c)^T Σ^{-1} (f - μ_c)
+                    def _mahal(
+                        feats: torch.Tensor,
+                        means: torch.Tensor,
+                        inv: torch.Tensor,
+                        nc: int,
+                    ) -> np.ndarray:
+                        scores = torch.zeros(len(feats))
+                        for c in range(nc):
+                            diff = feats - means[c]
+                            d_c = (diff @ inv * diff).sum(dim=-1)
+                            scores = d_c if c == 0 else torch.minimum(scores, d_c)
+                        return scores.numpy()
+
+                    mahal_ood = _mahal(feats_ood.cpu(), feat_means_t, cov_inv, n_classes)
+                    mahal_id = _mahal(
+                        features_map[model_key].cpu(), feat_means_t, cov_inv, n_classes
+                    )
                     ood_rows.append({
                         "condition": cond,
                         "seed": seed,
@@ -435,13 +478,24 @@ def main() -> None:
                         "cc_mean_ood_score_ood": float(cc_ood.mean()),
                         "cc_mean_ood_score_id": float(cc_id.mean()),
                         "cc_separation": float(cc_ood.mean() - cc_id.mean()),
+                        "msp_mean_ood_score_ood": float(msp_ood.mean()),
+                        "msp_mean_ood_score_id": float(msp_id.mean()),
+                        "msp_separation": float(msp_ood.mean() - msp_id.mean()),
+                        "mahal_mean_ood_score_ood": float(mahal_ood.mean()),
+                        "mahal_mean_ood_score_id": float(mahal_id.mean()),
+                        "mahal_separation": float(mahal_ood.mean() - mahal_id.mean()),
                     })
-            print("[fr-rd] OOD separation summary (global / class-conditional):")
+            print("[fr-rd] OOD separation summary (global / cc / MSP / Mahal):")
             for cond in conditions:
                 cond_rows = [r for r in ood_rows if r["condition"] == cond]
                 sep = np.mean([r["separation"] for r in cond_rows])
                 cc_sep = np.mean([r["cc_separation"] for r in cond_rows])
-                print(f"  {cond:12s}: global={sep:+.4f}  cc={cc_sep:+.4f}")
+                msp_sep = np.mean([r["msp_separation"] for r in cond_rows])
+                msp_sep2 = np.mean([r["mahal_separation"] for r in cond_rows])
+                print(
+                    f"  {cond:12s}: global={sep:+.4f}  cc={cc_sep:+.4f}"
+                    f"  msp={msp_sep:+.4f}  mahal={msp_sep2:+.4f}"
+                )
         except Exception as e:
             print(f"[fr-rd] OOD section skipped: {e}")
 
