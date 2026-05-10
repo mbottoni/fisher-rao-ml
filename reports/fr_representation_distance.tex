@@ -433,14 +433,16 @@ accuracy gap across 25 (fraction, seed) pairs.
 This is more informative than weight-space $L_2$ distance, which is confounded by
 reparameterization; FR-RD is invariant to any smooth reparameterization of the network.
 
-\paragraph{OOD detection: class-conditional centroids work.}
-The global centroid FR-RD scorer (\S\ref{sec:ood}) fails for high-confidence models
-(population centroid $\approx$ uniform, ranking inverted). The class-conditional centroid
-fixes this: by using per-class mean outputs as reference points, ID inputs of class $c$
-score low (close to $\bar{p}_c$) while OOD inputs score high (diffuse, far from all
-$\bar{p}_c$). The improvement is consistent across all five conditions (Table~\ref{tab:ood}).
-This illustrates that FR-RD is powerful when paired with a semantically appropriate
-reference distribution; a uniform centroid is not appropriate for confident classifiers.
+\paragraph{OOD detection: class-conditional centroids outperform standard baselines.}
+Among five methods (Table~\ref{tab:ood}), FR-RD CC (45/50 total wins) is the only approach
+that works reliably for both clean and noisy model regimes. Energy score (36/50) and MSP
+(33/50) both fail for noisy models (0/10 and 2/10 wins at 60\% noise), while Mahalanobis
+distance (38/50) fails for clean models (4/10). The global centroid FR-RD (16/50) fails for
+all high-confidence models. The class-conditional centroid fixes the global centroid failure by
+using per-class mean outputs: ID inputs of class $c$ score low (close to $\bar{p}_c$) while
+OOD inputs score high (diffuse, far from all $\bar{p}_c$). This advantage persists even for
+noisy models where $\bar{p}_c$ is less sharp, because the class-specific structure is
+preserved even under moderate label corruption.
 
 \paragraph{Scale-up.}
 The main limitation is that FR-RD requires access to the full output distribution, not just
@@ -529,10 +531,10 @@ The present paper proposes its first use as a \emph{model comparison metric}.
     on UCI Digits (1,797 samples) and MNIST (3,000 train). Scaling to ResNet-scale
     models on CIFAR-100 or ImageNet is left to future work.
   \item \textbf{OOD evaluation is small-scale.} The OOD experiment uses UCI Digits
-    vs.\ MNIST at $8\times 8$ resolution. The class-conditional centroid approach
-    (Table~\ref{tab:ood}) shows positive separation on all conditions but requires
-    validation on larger-scale benchmarks (CIFAR-10 vs.\ SVHN, ImageNet vs.\ iNaturalist)
-    and comparison to standard baselines (MSP, energy score, Mahalanobis distance).
+    vs.\ MNIST at $8\times 8$ resolution. While we compare against MSP, energy score, and
+    Mahalanobis distance, the class-conditional centroid approach requires further
+    validation on standard large-scale benchmarks (CIFAR-10 vs.\ SVHN,
+    ImageNet vs.\ iNaturalist) with larger models.
 \end{itemize}
 
 \section{Conclusion}
