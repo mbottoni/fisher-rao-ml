@@ -1,4 +1,4 @@
-\begin{thebibliography}{15}
+\begin{thebibliography}{16}
 \providecommand{\natexlab}[1]{#1}
 \providecommand{\url}[1]{\texttt{#1}}
 \expandafter\ifx\csname urlstyle\endcsname\relax
@@ -22,6 +22,12 @@ Maruano~T. Bottoni.
 \newblock When {Fisher--Rao} geometry helps representation learning: Robust
   affinity matching under false neighbors.
 \newblock Preprint, 2026.
+
+\bibitem[Hendrycks and Gimpel(2017)]{hendrycks2017baseline}
+Dan Hendrycks and Kevin Gimpel.
+\newblock A baseline for detecting misclassified and out-of-distribution
+  examples in neural networks.
+\newblock In \emph{International Conference on Learning Representations}, 2017.
 
 \bibitem[Hinton et~al.(2015)Hinton, Vinyals, and Dean]{hinton2015distilling}
 Geoffrey Hinton, Oriol Vinyals, and Jeff Dean.
