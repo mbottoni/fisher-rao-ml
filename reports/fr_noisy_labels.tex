@@ -334,18 +334,19 @@ Key observations:
 The results in Table~\ref{tab:accuracy_cifar10} reveal a sharp reversal:
 \begin{enumerate}
   \item \textbf{FR and Hellinger now \emph{outperform} KL under symmetric noise, with statistical significance.}
-    FR: $+2.5\%$ at sym\,20 (7/7 wins, $p=0.016$), $+2.3\%$ at sym\,40 (7/7 wins, $p=0.016$),
-    $+3.2\%$ at sym\,60 (6/6 wins, $p=0.031$).
-    Hellinger shows the same direction and is also significant at sym\,20--60.
+    FR: $+2.5\%$ at sym\,20 (7/7 wins, $p=0.016$), $+2.2\%$ at sym\,40 (7/7 wins, $p=0.016$),
+    $+3.5\%$ at sym\,60 (7/7 wins, $p=0.016$).
+    Hellinger shows the same direction and is also significant at sym\,20--60 (all $p=0.016$).
+    SCE also significantly outperforms KL at sym\,60 (7/7 wins, $p=0.016$).
     Both are bounded symmetric divergences, consistent with the unified mechanism.
   \item \textbf{MAE severely underperforms on ConvNet.}
     At clean, MAE achieves $71.4\%$ vs KL's $84.2\%$ ($-12.8\%$, $p=0.016$, 0/7 wins).
     At sym\,40: $62.5\%$ vs $72.4\%$ ($-9.9\%$). This is the opposite direction from the MLP datasets.
   \item \textbf{GCE is the strongest overall on CIFAR-10.}
-    GCE achieves $+3.5\%$ at sym\,40 (7/7 wins, $p=0.016$) and $+9.4\%$ at sym\,60 (6/6 wins, $p=0.031$).
-  \item \textbf{Asymmetric noise: no clear winner on ConvNet.}
-    KL $\approx 84\%$\footnote{asym\,40 uses 6 seeds; full 7-seed run pending.} is competitive; FR
-    falls slightly ($-2.0\%$), GCE/Hellinger gain $+0.7$--$1.0\%$.
+    GCE achieves $+3.5\%$ at sym\,40 (7/7 wins, $p=0.016$) and $+9.7\%$ at sym\,60 (7/7 wins, $p=0.016$).
+  \item \textbf{Asymmetric noise: Hellinger significant, FR hurts.}
+    At asym\,40 (6 seeds), Hellinger achieves $+0.7\%$ over KL (6/6 wins, $p=0.031$);
+    FR falls $-2.2\%$ (0/6 wins, $p=0.031$); GCE is within noise ($+0.4\%$, $p=0.062$).
 \end{enumerate}
 
 \begin{table}[t]
@@ -373,11 +374,11 @@ The results in Table~\ref{tab:accuracy_cifar10} reveal a sharp reversal:
 
 \begin{table}[t]
   \centering
-  \caption{Mean test accuracy (\%) on CIFAR-10 ConvNet (7 seeds, two-sided Wilcoxon
-    $p$-values vs KL in parentheses for significant comparisons $p<0.05$).
-    Note the reversal from Table~\ref{tab:accuracy_digits}: FR and Hellinger now
-    outperform KL under symmetric noise ($p<0.05$), while MAE severely underperforms.
-    $^\dagger$asym\,40 uses 6 available seeds.
+  \caption{Mean test accuracy (\%) on CIFAR-10 ConvNet (7 seeds for symmetric regimes,
+    6 seeds for asym\,40; two-sided Wilcoxon $p$-values vs KL in parentheses for
+    $p<0.05$). Note the reversal from Table~\ref{tab:accuracy}: FR and Hellinger
+    outperform KL under symmetric noise (all $p=0.016$), while MAE severely underperforms.
+    Hellinger also significantly outperforms KL under asym\,40 ($p=0.031$).
     Bold: best non-KL objective per noise regime.}
   \label{tab:accuracy_cifar10}
   \small
@@ -387,9 +388,9 @@ The results in Table~\ref{tab:accuracy_cifar10} reveal a sharp reversal:
     \midrule
     Clean    & 84.2 & \textbf{84.4} & 82.7 & 82.1 & 71.4 & 77.9 \\
     Sym 20\% & 79.0 & 81.5 ($p{=}0.016$) & \textbf{80.4} ($p{=}0.016$) & 79.5 ($p{=}0.016$) & 68.2 & 75.2 \\
-    Sym 40\% & 72.4 & 74.7 ($p{=}0.016$) & 75.9 ($p{=}0.016$) & \textbf{75.9} ($p{=}0.016$) & 62.5 & 69.9 \\
-    Sym 60\% & 57.9 & 61.1 ($p{=}0.031$) & 65.2 ($p{=}0.031$) & \textbf{67.3} ($p{=}0.031$) & 53.8 & 59.7 \\
-    Asym 40\%$^\dagger$ & 63.8 & 61.8 & \textbf{64.8} & 64.5 & 51.2 & 62.5 \\
+    Sym 40\% & 72.4 & 74.6 ($p{=}0.016$) & 75.9 ($p{=}0.016$) & \textbf{75.9} ($p{=}0.016$) & 62.5 & 69.9 \\
+    Sym 60\% & 57.9 & 61.4 ($p{=}0.016$) & 65.5 ($p{=}0.016$) & \textbf{67.6} ($p{=}0.016$) & 53.1 & 59.7 ($p{=}0.016$) \\
+    Asym 40\%$^\dagger$ & 64.4 & \underline{62.2} ($p{=}0.031$) & \textbf{65.1} ($p{=}0.031$) & 64.8 & 52.5 & 62.5 \\
     \bottomrule
   \end{tabular}
 \end{table}
@@ -651,7 +652,7 @@ architecture families (MLP and ConvNet) and five to six noise regimes.
 
 The central finding is an \emph{architecture-dependent reversal}: FR hurts MLP
 models under symmetric noise ($-3.2\%$ on Digits at sym\,40, $p=0.002$) while
-helping ConvNet models in the same regime ($+2.3\%$ on CIFAR-10 at sym\,40,
+helping ConvNet models in the same regime ($+2.2\%$ on CIFAR-10 at sym\,40,
 7/7 wins, $p=0.016$).
 MAE reverses in the opposite direction: dominant on MLP ($+19.6\%$) but
 severely harmful on ConvNet ($-9.9\%$, 0/7 wins, $p=0.016$).
