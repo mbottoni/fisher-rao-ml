@@ -42,6 +42,7 @@ from fisher_rao_ml.distribution_losses import distribution_loss_from_logits
 from fisher_rao_ml.representation_distance import (
     cka_linear,
     fr_ood_score,
+    fr_ood_score_class_conditional,
     fr_representation_distance,
 )
 
@@ -404,28 +405,43 @@ def main() -> None:
             ).numpy().astype(np.float32)
             x_mnist_ood = torch.from_numpy(scaler_digits.transform(x_mnist_raw))
 
+            # y_te is already a Tensor from load_digits_split / load_mnist_split
+            labels_id = y_te if isinstance(y_te, torch.Tensor) else torch.from_numpy(y_te)
             for cond in conditions:
-                # Reference: mean over all in-distribution probs (all seeds concatenated)
+                # Global centroid: mean over all in-distribution probs (all seeds)
                 all_probs_id = torch.cat([probs_map[(cond, s)] for s in seeds], dim=0)
+                all_labels_id = labels_id.repeat(len(seeds))
                 for seed in seeds:
                     model_key = (cond, seed)
                     probs_ood, _ = get_probs_and_features(
                         models_map[model_key], x_mnist_ood, device
                     )
+                    # Global centroid OOD scores
                     ood_scores_ood = fr_ood_score(all_probs_id, probs_ood).numpy()
                     ood_scores_id = fr_ood_score(all_probs_id, probs_map[model_key]).numpy()
+                    # Class-conditional centroid OOD scores
+                    cc_ood = fr_ood_score_class_conditional(
+                        all_probs_id, all_labels_id, probs_ood
+                    ).numpy()
+                    cc_id = fr_ood_score_class_conditional(
+                        all_probs_id, all_labels_id, probs_map[model_key]
+                    ).numpy()
                     ood_rows.append({
                         "condition": cond,
                         "seed": seed,
                         "mean_ood_score_ood": float(ood_scores_ood.mean()),
                         "mean_ood_score_id": float(ood_scores_id.mean()),
                         "separation": float(ood_scores_ood.mean() - ood_scores_id.mean()),
+                        "cc_mean_ood_score_ood": float(cc_ood.mean()),
+                        "cc_mean_ood_score_id": float(cc_id.mean()),
+                        "cc_separation": float(cc_ood.mean() - cc_id.mean()),
                     })
-            print("[fr-rd] OOD separation summary:")
+            print("[fr-rd] OOD separation summary (global / class-conditional):")
             for cond in conditions:
                 cond_rows = [r for r in ood_rows if r["condition"] == cond]
                 sep = np.mean([r["separation"] for r in cond_rows])
-                print(f"  {cond:12s}: mean separation = {sep:.4f}")
+                cc_sep = np.mean([r["cc_separation"] for r in cond_rows])
+                print(f"  {cond:12s}: global={sep:+.4f}  cc={cc_sep:+.4f}")
         except Exception as e:
             print(f"[fr-rd] OOD section skipped: {e}")
 
