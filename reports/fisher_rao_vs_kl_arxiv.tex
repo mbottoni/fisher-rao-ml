@@ -39,7 +39,7 @@ cross-label edges, Fisher--Rao preserves clean neighborhoods and assigns substan
 embedding mass to the corrupted pairs than KL. Across $48$ nonzero
 dataset--corruption--level cells, Fisher--Rao reduces corrupted-edge preservation in all
 $47$ of $48$ cells, reduces corrupted-edge $Q$ mass in all $48$, and improves trustworthiness in
-$44$.
+$46$.
 We then extend the same stress test to five additional objectives: smoothed KL, capped KL,
 Jensen--Shannon, Hellinger, and a $0.5/0.5$ FR+KL hybrid. Jensen--Shannon and Hellinger
 achieve win rates ($47/48$ cells on bad-edge preservation and $48/48$ on bad-edge $Q$ mass)
@@ -600,11 +600,11 @@ Figure~\ref{fig:dimred-noisy-means} shows the corresponding empirical effect.
     \toprule
     Metric & FR improves & FR improves, $p<0.05$ & Consistency $\ge 0.8$ & Mean oriented gain \\
     \midrule
-    Bad-edge preservation $\downarrow$ & $48/48$ & $43/48$ & $42/48$ & $0.1571$ \\
+    Bad-edge preservation $\downarrow$ & $47/48$ & $42/48$ & $39/48$ & $0.162$ \\
     Bad-edge $Q$ mass $\downarrow$ & $48/48$ & $48/48$ & $48/48$ & $0.00239$ \\
-    Trustworthiness $\uparrow$ & $45/48$ & $43/48$ & $43/48$ & $0.0293$ \\
-    Clean-neighbor recall $\uparrow$ & $40/48$ & $34/48$ & $34/48$ & $0.0276$ \\
-    Local label purity $\uparrow$ & $36/48$ & $30/48$ & $30/48$ & $0.0422$ \\
+    Trustworthiness $\uparrow$ & $46/48$ & $39/48$ & $42/48$ & $0.0279$ \\
+    Clean-neighbor recall $\uparrow$ & $42/48$ & $33/48$ & $35/48$ & $0.0306$ \\
+    Local label purity $\uparrow$ & $35/48$ & $27/48$ & $30/48$ & $0.0424$ \\
     \bottomrule
   \end{tabular}
 \end{table}
@@ -679,8 +679,8 @@ Fisher--Rao geodesic distance specifically.
   \centering
   \caption{Full-objective win-rate comparison in the noisy-affinity stress test. Each cell
   counts the number of nonzero dataset--corruption--level cells (out of $48$) where the
-  objective improves over KL. Five paired seeds are used; Wilcoxon $p<0.05$ is not achievable
-  at $n{=}5$, so win counts and mean gains are the primary evidence.}
+  objective improves over KL. Fisher-Rao and KL use 10 paired seeds; all other objectives
+  use 5 seeds. Win counts and mean gains are the primary evidence.}
   \label{tab:full-objective-power}
   \scriptsize
   \begin{tabular}{lrrrrr}
@@ -691,7 +691,7 @@ Fisher--Rao geodesic distance specifically.
     Capped KL      & $0/48$  & $0/48$  & $0/48$  & $0/48$  & $0/48$  \\
     Jensen--Shannon & $47/48$ & $48/48$ & $44/48$ & $39/48$ & $30/48$ \\
     Hellinger      & $47/48$ & $48/48$ & $45/48$ & $44/48$ & $31/48$ \\
-    Fisher--Rao    & $47/48$ & $48/48$ & $44/48$ & $43/48$ & $30/48$ \\
+    Fisher--Rao    & $47/48$ & $48/48$ & $46/48$ & $42/48$ & $31/48$ \\
     FR+KL hybrid   & $46/48$ & $48/48$ & $41/48$ & $41/48$ & $30/48$ \\
     \bottomrule
   \end{tabular}
