@@ -191,10 +191,57 @@ def save_scatter_acc_diff() -> None:
     print("saved fr_rd_acc_scatter.pdf")
 
 
+def save_ood_comparison() -> None:
+    ood_file = RESULTS / "fr_rd_digits_ood.csv"
+    if not ood_file.exists():
+        print("fr_rd_digits_ood.csv not found, skipping OOD figure")
+        return
+    rows = read_rows(ood_file)
+    conds = ["clean", "fr_loss", "smoothed", "noisy_30", "noisy_60"]
+    cond_labels_ood = {
+        "clean": "CE (clean)", "fr_loss": "FR (clean)", "smoothed": "LS (clean)",
+        "noisy_30": "CE 30% noise", "noisy_60": "CE 60% noise",
+    }
+    global_sep = {c: [] for c in conds}
+    cc_sep = {c: [] for c in conds}
+    for r in rows:
+        c = r.get("condition")
+        if c in conds:
+            global_sep[c].append(float(r["separation"]))
+            if "cc_separation" in r:
+                cc_sep[c].append(float(r["cc_separation"]))
+
+    x = np.arange(len(conds))
+    width = 0.35
+    fig, ax = plt.subplots(figsize=(7, 4))
+    g_means = [np.mean(global_sep[c]) for c in conds]
+    g_stds = [np.std(global_sep[c]) for c in conds]
+    cc_means = [np.mean(cc_sep[c]) if cc_sep[c] else 0 for c in conds]
+    cc_stds = [np.std(cc_sep[c]) if cc_sep[c] else 0 for c in conds]
+
+    ax.bar(x - width / 2, g_means, width, yerr=g_stds, capsize=4,
+           label="Global centroid", color="tab:blue", alpha=0.8)
+    ax.bar(x + width / 2, cc_means, width, yerr=cc_stds, capsize=4,
+           label="Class-conditional centroid", color="tab:orange", alpha=0.8)
+    ax.axhline(0, color="black", linewidth=0.8, linestyle="--")
+    ax.set_xticks(x)
+    ax.set_xticklabels([cond_labels_ood[c] for c in conds], rotation=20, ha="right", fontsize=8)
+    ax.set_ylabel("Mean separation (OOD score − ID score)")
+    ax.set_title(
+        "OOD detection: global vs class-conditional centroid\n(UCI Digits ID vs MNIST OOD)"
+    )
+    ax.legend(fontsize=8)
+    fig.tight_layout()
+    fig.savefig(FIGURES / "fr_rd_ood_comparison.pdf", bbox_inches="tight")
+    plt.close(fig)
+    print("saved fr_rd_ood_comparison.pdf")
+
+
 def main() -> None:
     save_pairwise_heatmap()
     save_trajectory_curves()
     save_scatter_acc_diff()
+    save_ood_comparison()
 
 
 if __name__ == "__main__":
