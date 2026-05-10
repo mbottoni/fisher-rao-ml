@@ -207,11 +207,15 @@ ConvNets from learning discriminative filters at moderate dataset scales (10k sa
 
 ### Direction 2: FR Representation Distance (`fr_representation_distance.tex`)
 
-25 MLP classifiers (5 conditions × 5 seeds, UCI Digits).
-- Between/within condition FR-RD ratio: **1.50×**
-- Pearson(FR-RD, |accuracy difference|) = **0.74**
-- noisy_60 condition has highest within-condition variability (FR-RD = 2.23), as expected
-- Complementary to CKA (output distributions vs hidden layer geometry)
+Validated on two datasets, both 25 MLP classifiers (5 conditions × 5 seeds):
+
+**UCI Digits** (1,797 samples): between/within ratio=1.50×, r=0.74, CE vs FR RD=0.064
+**MNIST** (3,000 train): between/within ratio=1.47×, r=0.74, CE vs FR RD=0.121
+
+Near-identical statistics confirm dataset-agnostic stability of FR-RD properties.
+noisy_60 highest within-condition variability (FR-RD ≈ 2.23-2.30) on both datasets.
+Complementary to CKA: 1-CKA achieves r=0.87 on MNIST (vs FR-RD r=0.74), but CKA
+is not a proper metric and measures representational geometry, not behavioral equivalence.
 
 ### Direction 3: FR-Contrastive (`fr_contrastive.tex`)
 
@@ -253,16 +257,17 @@ The architecture-dependent reversal is the publishable hook. Remaining work:
 4. **Frame as a diagnostic.** The paper's angle: "which robust loss is right for which
    architecture?" Ghosh condition + optimization dynamics as complementary frameworks.
 
-### Priority 2 — FR-RD as a model analysis tool (low-hanging fruit, ICLR workshop target)
+### Priority 2 — FR-RD as a model analysis tool (ICLR 2027 target)
 
-The Direction 2 results are solid for a workshop paper. To make it a full conference paper:
+Direction 2 is now validated on two datasets (Digits + MNIST): consistent r=0.74 and
+ratio≈1.47-1.50×. Remaining steps for full conference submission:
 
 1. **Scale to fine-tuning divergence.** Take a pretrained ResNet, fine-tune on CIFAR variants
    with different data fractions, and show FR-RD tracks generalization gaps.
 2. **OOD detection application.** FR-RD from ID centroid as an OOD score; compare to
    Mahalanobis distance and energy score on standard benchmarks (CIFAR-10 vs SVHN).
-3. **Training dynamics.** Plot FR-RD between checkpoints every N epochs across different
-   architectures — does it reveal phase transitions in learning?
+3. **Add 10-seed runs.** Currently 5 seeds per condition; 10 seeds would allow confidence
+   intervals on the separation ratio and correlation.
 
 ### Priority 3 — FR-Contrastive (needs GPU compute, deferred)
 
