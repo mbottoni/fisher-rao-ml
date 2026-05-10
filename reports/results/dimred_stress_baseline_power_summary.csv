@@ -1,9 +1,9 @@
 experiment,objective,metric_label,metric,n_cells,n_improves_over_kl,n_improves_p_lt_0_05,mean_oriented_improvement
-noisy_affinity,fisher_rao,bad_edge_preservation,eval_corrupted_edge_preservation,48,47,0,0.16644059274438375
-noisy_affinity,fisher_rao,bad_edge_q_mass,eval_corrupted_edge_q_mass,48,48,0,0.003182450831809547
-noisy_affinity,fisher_rao,trustworthiness,eval_trustworthiness,48,44,0,0.024823712737127367
-noisy_affinity,fisher_rao,clean_recall,eval_neighborhood_recall,48,43,0,0.033404166666666665
-noisy_affinity,fisher_rao,silhouette,eval_silhouette,48,30,0,0.06278926053103835
+noisy_affinity,fisher_rao,bad_edge_preservation,eval_corrupted_edge_preservation,48,47,42,0.16231821979988503
+noisy_affinity,fisher_rao,bad_edge_q_mass,eval_corrupted_edge_q_mass,48,48,48,0.002797390796331456
+noisy_affinity,fisher_rao,trustworthiness,eval_trustworthiness,48,46,39,0.027903274060420747
+noisy_affinity,fisher_rao,clean_recall,eval_neighborhood_recall,48,42,33,0.03058541666666666
+noisy_affinity,fisher_rao,silhouette,eval_silhouette,48,31,29,0.06851418402729906
 noisy_affinity,fr_kl_hybrid,bad_edge_preservation,eval_corrupted_edge_preservation,48,46,0,0.09893703785020382
 noisy_affinity,fr_kl_hybrid,bad_edge_q_mass,eval_corrupted_edge_q_mass,48,48,0,0.0022405128031095954
 noisy_affinity,fr_kl_hybrid,trustworthiness,eval_trustworthiness,48,41,0,0.016226275971093048

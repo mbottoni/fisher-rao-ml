@@ -262,14 +262,18 @@ CIFAR-100/ImageNet needed to test the theoretical prediction.
 
 ---
 
-## Data Integrity Warning
+## Data Integrity — RESOLVED
 
-The original 10-seed confirmatory noisy-affinity run backing Table 1 of the main paper was
-**overwritten** by the 5-seed 7-objective run (commit `bbe914f`). Table 1 claims 43/48 p<0.05
-but current `dimred_stress_full.csv` has only 5 seeds → 0/48 at p<0.05 (min Wilcoxon p ≈ 0.063).
+The 10-seed noisy-affinity data (seeds 606–1001 for kl and fisher_rao) was restored from
+commit `2667d09` and merged with the current 5-seed 7-objective CSV. `dimred_stress_full.csv`
+now has 2,520 rows: 10 seeds for kl/fisher_rao noisy_affinity, 5 seeds for all 7 objectives.
 
-**Do not regenerate Table 1 from current CSV.** Original data is recoverable from commit
-`2667d09` (git show 2667d09:reports/results/...).
+With 10 seeds for the primary kl vs fisher_rao comparison:
+- bad-edge preservation: 47/48 cells FR<KL (direction), 42/48 p<0.05
+- bad-edge Q-mass: 48/48 cells FR<KL, 48/48 p<0.05
+- Paper abstract claims "47/48 and 48/48" (direction) — confirmed ✓
+
+Table 1 can now be regenerated safely from current CSV.
 
 ---
 
@@ -366,7 +370,7 @@ All experiments use this protocol:
 
 | Paper | File | Pages | Status | Blocking issues |
 |---|---|---|---|---|
-| Main (t-SNE) | `fisher_rao_vs_kl_arxiv.tex` | 27 | Draft | Table 1 data integrity; small datasets |
+| Main (t-SNE) | `fisher_rao_vs_kl_arxiv.tex` | 27 | Draft | Small datasets; strengthen t-SNE results |
 | Direction 1 | `fr_noisy_labels.tex` | 11 | Near-complete | 10-seed CIFAR-10 for p-values; full BN ablation (5-seed); 50k size ablation |
 | Direction 2 | `fr_representation_distance.tex` | 14 | Near-submission | Scale to larger models; energy score OOD baseline |
 | Direction 3 | `fr_contrastive.tex` | 5 | Theory only | Needs CIFAR/ImageNet GPU experiments |
