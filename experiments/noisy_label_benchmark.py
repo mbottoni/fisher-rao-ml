@@ -51,22 +51,26 @@ def load_dataset(name: str) -> tuple[np.ndarray, np.ndarray, int]:
     if name == "digits":
         data = load_digits()
         return data.data.astype(np.float32), data.target.astype(np.int64), 10
-    if name == "mnist":
+    if name in ("mnist", "fashion_mnist"):
         try:
-            from torchvision.datasets import MNIST
             import torchvision.transforms as T
-            ds = MNIST("data", train=True, download=True,
-                       transform=T.Compose([T.ToTensor(), T.Lambda(lambda x: x.view(-1))]))
-            x = torch.stack([ds[i][0] for i in range(min(3000, len(ds)))]).numpy()
-            y = np.array([ds[i][1] for i in range(min(3000, len(ds)))], dtype=np.int64)
+            from torchvision.datasets import MNIST, FashionMNIST
+            cls = MNIST if name == "mnist" else FashionMNIST
+            ds = cls("data", train=True, download=True,
+                     transform=T.Compose([T.ToTensor(), T.Lambda(lambda x: x.view(-1))]))
+            n_use = min(5000, len(ds))
+            x = torch.stack([ds[i][0] for i in range(n_use)]).numpy()
+            y = np.array([ds[i][1] for i in range(n_use)], dtype=np.int64)
             return x.astype(np.float32), y, 10
         except Exception as e:
-            print(f"[noisy-label] MNIST unavailable: {e}")
+            print(f"[noisy-label] {name} unavailable: {e}")
             return None, None, -1
     raise ValueError(f"Unknown dataset: {name}")
 
 
-def inject_symmetric_noise(y: np.ndarray, rate: float, n_classes: int, rng: np.random.Generator) -> np.ndarray:
+def inject_symmetric_noise(
+    y: np.ndarray, rate: float, n_classes: int, rng: np.random.Generator
+) -> np.ndarray:
     noisy = y.copy()
     n = len(y)
     n_noisy = int(rate * n)
@@ -77,7 +81,9 @@ def inject_symmetric_noise(y: np.ndarray, rate: float, n_classes: int, rng: np.r
     return noisy
 
 
-def inject_asymmetric_noise(y: np.ndarray, rate: float, n_classes: int, rng: np.random.Generator) -> np.ndarray:
+def inject_asymmetric_noise(
+    y: np.ndarray, rate: float, n_classes: int, rng: np.random.Generator
+) -> np.ndarray:
     """Each class c flips to (c+1) % n_classes with probability rate."""
     noisy = y.copy()
     flip = rng.random(len(y)) < rate
@@ -136,7 +142,7 @@ def train_and_eval(
 
     model.train()
     rng = np.random.default_rng(seed + 10000)
-    for epoch in range(n_epochs):
+    for _epoch in range(n_epochs):
         rng.shuffle(idx_all)
         for b in range(n_batches):
             batch_idx = idx_all[b * batch_size: (b + 1) * batch_size]
@@ -167,7 +173,8 @@ def train_and_eval(
         brier = float(np.mean(np.sum((probs_te.numpy() - oh_te) ** 2, axis=1)))
 
         # NLL
-        nll = float(-np.mean(np.log(np.clip(probs_te.numpy()[np.arange(len(y_true)), y_true], 1e-8, 1.0))))
+        true_probs = probs_te.numpy()[np.arange(len(y_true)), y_true]
+        nll = float(-np.mean(np.log(np.clip(true_probs, 1e-8, 1.0))))
 
     return {
         "eval_accuracy": acc,
@@ -217,6 +224,7 @@ def aggregate_rows(rows: list[dict]) -> list[dict]:
 
 def significance_rows(rows: list[dict]) -> list[dict]:
     from collections import defaultdict
+
     from scipy.stats import wilcoxon
     metrics = ["eval_accuracy", "eval_ece", "eval_brier", "eval_nll"]
     paired: dict[tuple, dict[str, dict[str, float]]] = defaultdict(lambda: {})
@@ -247,12 +255,12 @@ def significance_rows(rows: list[dict]) -> list[dict]:
             oriented = [d * sign for d in diffs]
             try:
                 if all(abs(d) < 1e-12 for d in diffs):
-                    stat, pval = 0.0, 1.0
+                    pval = 1.0
                 else:
                     res = wilcoxon(diffs, zero_method="wilcox", alternative="two-sided")
-                    stat, pval = float(res.statistic), float(res.pvalue)
+                    pval = float(res.pvalue)
             except Exception:
-                stat, pval = float("nan"), float("nan")
+                pval = float("nan")
             record[f"{m}_mean_diff"] = float(np.mean(diffs))
             record[f"{m}_oriented_gain"] = float(np.mean(oriented))
             record[f"{m}_wilcoxon_p"] = pval
@@ -312,7 +320,7 @@ def overwrite_rows(path: Path, rows: list[dict]) -> None:
 
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser()
-    p.add_argument("--datasets", nargs="+", default=["digits", "mnist"])
+    p.add_argument("--datasets", nargs="+", default=["digits", "mnist", "fashion_mnist"])
     p.add_argument("--seeds", type=int, default=10)
     p.add_argument("--n-epochs", type=int, default=100)
     p.add_argument("--out-full", default="reports/results/noisy_label_full.csv")
@@ -375,10 +383,18 @@ def main() -> None:
                     new_rows.append(row)
                     done.add(key)
 
-    write_rows(out_full, new_rows)
-    print(f"[noisy-label] wrote {len(new_rows)} new rows → {out_full}")
-
-    all_rows = list(csv.DictReader(out_full.open())) if out_full.exists() else new_rows
+    # Merge new rows with existing (preserve all datasets already in the file).
+    existing_rows = list(csv.DictReader(out_full.open())) if out_full.exists() else []
+    existing_keys = {
+        (r["dataset"], r["noise_regime"], r["objective"], r["seed"]) for r in existing_rows
+    }
+    deduped = [
+        r for r in new_rows
+        if (r["dataset"], r["noise_regime"], r["objective"], str(r["seed"])) not in existing_keys
+    ]
+    all_rows = existing_rows + deduped
+    write_rows(out_full, all_rows)
+    print(f"[noisy-label] wrote {len(deduped)} new rows ({len(all_rows)} total) → {out_full}")
     agg = aggregate_rows(all_rows)
     overwrite_rows(Path(args.out_aggregated), agg)
     print(f"[noisy-label] aggregated {len(agg)} rows → {args.out_aggregated}")
@@ -390,12 +406,15 @@ def main() -> None:
     # Quick summary
     print("\n[noisy-label] FR vs KL accuracy gain summary:")
     for r in sig:
-        if r["objective"] == "fisher_rao" and r["dataset"] == "digits":
+        if r["objective"] == "fisher_rao":
             gain = float(r.get("eval_accuracy_oriented_gain", 0))
             p = float(r.get("eval_accuracy_wilcoxon_p", 1))
             n_imp = r.get("eval_accuracy_n_improves", "?")
             n_tot = r.get("eval_accuracy_n_pairs", "?")
-            print(f"  {r['noise_regime']:10s}: gain={gain:+.4f} p={p:.3f} win={n_imp}/{n_tot}")
+            print(
+                f"  {r['dataset']:14s} {r['noise_regime']:10s}: "
+                f"gain={gain:+.4f} p={p:.3f} win={n_imp}/{n_tot}"
+            )
 
 
 if __name__ == "__main__":
