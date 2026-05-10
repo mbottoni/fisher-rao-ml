@@ -53,7 +53,13 @@ experiments/
   vae_benchmark.py            VAE with KL vs Fisher-Rao regularizer
   noisy_label_benchmark.py    Direction 1: 6-objective noisy-label benchmark
                               (kl, gce, mae, sce, hellinger, fisher_rao;
-                               6 noise regimes; resumable; outputs to reports/results/)
+                               6 noise regimes; 3 datasets: digits, mnist, fashion_mnist;
+                               resumable; outputs to reports/results/)
+  cifar10_noisy_label_benchmark.py
+                              Direction 1 scale-up: CIFAR-10 ConvNet benchmark
+                              (same 6 objectives × 5 noise regimes × 5 seeds;
+                               10k train subset, 4-layer ConvNet;
+                               outputs to reports/results/cifar10_noisy_label_*.csv)
   representation_distance_benchmark.py
                               Direction 2: 25-model FR-RD experiment
                               (5 training conditions × 5 seeds on UCI Digits)
@@ -166,25 +172,38 @@ Also exports: `pairwise_fr_rd()`, `cka_linear()` (CKA baseline), `fr_ood_score()
 
 ### Direction 1: Noisy label learning (`fr_noisy_labels.tex`)
 
-Benchmark: 6 objectives × 6 noise regimes × 10 seeds on UCI Digits.
+4 datasets × 6 objectives × 5-6 noise regimes × 5-10 seeds.
 
-| Noise | KL | FR | MAE | GCE | SCE |
-|---|---|---|---|---|---|
-| Clean | 97.9% | 97.9% | 98.0% | 98.0% | 97.9% |
-| Sym 20% | 86.2% | 86.4% | **96.6%** | 92.4% | 91.9% |
-| Sym 40% | 70.0% | **66.8%** ↓ | **89.6%** | 76.3% | 76.1% |
-| Sym 60% | 47.1% | **45.1%** ↓ | **68.2%** | 50.7% | 50.6% |
-| Sym 80% | 21.7% | 22.0% | **29.5%** | 23.1% | 23.6% |
-| Asym 40% | 61.1% | 60.3% | **67.3%** | 60.9% | 61.2% |
+**MLP family (Digits 10 seeds, MNIST 10 seeds, FashionMNIST 5 seeds):**
 
-**Key result:** FR is significantly worse than KL at sym_40 (−3.2%, p=0.002, 0/10 wins)
-and sym_60 (−2.0%, p=0.004, 0/10 wins). MAE dominates (+19.6% at sym_40, 10/10 wins).
+| Noise | KL | FR | MAE | GCE |
+|---|---|---|---|---|
+| Sym 40% Digits | 70.0% | 66.8% ↓ (p=0.002) | **89.6%** | 76.3% |
+| Sym 60% Digits | 47.1% | 45.1% ↓ (p=0.004) | **68.2%** | 50.7% |
+| Sym 40% MNIST  | 61.6% | 60.2% ↓ (p=0.059) | **76.0%** | 62.7% |
 
-**Why:** FR does not satisfy the Ghosh (2017) noise-tolerance condition (constant per-class
-sum). MAE does. This is a definitive negative result, not a gap to be fixed.
+**ConvNet family (CIFAR-10, 5 seeds, 10k-sample subset):**
 
-**Practical rule:** Use MAE or GCE for symmetric label noise. Use FR only when targets are
-soft probability distributions with overconfident wrong mass.
+| Noise | KL | FR | MAE | GCE |
+|---|---|---|---|---|
+| Sym 20% | 78.7% | **81.1%** ↑ (5/5 wins) | 68.2% ↓ | 79.3% |
+| Sym 40% | 72.4% | **74.4%** ↑ (5/5 wins) | 62.4% ↓ | **75.7%** |
+| Sym 60% | 58.2% | 60.9% ↑ (5/5 wins) | 54.2% ↓ | **67.0%** |
+
+**Key discovery: architecture-dependent reversal.** FR hurts MLP at sym noise (Ghosh
+condition not satisfied) but helps ConvNet (+2-3%, consistent wins). MAE reverses
+direction: dominant on MLP (+19.6%), severely harmful on ConvNet (−10%).
+
+**Why (theory):** FR fails the Ghosh noise-tolerance condition — explains MLP behavior.
+ConvNet reversal is not explained by asymptotic theory; batch-norm interaction +
+FR's bounded gradient (max π²) likely prevent confident memorization of corrupted labels.
+
+**Why (MAE failure on ConvNet):** MAE's flat gradient (constant loss magnitude) prevents
+ConvNets from learning discriminative filters at moderate dataset scales (10k samples).
+
+**Practical rule:**
+- MLP/tabular: use MAE or GCE for symmetric noise
+- ConvNet/image: use FR or GCE; avoid MAE at moderate dataset sizes
 
 ### Direction 2: FR Representation Distance (`fr_representation_distance.tex`)
 
@@ -221,18 +240,18 @@ but current `dimred_stress_full.csv` has only 5 seeds → 0/48 at p<0.05 (min Wi
 
 ### Priority 1 — Nail the noisy-label story (most publishable, clearest finding)
 
-The Direction 1 result is scientifically complete and honest: FR is not suitable for
-symmetric label noise; the right loss is MAE. The remaining work to make this publishable:
+The core Direction 1 finding is now a two-part story: FR hurts MLP, helps ConvNet.
+The architecture-dependent reversal is the publishable hook. Remaining work:
 
-1. **Scale to CIFAR-10 with ResNet-18.** The UCI Digits result is convincing theoretically
-   but reviewers will ask for a standard vision benchmark. 10 seeds, same 6 objectives.
-2. **Add CIFAR-N (real human noisy labels).** Symmetric noise is synthetic; real noise has
-   class structure. Does FR perform better or worse on real noise?
-3. **Find where FR does beat MAE/GCE.** The hypothesis: when training targets are soft
-   distributions (label smoothing, knowledge distillation, mixture targets), FR's advantage
-   reappears. Design a mixed-noise experiment to find the crossover point.
-4. **Frame as a diagnostic.** "When to use which robust loss" is a more publishable angle
-   than "FR is the best." Ghosh condition as a unifying framework.
+1. **Expand CIFAR-10 to 10 seeds for statistical significance** (currently 5 seeds, p=0.063
+   minimum). 10 seeds would yield min p≈0.002. Run: `python experiments/cifar10_noisy_label_benchmark.py --seeds 10`.
+2. **Add CIFAR-N (real human noisy labels).** Does the ConvNet advantage persist on
+   real-world instance-dependent noise? Controlled experiment with 10k subsample.
+3. **Ablation: remove batch normalization.** Test whether the ConvNet reversal is due to
+   BN interaction specifically. Also vary dataset size (10k vs 50k) to test the MAE
+   gradient hypothesis.
+4. **Frame as a diagnostic.** The paper's angle: "which robust loss is right for which
+   architecture?" Ghosh condition + optimization dynamics as complementary frameworks.
 
 ### Priority 2 — FR-RD as a model analysis tool (low-hanging fruit, ICLR workshop target)
 
