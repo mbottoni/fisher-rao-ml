@@ -195,9 +195,12 @@ Figure~\ref{fig:heatmap} shows the mean pairwise FR-RD and linear CKA across all
 \begin{figure}[t]
   \centering
   \includegraphics[width=\linewidth]{figures/fr_rd_pairwise_heatmap.pdf}
-  \caption{Mean pairwise FR-RD (left) and linear CKA (right) across all 300 model pairs.
-  FR-RD increases monotonically with noise level; clean CE and FR loss models are nearly
-  indistinguishable ($0.064$). CKA shows a complementary view of hidden-feature similarity.}
+  \caption{Mean pairwise FR-RD (left columns) and linear CKA (right columns) across all
+  300 model pairs on UCI Digits (top) and MNIST (bottom). FR-RD increases monotonically with
+  noise level on both datasets; clean CE and FR-loss models are nearly indistinguishable
+  ($0.064$/$0.121$ on Digits/MNIST). CKA shows a complementary view of hidden-feature
+  similarity. The near-identical structure on both datasets confirms dataset-agnostic
+  properties of FR-RD.}
   \label{fig:heatmap}
 \end{figure}
 
@@ -231,8 +234,10 @@ the output, while $1 - \mathrm{CKA}$ captures hidden-representation divergence.
 \begin{figure}[t]
   \centering
   \includegraphics[width=0.9\linewidth]{figures/fr_rd_acc_scatter.pdf}
-  \caption{FR-RD (left) and $1-\mathrm{CKA}$ (right) versus absolute accuracy difference
-  for all $300$ model pairs. Blue: same-condition pairs; red: cross-condition pairs.
+  \caption{FR-RD and $1-\mathrm{CKA}$ versus absolute accuracy difference for all 300
+  model pairs, on UCI Digits (top) and MNIST (bottom). Blue: same-condition pairs; red:
+  cross-condition pairs. Both metrics correlate with accuracy differences; $r=0.74$ for
+  FR-RD on both datasets, $r=0.85$--$0.87$ for $1{-}\mathrm{CKA}$.
   FR-RD and $1-\mathrm{CKA}$ are complementary: FR-RD measures output-distribution
   divergence while CKA measures hidden-layer alignment.}
   \label{fig:scatter}
