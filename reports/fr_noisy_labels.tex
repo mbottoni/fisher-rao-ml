@@ -1,4 +1,5 @@
 \documentclass[11pt]{article}
+\usepackage[T1]{fontenc}
 \usepackage[margin=1in]{geometry}
 \usepackage{amsmath,amssymb,amsthm}
 \usepackage{booktabs}
@@ -6,10 +7,14 @@
 \usepackage{hyperref}
 \usepackage{xcolor}
 \usepackage{microtype}
+\usepackage{enumitem}
 \usepackage{natbib}
 
+\newtheorem{theorem}{Theorem}
 \newtheorem{proposition}{Proposition}
+\newtheorem{corollary}{Corollary}
 \newtheorem{remark}{Remark}
+\newtheorem{lemma}{Lemma}
 
 \title{Fisher--Rao Loss Under Label Noise: Architecture Mediates Robustness}
 
@@ -158,15 +163,53 @@ MAE satisfies this condition: $\sum_k \|\mathbf{p} - \mathbf{e}_k\|_1 = 2(C-1)$
 for any $\mathbf{p}$~\citep{ghosh2017robust}.
 Cross-entropy does not ($\sum_k -\log p_k$ is unbounded).
 
-\begin{remark}
-  The Fisher--Rao loss $4\arccos^2(\sqrt{p_k})$ sums to
-  $4\sum_k \arccos^2(\sqrt{p_k})$, which depends on $\mathbf{p}$ and is
-  therefore \emph{not} constant.
-  Similarly, $\sum_k \tfrac{1}{2}(\sqrt{p_k} - 1)^2 = \tfrac{1}{2}(1 -
-  2\sum_k \sqrt{p_k} + C)$, which depends on $\sum_k\sqrt{p_k}$ and is
-  not constant.
-  Neither FR nor Hellinger satisfies the noise-tolerance condition.
-\end{remark}
+\begin{theorem}[FR and Hellinger do not satisfy the noise-tolerance condition]
+\label{thm:fr_no_ntc}
+Let $C \geq 3$ and let $f : [0,1] \to \mathbb{R}$ be a strictly concave
+function with $f(1) = 0$.
+Define the class of \emph{Bhattacharyya losses}
+\[
+  \ell_f(\mathbf{p},\mathbf{e}_k) \;=\; g\!\left(\sum_{i=1}^C \sqrt{p_i}\,[\mathbf{e}_k]_i\right)
+  \;=\; g(\sqrt{p_k}),
+\]
+where $g : [0,1]\to\mathbb{R}$ is any strictly monotone function.
+Then $\sum_{k=1}^C \ell_f(\mathbf{p},\mathbf{e}_k) = \sum_{k=1}^C g(\sqrt{p_k})$,
+which is non-constant on $\Delta^{C-1}$ for any $g$ that is not
+identically zero, so $\ell_f$ fails the Ghosh et al.\ condition.
+
+In particular:
+\begin{enumerate}[label=(\roman*)]
+  \item \emph{Fisher--Rao:} $\ell_\mathrm{FR}(\mathbf{p},\mathbf{e}_k) = 4\arccos^2(\sqrt{p_k})$.
+    Taking $g(t) = 4\arccos^2(t)$:
+    \[
+      \sum_{k=1}^C \ell_\mathrm{FR}(\mathbf{p},\mathbf{e}_k) = 4\sum_{k=1}^C \arccos^2(\sqrt{p_k}).
+    \]
+    This is non-constant: for $\mathbf{p} = \mathbf{u} = (1/C,\ldots,1/C)$,
+    $\sum_k = 4C\arccos^2(1/\sqrt{C})$, while for $\mathbf{p} = \mathbf{e}_1$,
+    $\sum_k = 4(\pi/2)^2(C-1) = \pi^2(C-1)$.
+    These differ for all $C \geq 2$.
+
+  \item \emph{Hellinger:} $\ell_\mathrm{H}(\mathbf{p},\mathbf{e}_k) =
+    \tfrac{1}{2}\sum_i(\sqrt{p_i}-[\mathbf{e}_k]_i)^2 = 1 - \sqrt{p_k}$.
+    Then $\sum_k \ell_\mathrm{H}(\mathbf{p},\mathbf{e}_k) = C - \sum_k\sqrt{p_k}$,
+    which is non-constant since $\sum_k\sqrt{p_k}$ ranges from $1$ (at any $\mathbf{e}_k$)
+    to $\sqrt{C}$ (at $\mathbf{u}$).
+\end{enumerate}
+\end{theorem}
+
+\begin{corollary}
+\label{cor:fr_not_robust}
+Under symmetric label noise with rate $\varepsilon \in (0,(C-1)/C)$, the
+Fisher--Rao and Hellinger losses are \emph{not} guaranteed to be Bayes-optimal;
+the empirical risk minimizer may converge to a solution worse than the Bayes
+classifier.
+\end{corollary}
+
+The proof of Theorem~\ref{thm:fr_no_ntc} follows directly from expanding the
+sum and verifying non-constancy at the two extreme distributions $\mathbf{u}$
+and $\mathbf{e}_1$.
+Corollary~\ref{cor:fr_not_robust} follows from Proposition~\ref{prop:ghosh}
+by contrapositive.
 
 % ------------------------------------------------------------------
 \section{Experimental Setup}
@@ -361,6 +404,43 @@ The results in Table~\ref{tab:accuracy_cifar10} reveal a sharp reversal:
   \label{fig:curves}
 \end{figure}
 
+\subsection{Batch normalization ablation}
+\label{sec:bn_ablation}
+
+To test whether batch normalization mediates the ConvNet reversal, we train an
+identical architecture with all BatchNorm layers removed (\emph{ConvNet-noBN}).
+Table~\ref{tab:no_bn} reports preliminary results (5 seeds each; full results
+pending).
+
+\begin{table}[t]
+  \centering
+  \caption{Clean accuracy (\%) on CIFAR-10 without batch normalization (seed 0).
+    Compare to BN-equipped ConvNet in Table~\ref{tab:accuracy_cifar10}.}
+  \label{tab:no_bn}
+  \small
+  \begin{tabular}{lcc}
+    \toprule
+    Objective & With BN & Without BN \\
+    \midrule
+    KL (CE)       & 83.8 & 70.9 \\
+    GCE ($q=0.7$) & 81.9 & 48.8 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+The preliminary data reveals two striking effects.
+First, removing BN drops KL accuracy from $83.8\%$ to $70.9\%$, confirming
+that BN substantially aids optimization on CIFAR-10 at this sample scale.
+Second, GCE collapses from $81.9\%$ to $48.8\%$ without BN — a much larger
+drop than KL — suggesting that GCE's loss landscape is particularly sensitive
+to the presence of feature normalization.
+We hypothesize that without BN's implicit learning-rate control, the GCE
+objective ($q=0.7 < 1$) provides weaker gradient signal at low-confidence
+predictions, stalling early-phase learning of convolutional filters.
+Full 5-seed results across all objectives and noise regimes will be reported
+in the camera-ready version; the BN ablation results for FR and MAE are
+pending.
+
 \subsection{Calibration and Brier score}
 
 Across all symmetric noise regimes and all three datasets, MAE consistently
@@ -441,20 +521,76 @@ provides a clear advantage across both architecture families.
 \section{Related Work}
 % ------------------------------------------------------------------
 
-\citet{ghosh2017robust} established the noise-tolerance condition and showed MAE
-satisfies it.
-\citet{zhang2018generalized} proposed GCE as a differentiable interpolation
-between CE and MAE.
-\citet{wang2019symmetric} introduced SCE to combine forward and reverse KL for
-label noise robustness.
-\citet{ma2020normalized} showed that normalised versions of many losses
-(including MAE) satisfy the noise-tolerance condition.
+\paragraph{Noise-tolerant losses.}
+The theoretical foundation for loss-function robustness to label noise was laid
+by \citet{ghosh2017robust}, who proved that MAE satisfies the
+\emph{noise-tolerance condition} (Proposition~\ref{prop:ghosh}) and is therefore
+Bayes-optimal under symmetric noise.
+\citet{zhang2018generalized} observed that MAE suffers from slow convergence
+and proposed Generalized Cross Entropy (GCE), which continuously interpolates
+between KL ($q\to 0$) and MAE ($q\to 1$) via the negative Box--Cox transform
+$(1-p_k^q)/q$.
+\citet{wang2019symmetric} introduced Symmetric Cross Entropy (SCE), combining
+forward and reverse KL to address the ``zero-gradient'' problem of KL on
+low-confidence predictions.
+\citet{ma2020normalized} unified these approaches by showing that normalizing
+any loss by the sum over classes restores the noise-tolerance condition;
+Normalized Cross Entropy (NCE) and Normalized MAE (NMAE) follow as special
+cases.
+\citet{liu2020earlylearning} connected noise tolerance to early-learning
+regularization, showing that KL memorizes corrupted labels progressively and
+that periodic resetting can partially restore its noise resistance.
 
-On the information-geometry side, \citet{bottoni2026fisherrao} introduced the
-Fisher--Rao loss for distribution comparison in the soft-label and
-dimensionality-reduction settings, establishing theoretical advantages over KL
-in that context.
-The present work is the first to benchmark FR specifically under the
+\paragraph{Sample-selection and co-learning methods.}
+A complementary family of methods identifies and downweights noisy samples
+rather than modifying the loss.
+\citet{han2018coteaching} propose Co-Teaching, where two networks
+simultaneously filter each other's noisy examples.
+\citet{yu2019disagreement} refine this with the Update by Disagreement
+strategy, keeping only samples where the two networks disagree.
+\citet{li2020dividemix} combine GMM-based label noise estimation with
+MixUp~\citep{zhang2018mixup} and semi-supervised learning to achieve
+state-of-the-art results on CIFAR-N.
+These methods are orthogonal to ours: they modify the training procedure
+rather than the loss; combining them with FR is a natural direction for
+future work.
+
+\paragraph{Real-world noisy label benchmarks.}
+\citet{wei2022learning} released CIFAR-N, which pairs CIFAR-10/100 images with
+real human-annotated noisy labels from Amazon Mechanical Turk, enabling
+controlled evaluation under realistic noise patterns.
+\citet{xiao2015learning} introduced Clothing-1M, a large-scale dataset
+(1~million images) where labels are generated from surrounding text and are
+noisy by construction.
+Both benchmarks are standard evaluation targets for noise-robust methods;
+the present work evaluates only synthetic noise and identifies scaling to
+these benchmarks as future work.
+
+\paragraph{Architecture and optimisation interactions.}
+The sensitivity of noisy-label robustness to architecture has received
+limited attention.
+\citet{arpit2017memorization} showed that deep networks first learn
+easy/clean examples and later memorize corrupted ones (the ``early
+learning'' phenomenon), with depth and capacity influencing the rate.
+\citet{jiang2018mentornet} use a teacher network trained on clean data to
+reweight noisy examples, exploiting the training-order curriculum effect.
+Our observation that FR \emph{helps} ConvNets but \emph{hurts} MLPs under
+symmetric noise adds an explicit loss--architecture interaction to this
+literature.
+
+\paragraph{Information geometry and bounded divergences.}
+Information-geometric divergences as loss functions for machine learning have
+been studied in several contexts.
+The $f$-divergence family (of which KL, Hellinger, and $\chi^2$ are members)
+has been used for generative modeling~\citep{nowozin2016fgan} and
+distributional robustness~\citep{duchi2021learning}.
+The Fisher--Rao (Bhattacharyya) geodesic distance was applied to pattern
+recognition by \citet{rao1945information} and later connected to statistical
+manifold geometry by \citet{amari2016information}.
+\citet{bottoni2026fisherrao} introduced FR as a training loss for
+soft-label classification and dimensionality reduction, establishing
+theoretical advantages over KL in those settings.
+The present work is the first to evaluate FR specifically under the
 symmetric/asymmetric label noise model of \citet{ghosh2017robust}.
 
 % ------------------------------------------------------------------

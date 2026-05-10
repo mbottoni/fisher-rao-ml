@@ -1,15 +1,37 @@
-\begin{thebibliography}{7}
+\begin{thebibliography}{18}
 \providecommand{\natexlab}[1]{#1}
 \providecommand{\url}[1]{\texttt{#1}}
 \expandafter\ifx\csname urlstyle\endcsname\relax
   \providecommand{\doi}[1]{doi: #1}\else
   \providecommand{\doi}{doi: \begingroup \urlstyle{rm}\Url}\fi
 
+\bibitem[Amari(2016)]{amari2016information}
+Shun-ichi Amari.
+\newblock \emph{Information Geometry and Its Applications}.
+\newblock Springer, 2016.
+
+\bibitem[Arpit et~al.(2017)Arpit, Jastrz\k{e}bski, Ballas, Krueger, Bengio,
+  Kanwal, Maharaj, Fischer, Courville, Bengio, and
+  Lacoste-Julien]{arpit2017memorization}
+Devansh Arpit, Stanis\l{}aw Jastrz\k{e}bski, Nicolas Ballas, David Krueger,
+  Emmanuel Bengio, Maxinder~S. Kanwal, Tegan Maharaj, Asja Fischer, Aaron
+  Courville, Yoshua Bengio, and Simon Lacoste-Julien.
+\newblock A closer look at memorization in deep networks.
+\newblock In \emph{International Conference on Machine Learning}, pages
+  233--242. PMLR, 2017.
+
 \bibitem[Bottoni(2026)]{bottoni2026fisherrao}
 Maruano~T. Bottoni.
 \newblock When {Fisher--Rao} geometry helps representation learning: Robust
   affinity matching under false neighbors.
 \newblock Preprint, 2026.
+
+\bibitem[Duchi and Namkoong(2021)]{duchi2021learning}
+John~C. Duchi and Hongseok Namkoong.
+\newblock Learning models with uniform performance via distributionally robust
+  optimization.
+\newblock \emph{The Annals of Statistics}, 49\penalty0 (3):\penalty0
+  1378--1406, 2021.
 
 \bibitem[Ghosh et~al.(2017)Ghosh, Kumar, and Sastry]{ghosh2017robust}
 Aritra Ghosh, Himanshu Kumar, and P.~S. Sastry.
@@ -26,10 +48,25 @@ Bo~Han, Quanming Yao, Xingrui Yu, Gang Niu, Miao Xu, Weihua Hu, Ivor Tsang, and
 \newblock In \emph{Advances in Neural Information Processing Systems},
   volume~31, 2018.
 
+\bibitem[Jiang et~al.(2018)Jiang, Zhou, Leung, Li, and
+  Fei-Fei]{jiang2018mentornet}
+Lu~Jiang, Zhengyuan Zhou, Thomas Leung, Li-Jia Li, and Li~Fei-Fei.
+\newblock {MentorNet}: Learning data-driven curriculum for very deep neural
+  networks on corrupted labels.
+\newblock In \emph{International Conference on Machine Learning}, pages
+  2304--2313. PMLR, 2018.
+
 \bibitem[Li et~al.(2020)Li, Socher, and Hoi]{li2020dividemix}
 Junnan Li, Richard Socher, and Steven C.~H. Hoi.
 \newblock {DivideMix}: Learning with noisy labels as semi-supervised learning.
 \newblock In \emph{International Conference on Learning Representations}, 2020.
+
+\bibitem[Liu et~al.(2020)Liu, Niles-Weed, Razavian, and
+  Fernandez-Granda]{liu2020earlylearning}
+Sheng Liu, Jonathan Niles-Weed, Narges Razavian, and Carlos Fernandez-Granda.
+\newblock Early-learning regularization prevents memorization of noisy labels.
+\newblock In \emph{Advances in Neural Information Processing Systems},
+  volume~33, pages 20331--20342, 2020.
 
 \bibitem[Ma et~al.(2020)Ma, Huang, Wang, Romano, Erfani, and
   Bailey]{ma2020normalized}
@@ -39,12 +76,51 @@ Xingjun Ma, Hanxun Huang, Yisen Wang, Simone Romano, Sarah Erfani, and James
 \newblock In \emph{International Conference on Machine Learning}, pages
   6543--6553. PMLR, 2020.
 
+\bibitem[Nowozin et~al.(2016)Nowozin, Cseke, and Tomioka]{nowozin2016fgan}
+Sebastian Nowozin, Botond Cseke, and Ryota Tomioka.
+\newblock f-{GAN}: Training generative neural samplers using variational
+  divergence minimization.
+\newblock In \emph{Advances in Neural Information Processing Systems},
+  volume~29, 2016.
+
+\bibitem[Rao(1945)]{rao1945information}
+C.~R. Rao.
+\newblock Information and the accuracy attainable in the estimation of
+  statistical parameters.
+\newblock \emph{Bulletin of the Calcutta Mathematical Society}, 37:\penalty0
+  81--91, 1945.
+
 \bibitem[Wang et~al.(2019)Wang, Ma, Chen, Luo, Yi, and
   Bailey]{wang2019symmetric}
 Yisen Wang, Xingjun Ma, Zaiyi Chen, Yuan Luo, Jinfeng Yi, and James Bailey.
 \newblock Symmetric cross entropy for robust learning with noisy labels.
 \newblock In \emph{Proceedings of the IEEE/CVF International Conference on
   Computer Vision}, pages 322--330, 2019.
+
+\bibitem[Wei et~al.(2022)Wei, Zhu, Cheng, Liu, Niu, and Liu]{wei2022learning}
+Jiaheng Wei, Zhaowei Zhu, Hao Cheng, Tongliang Liu, Gang Niu, and Yang Liu.
+\newblock Learning with noisy labels revisited: A study using real-world human
+  annotations.
+\newblock In \emph{International Conference on Learning Representations}, 2022.
+
+\bibitem[Xiao et~al.(2015)Xiao, Xia, Yang, Huang, and Wang]{xiao2015learning}
+Tong Xiao, Tian Xia, Yi~Yang, Chang Huang, and Xiaogang Wang.
+\newblock Learning from massive noisy labeled data for image classification.
+\newblock In \emph{IEEE/CVF Conference on Computer Vision and Pattern
+  Recognition}, pages 2691--2699, 2015.
+
+\bibitem[Yu et~al.(2019)Yu, Han, Yao, Niu, Tsang, and
+  Sugiyama]{yu2019disagreement}
+Xingrui Yu, Bo~Han, Jiangchao Yao, Gang Niu, Ivor Tsang, and Masashi Sugiyama.
+\newblock How does disagreement help generalization against label corruption?
+\newblock In \emph{International Conference on Machine Learning}, pages
+  7164--7173. PMLR, 2019.
+
+\bibitem[Zhang et~al.(2018)Zhang, Cisse, Dauphin, and
+  Lopez-Paz]{zhang2018mixup}
+Hongyi Zhang, Moustapha Cisse, Yann~N. Dauphin, and David Lopez-Paz.
+\newblock mixup: Beyond empirical risk minimization.
+\newblock In \emph{International Conference on Learning Representations}, 2018.
 
 \bibitem[Zhang and Sabuncu(2018)]{zhang2018generalized}
 Zhilu Zhang and Mert Sabuncu.
