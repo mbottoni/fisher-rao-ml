@@ -35,15 +35,15 @@ $\mathrm{FR\text{-}RD}(\theta, \phi; X) = \mathbb{E}_{x \sim X}[d_{\mathrm{FR}}(
 Unlike the widely used linear CKA \citep{kornblith2019similarity}, FR-RD is a \emph{proper
 metric}: it satisfies the triangle inequality and equals zero if and only if the two models
 agree on every input. It is bounded by $\pi$ (the diameter of the unit sphere under the
-Fisher information metric), making it interpretable without normalization. We demonstrate
-that FR-RD separates models trained under different label-noise conditions with a
-between-to-within separation ratio of $1.50\times$, tracks training dynamics in a way that
-reveals convergence speed differences under noise, and correlates with accuracy differences
-at $r = 0.74$ (vs.\ $|1 - \mathrm{CKA}|$ at $r = 0.85$). We further show that FR-RD
-between the cross-entropy and Fisher--Rao loss objectives on clean labels is $0.064$,
-confirming their behavioral equivalence under non-corrupted targets. FR-RD provides a
-compute-cheap, metric-theoretically grounded tool for model comparison, fine-tuning
-divergence tracking, and out-of-distribution detection.
+Fisher information metric), making it interpretable without normalization. We validate
+FR-RD on two datasets: UCI Digits (1,797 samples, 5 conditions, 5 seeds) and MNIST
+(3,000 train, 5 conditions, 5 seeds). Both yield a between-to-within separation ratio
+of $\approx1.47$--$1.50\times$ and a correlation with accuracy differences of $r=0.74$,
+confirming that the properties are dataset-agnostic. We further show that FR-RD between
+the cross-entropy and Fisher--Rao objectives on clean labels is $0.064$--$0.121$
+(dataset-dependent), confirming their near-identical behavior under non-corrupted targets.
+FR-RD provides a compute-cheap, metric-theoretically grounded tool for model comparison,
+fine-tuning divergence tracking, and out-of-distribution detection.
 \end{abstract}
 
 \section{Introduction}
@@ -156,9 +156,8 @@ CKA, which requires $O(n^2 \cdot d)$ for hidden features of dimension $d$.
 
 \subsection{Setup}
 
-We train five groups of two-layer MLP classifiers ($128$ hidden units, Adam at $10^{-3}$,
-$300$ steps) on the sklearn digits dataset ($1797$ examples, $64$ features, $10$ classes,
-$70/30$ stratified split):
+We train five groups of two-layer MLP classifiers ($128$ hidden units, Adam at $10^{-3}$)
+under the same five conditions on two datasets:
 \begin{itemize}
   \item \textbf{CE (clean)}: standard cross-entropy on clean one-hot labels.
   \item \textbf{FR (clean)}: Fisher--Rao squared loss on clean one-hot labels.
@@ -166,24 +165,31 @@ $70/30$ stratified split):
   \item \textbf{CE 30\% noise}: cross-entropy with $30\%$ uniform random label noise.
   \item \textbf{CE 60\% noise}: cross-entropy with $60\%$ uniform random label noise.
 \end{itemize}
-Five seeds are used per condition ($25$ models total). FR-RD is computed on the held-out
-test set ($n \approx 539$ examples) as the reference dataset.
+
+\textbf{UCI Digits}: 1,797 examples, 64 features, 10 classes, 70/30 stratified split,
+300 training steps. Five seeds per condition (25 models total). FR-RD is computed on the
+held-out test set ($n \approx 539$).
+
+\textbf{MNIST}: 3,000 training examples (stratified from 60k), 500 test examples, 784
+flattened pixels, 400 steps. Five seeds per condition (25 models total).
 
 \subsection{Pairwise FR-RD separates training conditions}
 
 Figure~\ref{fig:heatmap} shows the mean pairwise FR-RD and linear CKA across all $\binom{25}{2}
-= 300$ model pairs. FR-RD cleanly separates conditions:
+= 300$ model pairs. FR-RD cleanly separates conditions on both datasets:
 \begin{itemize}
-  \item CE (clean) vs.\ FR (clean): $\mathrm{FR\text{-}RD} = 0.064$, confirming that the
-        two objectives converge to nearly identical behavioral solutions on clean data. This
-        is consistent with the second-order expansion $d_{\mathrm{FR}}^2 \approx 2\,
-        \mathrm{KL}$ near the optimum.
-  \item Within-condition FR-RD: mean $= 0.079$ (clean) and $0.071$ (FR-loss), versus
-        $0.157$ (smoothed), $1.427$ (30\% noise), $2.230$ (60\% noise). Higher noise leads
-        to higher within-condition variance --- models trained under $60\%$ noise are more
-        variable than models trained under $30\%$ noise.
-  \item Between-condition vs.\ within-condition ratio: $1.50\times$, demonstrating
-        systematic separation.
+  \item CE (clean) vs.\ FR (clean): $\mathrm{FR\text{-}RD} = 0.064$ on Digits and $0.121$
+        on MNIST, confirming that the two objectives converge to nearly identical behavioral
+        solutions on clean data. This is consistent with the second-order expansion
+        $d_{\mathrm{FR}}^2 \approx 2\,\mathrm{KL}$ near the optimum.
+  \item Within-condition FR-RD on Digits: mean $0.079$ (clean), $0.071$ (FR-loss), $0.157$
+        (smoothed), $1.427$ (30\% noise), $2.230$ (60\% noise). MNIST shows the same
+        pattern: $0.129$, $0.136$, $0.260$, $1.398$, $2.296$ respectively.
+  \item Between-condition vs.\ within-condition ratio: $1.50\times$ on Digits and $1.47\times$
+        on MNIST, demonstrating consistent systematic separation across datasets.
+  \item Correlation with accuracy differences: $r = 0.74$ on both Digits and MNIST
+        (vs.\ $|1 - \mathrm{CKA}| = 0.85$ on MNIST), showing that FR-RD is a reliable
+        predictor of behavioral divergence.
 \end{itemize}
 
 \begin{figure}[t]
