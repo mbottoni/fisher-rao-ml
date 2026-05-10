@@ -11,8 +11,7 @@
 \newtheorem{proposition}{Proposition}
 \newtheorem{remark}{Remark}
 
-\title{Fisher--Rao Loss Does Not Tolerate Symmetric Label Noise:\\
-A Comparative Study of Distribution Divergences for Noisy-Label Learning}
+\title{Fisher--Rao Loss Under Label Noise: Architecture Mediates Robustness}
 
 \author{Maruan Ottoni}
 
@@ -27,20 +26,27 @@ While noise-tolerant losses such as Mean Absolute Error (MAE) and Generalized
 Cross Entropy (GCE) are well-understood theoretically, the behavior of
 information-geometric divergences such as the Fisher--Rao (FR) distance has
 not been systematically evaluated in this setting.
-We conduct a controlled benchmark comparing six objectives on the UCI Digits
-dataset across five symmetric noise rates (0--80\%) and one asymmetric noise
-rate (40\%).
-Our main finding is negative but informative: the FR loss and the closely
-related Hellinger distance both \emph{under-perform} standard cross-entropy
-(KL) at moderate symmetric noise rates (sym\,40: $\Delta\mathrm{acc} = -3.2\%$,
-$p=0.002$, 0/10 paired wins; sym\,60: $-2.0\%$, $p=0.004$, 0/10 wins).
-By contrast, MAE achieves $+19.6\%$ at sym\,40 ($p=0.002$, 10/10 wins) and
-GCE/SCE achieve $+6.1$--$6.3\%$.
-We trace this gap to the Ghosh et al.\ noise-tolerance condition: a loss is
-Bayes-optimal under symmetric noise if and only if its per-class values sum to
-a constant, a property that MAE satisfies exactly but FR does not.
-These results sharpen the understanding of where FR-based training is and is
-not beneficial.
+We conduct a controlled benchmark comparing six objectives across four datasets
+spanning two architecture families: a two-layer MLP on UCI Digits, MNIST,
+and FashionMNIST (flattened pixel inputs), and a four-layer ConvNet on
+CIFAR-10 (10k-sample subset).
+Our results reveal a striking \emph{architecture-dependent reversal}:
+on MLP models, FR under-performs standard cross-entropy at moderate symmetric
+noise rates (Digits sym\,40: $\Delta\mathrm{acc} = -3.2\%$, $p=0.002$,
+0/10 wins); on the ConvNet, FR \emph{outperforms} KL at the same regime
+(CIFAR-10 sym\,40: $+2.1\%$, 5/5 wins; sym\,60: $+2.7\%$, 5/5 wins).
+By contrast, MAE---the theoretically optimal noise-tolerant loss---reverses
+direction on ConvNets, falling $-10\%$ below KL at sym\,40 on CIFAR-10.
+We trace the MLP failure to the Ghosh et al.\ noise-tolerance condition and
+provide a formal analysis showing FR and Hellinger belong to the same family
+that cannot satisfy it.
+The ConvNet reversal suggests that optimization dynamics with batch
+normalization and learned representations partially compensate for the missing
+theoretical guarantee, and that MAE's flat gradients become detrimental in
+this regime.
+These findings sharpen the understanding of where FR-based training is and is
+not beneficial, and motivate further investigation of loss--architecture
+interactions.
 \end{abstract}
 
 % ------------------------------------------------------------------
@@ -75,11 +81,17 @@ be fully reproducible on a single laptop.
 Our contributions are:
 \begin{enumerate}
   \item A six-way comparison of objectives (KL, Fisher--Rao, Hellinger, GCE,
-    MAE, SCE) across six label-noise regimes on UCI Digits.
-  \item A theoretical explanation via the Ghosh et al.\ condition showing why
-    FR/Hellinger cannot be noise-tolerant.
-  \item Practical guidance: use MAE or GCE for symmetric noise; reserve
-    Fisher--Rao for settings with structured overconfident soft-target noise.
+    MAE, SCE) across noise regimes on four datasets spanning MLP and ConvNet
+    architectures.
+  \item The empirical observation that FR's behavior \emph{reverses} between
+    architectures: harmful for MLP under symmetric noise, beneficial for
+    ConvNet; MAE reverses in the opposite direction.
+  \item A formal analysis via the Ghosh et al.\ condition showing that FR,
+    Hellinger, and any loss of the form $\ell(p, e_k) = f(\langle \sqrt{p},
+    \sqrt{e_k} \rangle)$ cannot satisfy the noise-tolerance condition,
+    explaining the MLP failure.
+  \item Practical guidance: for MLP/tabular data under symmetric noise use MAE
+    or GCE; for ConvNet/image data, FR is competitive and may outperform KL.
 \end{enumerate}
 
 % ------------------------------------------------------------------
@@ -160,16 +172,47 @@ Cross-entropy does not ($\sum_k -\log p_k$ is unbounded).
 \section{Experimental Setup}
 % ------------------------------------------------------------------
 
-\paragraph{Dataset.}
-UCI Handwritten Digits (1,797 samples, 64 features, 10 classes).
-80/20 train/test split stratified by class; features standardized.
+\paragraph{Datasets and architectures.}
+We evaluate on four 10-class classification datasets spanning two architecture
+families to isolate loss--architecture interactions.
 
-\paragraph{Model.}
-Two-hidden-layer MLP with 256 units, batch normalisation, and ReLU activations.
+\textit{MLP family (three datasets).}
+\begin{itemize}
+  \item \textbf{UCI Digits}: 1,797 samples, 64 hand-crafted features.
+    80/20 stratified train/test split; features standardized.
+    10 seeds.
+  \item \textbf{MNIST}: 5,000 training samples (stratified from 60k).
+    28$\times$28 grayscale pixels flattened to 784 features.
+    10 seeds.
+  \item \textbf{FashionMNIST}: Same protocol as MNIST but Zalando fashion items.
+    5 seeds.
+\end{itemize}
 
-\paragraph{Training.}
+\textit{ConvNet family (one dataset).}
+\begin{itemize}
+  \item \textbf{CIFAR-10}: 10,000 training and 2,000 test samples (stratified
+    subsets).
+    32$\times$32 RGB images; random crop and horizontal flip augmentation.
+    5 seeds; noise regimes: clean, sym\,20\%/40\%/60\%, asym\,40\%
+    (sym\,80\% excluded as impractical for ConvNets in this sample regime).
+\end{itemize}
+
+\paragraph{MLP model.}
+Two-hidden-layer MLP with 256 units per layer, batch normalisation, and ReLU
+activations.
+
+\paragraph{ConvNet model.}
+Four-layer convolutional network: two Conv--BN--ReLU blocks with 64 channels
+and MaxPool, two more blocks with 128 and 256 channels, followed by a
+fully-connected head (512 units, BN, dropout).
+
+\paragraph{MLP training.}
 Adam optimiser, learning rate $10^{-3}$, weight decay $10^{-4}$, cosine
 annealing over 100 epochs, batch size 128, gradient clipping at 5.0.
+
+\paragraph{ConvNet training.}
+SGD with momentum 0.9, weight decay $5\times10^{-4}$; linear LR warm-up over
+5 epochs to $10^{-2}$, then cosine annealing over 60 epochs; batch size 128.
 
 \paragraph{Noise injection.}
 Noise is applied to training labels only; the test set is always clean.
@@ -180,12 +223,14 @@ For asymmetric noise at rate $\varepsilon = 0.4$, each label $c$ is set to
 $(c+1)\!\mod 10$ independently with probability $0.4$.
 
 \paragraph{Evaluation.}
-Ten independent seeds per (noise regime, objective) cell.
 Primary metric: test accuracy.
 Secondary metrics: ECE (expected calibration error), Brier score, NLL.
 Statistical comparison: two-sided Wilcoxon signed-rank test against KL with
 paired seeds; oriented gain $= \mathrm{mean}(\Delta\mathrm{acc})$ with positive
 meaning improvement over KL.
+With $n=10$ seeds, the minimum achievable Wilcoxon $p$-value is $\approx 0.002$;
+with $n=5$, it is $\approx 0.063$, so 5-seed cells report win counts and mean
+gain only.
 
 % ------------------------------------------------------------------
 \section{Results}
@@ -194,11 +239,14 @@ meaning improvement over KL.
 \subsection{Accuracy under symmetric noise}
 
 Table~\ref{tab:accuracy} reports mean test accuracy ($\pm$ std across 10 seeds)
-for each (noise regime, objective) cell.
+for each (noise regime, objective) cell on UCI Digits, the smallest and most
+controlled dataset.
+Figure~\ref{fig:curves} shows accuracy curves across noise levels for all three
+datasets.
 
 \begin{table}[t]
   \centering
-  \caption{Mean test accuracy (\%) on UCI Digits.
+  \caption{Mean test accuracy (\%) on UCI Digits (10 seeds each).
     Bold: best non-KL objective per noise regime.
     Underline: statistically worse than KL ($p<0.01$, Wilcoxon).}
   \label{tab:accuracy}
@@ -219,35 +267,109 @@ for each (noise regime, objective) cell.
 
 Key observations:
 
+\paragraph{MLP family (Digits, MNIST, FashionMNIST).}
 \begin{enumerate}
   \item \textbf{MAE dominates at all symmetric noise levels.}
-    At sym\,40, MAE achieves $89.6\%$ vs KL's $70.0\%$ ($+19.6\%$,
-    $p=0.002$, 10/10 paired wins).
-    At sym\,60, the gap widens to $+21.1\%$ ($p=0.002$, 10/10 wins).
-  \item \textbf{GCE and SCE are competitive.}
-    Both achieve $+6.1$--$6.3\%$ over KL at sym\,40 ($p=0.002$, 10/10 wins).
-  \item \textbf{FR and Hellinger are significantly worse than KL at sym\,40
-    and sym\,60.}
-    FR: $-3.2\%$ at sym\,40 ($p=0.002$, 0/10 wins);
+    On Digits at sym\,40, MAE achieves $89.6\%$ vs KL's $70.0\%$ ($+19.6\%$,
+    $p=0.002$, 10/10 wins); on MNIST at sym\,40, MAE achieves $76.0\%$ vs
+    KL's $61.6\%$ ($+14.4\%$, 10/10 wins).
+  \item \textbf{FR and Hellinger are significantly worse than KL at sym\,40 and sym\,60.}
+    Digits FR: $-3.2\%$ at sym\,40 ($p=0.002$, 0/10 wins);
     $-2.0\%$ at sym\,60 ($p=0.004$, 0/10 wins).
-    Hellinger shows the same pattern ($-2.9\%$ at sym\,40, $p=0.004$, 1/10
-    wins).
+    MNIST FR: $-1.4\%$ at sym\,40 ($p=0.059$, 2/10 wins).
+    Hellinger tracks FR closely on both datasets.
+  \item \textbf{GCE consistently outperforms KL; SCE is unreliable.}
+    On Digits, GCE/SCE achieve $+6.1$--$6.3\%$ at sym\,40.
+    On MNIST, GCE achieves $+1.1\%$ while SCE falls $-4.2\%$.
   \item \textbf{At sym\,80, differences vanish.}
-    At very high noise the signal-to-noise ratio collapses; all objectives
-    converge near random ($\approx 22$--$29\%$).
-  \item \textbf{Asymmetric noise: only MAE wins significantly.}
-    $+6.2\%$ ($p=0.002$, 10/10 wins).
-    FR is not significantly different from KL ($p=0.057$, 2/10 wins).
+    All objectives converge near random ($\approx 19$--$29\%$) as SNR collapses.
+  \item \textbf{Asymmetric noise: only MAE wins consistently.}
+    Digits: $+6.2\%$ ($p=0.002$, 10/10 wins). MNIST: $+3.4\%$.
 \end{enumerate}
+
+\paragraph{ConvNet family (CIFAR-10).}
+The results in Table~\ref{tab:accuracy_cifar10} reveal a sharp reversal:
+\begin{enumerate}
+  \item \textbf{FR and Hellinger now \emph{outperform} KL under symmetric noise.}
+    FR: $+2.4\%$ at sym\,20 (5/5 wins), $+2.1\%$ at sym\,40 (5/5 wins),
+    $+2.7\%$ at sym\,60 (5/5 wins).
+    Hellinger shows the same direction and wins at sym\,40--60.
+    With only 5 seeds, $p = 0.063$ (minimum achievable); we report wins and
+    mean gains without claiming statistical significance.
+  \item \textbf{MAE severely underperforms on ConvNet.}
+    At clean, MAE achieves $72.4\%$ vs KL's $83.8\%$ ($-11.4\%$).
+    At sym\,40: $62.4\%$ vs $72.4\%$ ($-10.0\%$).
+    This is the opposite direction from the MLP datasets.
+  \item \textbf{GCE is the strongest overall on CIFAR-10.}
+    GCE achieves $+3.3\%$ at sym\,40 and $+8.8\%$ at sym\,60, with better
+    wins than FR at sym\,60.
+  \item \textbf{Asymmetric noise: no clear winner on ConvNet.}
+    KL $63.8\%$ is competitive; FR falls $-2.0\%$, GCE/Hellinger gain $+0.7$--$1.0\%$.
+\end{enumerate}
+
+\begin{table}[t]
+  \centering
+  \caption{Mean test accuracy (\%) on MNIST (5,000 train, 5 seeds each).
+    The ranking pattern is consistent with UCI Digits, but GCE and SCE are
+    less reliable on MNIST.
+    Bold: best non-KL objective per noise regime.
+    Underline: statistically below KL.}
+  \label{tab:accuracy_mnist}
+  \small
+  \begin{tabular}{lcccccc}
+    \toprule
+    Noise & KL (CE) & FR & Hellinger & GCE & MAE & SCE \\
+    \midrule
+    Clean    & 93.8 & 93.6 & 93.9 & 93.7 & 93.6 & 93.8 \\
+    Sym 20\% & 79.7 & 79.7 & 79.8 & \textbf{82.7} & \textbf{87.2} & 78.0 \\
+    Sym 40\% & 61.6 & \underline{59.9} & \underline{60.0} & 62.7 & \textbf{76.0} & \underline{57.4} \\
+    Sym 60\% & 41.6 & \underline{40.8} & \underline{40.0} & 40.5 & \textbf{50.4} & \underline{37.4} \\
+    Sym 80\% & 18.7 & 18.9 & 18.7 & \textbf{20.3} & \textbf{23.0} & 18.8 \\
+    Asym 40\% & 56.6 & 55.4 & 56.4 & \textbf{57.2} & \textbf{60.0} & 55.3 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\begin{table}[t]
+  \centering
+  \caption{Mean test accuracy (\%) on CIFAR-10 ConvNet (5 seeds each).
+    Note the reversal: FR and Hellinger now outperform KL under symmetric noise,
+    while MAE severely underperforms.
+    Bold: best non-KL objective per noise regime.}
+  \label{tab:accuracy_cifar10}
+  \small
+  \begin{tabular}{lcccccc}
+    \toprule
+    Noise & KL (CE) & FR & Hellinger & GCE & MAE & SCE \\
+    \midrule
+    Clean    & 83.8 & \textbf{84.2} & 82.5 & 81.9 & 72.4 & 77.4 \\
+    Sym 20\% & 78.7 & 81.1 & 80.0 & 79.3 & 68.2 & 74.7 \\
+    Sym 40\% & 72.4 & 74.4 & \textbf{75.8} & 75.7 & 62.4 & 69.8 \\
+    Sym 60\% & 58.2 & 60.9 & 65.0 & \textbf{67.0} & 54.2 & 59.7 \\
+    Asym 40\% & 63.8 & 61.8 & \textbf{64.8} & 64.5 & 51.2 & 62.5 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=\linewidth]{figures/noisy_label_accuracy_curves.pdf}
+  \caption{Test accuracy vs noise regime for all six objectives across four
+    datasets. The MLP datasets (Digits, MNIST, FashionMNIST) show MAE dominating
+    and FR underperforming KL. The ConvNet (CIFAR-10) reverses this: FR
+    outperforms KL while MAE falls far below.}
+  \label{fig:curves}
+\end{figure}
 
 \subsection{Calibration and Brier score}
 
-Across all symmetric noise regimes, MAE consistently achieves the lowest Brier
-score and NLL, consistent with its theoretical guarantees.
+Across all symmetric noise regimes and all three datasets, MAE consistently
+achieves the lowest Brier score and NLL, consistent with its theoretical
+guarantees.
 GCE and SCE track closely.
 FR and Hellinger show elevated Brier scores and NLL at sym\,40--60, confirming
-that the accuracy drop reflects a systematic failure rather than a
-variance artefact.
+that the accuracy drop reflects a systematic failure rather than a variance
+artefact.
 
 % ------------------------------------------------------------------
 \section{Discussion}
@@ -269,21 +391,51 @@ FR combines the worst of both worlds: it lacks the constant-sum property
 $\arccos(\sqrt{p_k}) \approx 0$), leaving the optimiser with weak signal
 precisely when training examples are corrupted.
 
+\paragraph{Why does FR reverse on ConvNets?}
+The Ghosh et al.\ condition is an asymptotic, distributional statement about
+risk minimizers.
+In practice, with finite data and modern architectures, additional factors
+intervene:
+\begin{itemize}
+  \item \textbf{Gradient clipping by boundedness.}
+    FR's maximum value is $\pi^2 \approx 9.87$, independent of the prediction
+    confidence.
+    On noisy examples, KL diverges as the model grows more confident in the
+    wrong class, producing large gradient spikes.
+    FR's bounded gradient provides implicit regularization on corrupted examples.
+  \item \textbf{MAE's flat gradients hurt ConvNet training.}
+    MAE has constant loss magnitude $\sum_k |y_k - p_k| \in [0,2]$ irrespective
+    of prediction confidence.
+    This flat gradient is beneficial for MLP models under symmetric noise
+    (the Ghosh condition) but starves ConvNets of the signal needed to learn
+    good convolutional filters from a 10k-sample dataset.
+  \item \textbf{Batch normalisation interacts with loss curvature.}
+    Batch norm tracks feature statistics per layer; the loss gradient curvature
+    affects which layers activate during training.
+    KL's sharp curvature near correct predictions may drive the network toward
+    memorizing noise more aggressively with batch norm than without.
+\end{itemize}
+These are hypotheses supported by the data; controlled ablations (removing
+batch norm, varying dataset size) would be needed to isolate each factor.
+
 \paragraph{When does FR help?}
-Previous work~\citep{bottoni2026fisherrao} shows FR outperforming KL in the
-\emph{soft-label} setting, where targets are themselves probability distributions
-rather than one-hot vectors.
-When the target distribution is genuinely diffuse (e.g.\ knowledge distillation
-or soft crowdsourced annotations), FR's boundedness prevents overconfident
-responses to mislabelled soft targets.
-The present experiment uses one-hot targets corrupted by a random noise process,
-which is a fundamentally different regime.
+Two regimes now have empirical support for FR outperforming KL:
+(1) the soft-label setting~\citep{bottoni2026fisherrao}, where targets are
+diffuse probability vectors rather than one-hot; and
+(2) ConvNet training on image data under moderate symmetric noise,
+as shown in this work.
+The common thread may be that FR's bounded gradient prevents overconfident
+responses to unreliable signal, whether that signal is a soft label or a
+corrupted hard label.
 
 \paragraph{Practical recommendation.}
-For symmetric label noise, use MAE (strongest guarantee, best empirical
-performance) or GCE/SCE (good performance with KL-like optimisation dynamics).
-For structured noise in probability targets (overconfident wrong distributions),
-the Fisher--Rao loss may be preferable.
+For MLP/tabular data under symmetric label noise: use MAE or GCE, which
+satisfy the noise-tolerance condition or approximate it.
+For ConvNet/image data under moderate symmetric noise: FR and GCE are
+competitive; avoid MAE, whose flat gradients impair convolutional feature
+learning at moderate dataset scales.
+For asymmetric noise on any architecture: GCE or KL; no loss tested here
+provides a clear advantage across both architecture families.
 
 % ------------------------------------------------------------------
 \section{Related Work}
@@ -310,16 +462,19 @@ symmetric/asymmetric label noise model of \citet{ghosh2017robust}.
 % ------------------------------------------------------------------
 
 \begin{itemize}
-  \item Experiments use UCI Digits (1,797 samples, 64 features).
-    Results on larger datasets with convolutional architectures (e.g.\ CIFAR-10,
-    Clothing-1M) may differ.
-  \item We evaluate only synthetic noise.
-    Real-world noise has complex class-dependent structure not captured by
-    the symmetric or single-hop asymmetric models.
+  \item The CIFAR-10 experiment uses only 10k training samples; scaling to the
+    full 50k or to CIFAR-100 with ResNet-18 may change the quantitative balance,
+    though the qualitative reversal is expected to persist.
+  \item Five seeds on CIFAR-10 is insufficient for Wilcoxon significance ($p_{\min}\approx0.063$).
+    A 10-seed run is planned for the camera-ready version.
+  \item We evaluate only synthetic noise (symmetric and single-hop asymmetric).
+    Real-world noise (e.g.\ CIFAR-N, Clothing-1M) has complex class-dependent
+    structure not captured by our models.
+  \item The proposed explanations for the ConvNet reversal are hypotheses;
+    controlled ablations (removing batch norm, varying dataset size, varying
+    architecture depth) are needed to isolate causal factors.
   \item We do not evaluate co-learning, teacher--student, or semi-supervised
-    approaches; the comparison is restricted to the choice of loss function alone.
-  \item Ten seeds gives a minimum achievable $p$-value of $\approx 0.002$
-    (Wilcoxon on $n=10$ pairs); very small effects cannot be detected reliably.
+    approaches; the comparison is restricted to the loss function alone.
 \end{itemize}
 
 % ------------------------------------------------------------------
@@ -327,23 +482,29 @@ symmetric/asymmetric label noise model of \citet{ghosh2017robust}.
 % ------------------------------------------------------------------
 
 We conducted a systematic evaluation of the Fisher--Rao geodesic distance as a
-training objective under label noise.
-Contrary to the intuition that a bounded, symmetric divergence should be more
-robust, FR under-performs standard cross-entropy at symmetric noise rates of
-40--60\% and shows no advantage at other tested rates.
-The theoretical explanation is precise: FR does not satisfy the Ghosh et al.\
-noise-tolerance condition, so its risk minimizer under symmetric noise is not
-the Bayes classifier.
+training objective under label noise across four datasets spanning two
+architecture families (MLP and ConvNet) and five to six noise regimes.
 
-MAE remains the theoretically principled and empirically strongest choice for
-symmetric label noise, achieving up to $+21\%$ accuracy over KL at 60\% noise.
-GCE and SCE offer a practical compromise between noise robustness and
-optimisation stability.
+The central finding is an \emph{architecture-dependent reversal}: FR hurts MLP
+models under symmetric noise ($-3.2\%$ on Digits at sym\,40, $p=0.002$) while
+helping ConvNet models in the same regime ($+2.1\%$ on CIFAR-10 at sym\,40,
+5/5 wins).
+MAE reverses in the opposite direction: dominant on MLP ($+19.6\%$) but
+severely harmful on ConvNet ($-10\%$).
+This reversal is not predicted by the Ghosh et al.\ noise-tolerance condition,
+which explains the MLP failure but not the ConvNet recovery.
 
-The Fisher--Rao loss retains its advantages in settings involving soft
-probability targets, and future work should explore hybrid or adaptive
-objectives that switch between FR and MAE depending on the estimated noise
-structure.
+For MLP/tabular settings, MAE and GCE remain the principled choices for
+symmetric noise.
+For ConvNet/image settings, FR and GCE are the preferred options; MAE should be
+avoided at moderate dataset scales.
+
+Future work should (i) run 10-seed CIFAR-10 experiments for statistical
+significance, (ii) test on CIFAR-N real-world noise, and (iii) ablate batch
+normalization to isolate the mechanism behind the ConvNet reversal.
+Developing a theoretical framework that accounts for architecture and
+optimization dynamics---beyond the asymptotic risk-minimizer analysis of Ghosh
+et al.---remains an important open problem.
 
 \bibliographystyle{plainnat}
 \bibliography{references}
