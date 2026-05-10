@@ -231,7 +231,7 @@ families to isolate loss--architecture interactions.
     28$\times$28 grayscale pixels flattened to 784 features.
     10 seeds.
   \item \textbf{FashionMNIST}: Same protocol as MNIST but Zalando fashion items.
-    5 seeds.
+    10 seeds.
 \end{itemize}
 
 \textit{ConvNet family (one dataset).}
@@ -323,7 +323,10 @@ Key observations:
     Digits FR: $-3.2\%$ at sym\,40 ($p=0.002$, 0/10 wins);
     $-2.0\%$ at sym\,60 ($p=0.004$, 0/10 wins).
     MNIST FR: $-1.4\%$ at sym\,40 ($p=0.059$, 2/10 wins).
-    Hellinger tracks FR closely on both datasets.
+    FashionMNIST FR: $-1.9\%$ at sym\,40 ($p=0.002$, 0/10 wins);
+    $-1.4\%$ at sym\,60 ($p=0.037$, 2/10 wins).
+    Hellinger tracks FR closely on all three datasets, confirming the pattern is
+    not dataset-specific.
   \item \textbf{GCE consistently outperforms KL; SCE is unreliable.}
     On Digits, GCE/SCE achieve $+6.1$--$6.3\%$ at sym\,40.
     On MNIST, GCE achieves $+1.1\%$ while SCE falls $-4.2\%$.
@@ -523,8 +526,8 @@ intervene:
     KL's sharp curvature near correct predictions may drive the network toward
     memorizing noise more aggressively with batch norm than without.
     Notably, Table~\ref{tab:no_bn} shows FR is \emph{more robust to BN removal}
-    than KL ($-7.1\%$ vs $-12.9\%$), suggesting FR's bounded gradient partially
-    substitutes for BN's implicit gradient clipping.
+    than KL (mean drop $-5.8\%$ vs $-13.6\%$ across all noise regimes), suggesting
+    FR's bounded gradient partially substitutes for BN's implicit gradient clipping.
 \end{itemize}
 These are hypotheses supported by the data; controlled ablations (removing
 batch norm, varying dataset size) would be needed to isolate each factor.
@@ -667,12 +670,14 @@ symmetric noise.
 For ConvNet/image settings, FR and GCE are the preferred options; MAE should be
 avoided at moderate dataset scales.
 
-Future work should (i) run 10-seed CIFAR-10 experiments for statistical
-significance, (ii) test on CIFAR-N real-world noise, and (iii) ablate batch
-normalization to isolate the mechanism behind the ConvNet reversal.
-Developing a theoretical framework that accounts for architecture and
-optimization dynamics---beyond the asymptotic risk-minimizer analysis of Ghosh
-et al.---remains an important open problem.
+Current experiments include 7-seed CIFAR-10 results ($p_{\min}=0.016$) and a
+2-seed batch normalization ablation confirming FR's robustness to BN removal.
+A 10-seed CIFAR-10 run and 5-seed BN ablation are in progress.
+Future work should (i) test on CIFAR-N real-world noise to check whether the
+ConvNet advantage persists under instance-dependent human annotation errors,
+(ii) vary dataset size (50k vs 10k) to isolate the MAE flat-gradient hypothesis,
+and (iii) develop a theoretical framework accounting for architecture and
+optimization dynamics beyond the asymptotic Ghosh et al.\ analysis.
 
 \bibliographystyle{plainnat}
 \bibliography{references}
