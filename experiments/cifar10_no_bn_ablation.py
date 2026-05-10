@@ -135,9 +135,18 @@ class ConvNetNoBN(nn.Module):
 def random_crop_flip(x: torch.Tensor, pad: int = 4) -> torch.Tensor:
     b, c, h, w = x.shape
     padded = F.pad(x, [pad] * 4, mode="reflect")
-    i = torch.randint(0, 2 * pad, (b,))
-    j = torch.randint(0, 2 * pad, (b,))
-    out = torch.stack([padded[n, :, i[n]:i[n] + h, j[n]:j[n] + w] for n in range(b)])
+    i = torch.randint(0, 2 * pad, (b,), dtype=torch.long)
+    j = torch.randint(0, 2 * pad, (b,), dtype=torch.long)
+    rows = torch.arange(h, dtype=torch.long).unsqueeze(0) + i.unsqueeze(1)
+    cols = torch.arange(w, dtype=torch.long).unsqueeze(0) + j.unsqueeze(1)
+    # Index all four dims explicitly — mixing a slice with non-contiguous advanced indices
+    # reorders dims to (b,h,w,c); avoid that by indexing channels explicitly too.
+    out = padded[
+        torch.arange(b, dtype=torch.long).view(b, 1, 1, 1),
+        torch.arange(c, dtype=torch.long).view(1, c, 1, 1),
+        rows.view(b, 1, h, 1),
+        cols.view(b, 1, 1, w),
+    ]
     flip_mask = torch.rand(b) > 0.5
     out[flip_mask] = out[flip_mask].flip(-1)
     return out
