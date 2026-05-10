@@ -372,23 +372,29 @@ All experiments use this protocol:
 |---|---|---|---|---|
 | Main (t-SNE) | `fisher_rao_vs_kl_arxiv.tex` | 27 | Draft | Small datasets; strengthen t-SNE results |
 | Direction 1 | `fr_noisy_labels.tex` | 11 | Near-complete | 10-seed CIFAR-10 for p-values; full BN ablation (5-seed); 50k size ablation |
-| Direction 2 | `fr_representation_distance.tex` | 14 | Near-submission | Scale to larger models; energy score OOD baseline |
+| Direction 2 | `fr_representation_distance.tex` | 14 | Near-submission | Scale to larger models (ResNet/CIFAR) |
 | Direction 3 | `fr_contrastive.tex` | 5 | Theory only | Needs CIFAR/ImageNet GPU experiments |
 
 **Main paper (fisher_rao_vs_kl_arxiv.tex, 27 pages) now includes:**
 - Related Work section (5 paragraphs): DR methods, objective choice, info geometry, bounded divergences, evaluation methodology
 - 3 new references: McInnes 2018 (UMAP), Böhm 2022 (attraction-repulsion), Kobak 2019 (t-SNE art)
+- Table 1 updated: 47/48 direction (was 48), 42/48 p<0.05 (was 43), 46/48 trust (was 45)
+- Table 2 updated: FR row 47/48, 48/48, 46/48, 42/48 (was 44, 43); caption updated
+- Data integrity RESOLVED: 10-seed dimred data restored from commit 2667d09
 
 **Direction 1 paper (fr_noisy_labels.tex, 11 pages) now includes:**
 - Theorem 1 + Corollary 1 (formal noise-tolerance analysis for FR/Hellinger)
 - 5-paragraph related work section with 9 new references
-- BN ablation section (§3.2) with seed-0 and seed-1 results; FR most robust (−7.1%)
-- Updated Discussion: FR robust to BN removal, suggesting bounded gradient = implicit clipping
+- BN ablation §3.2: 2-seed × all 5 noise regimes; FR most robust (−5.8% mean drop)
+- Table 3 updated: sym_60 now all p=0.016 (was p=0.031); asym_40 Hellinger sig. (+p=0.031)
+- Abstract updated: 7-seed stats (+2.2% sym_40, +3.5% sym_60, p=0.016); BN item in contributions
 
 **Direction 2 paper (fr_representation_distance.tex, 14 pages) now includes:**
-- §4.4: OOD 4-method comparison — FR-RD CC 45/50 vs MSP 33/50 vs Mahal 38/50
+- §4.4: OOD 5-method comparison — FR-RD CC 45/50 vs Mahal 38/50 vs Energy 36/50 vs MSP 33/50
 - §4.5: Fine-tuning divergence — r=0.963 with accuracy gap (Table 5, Figure 5)
-- Updated contributions (5 items), updated Discussion
+- Confirmed MNIST: 10 seeds, ratio=1.472×, r=0.740 (same as Digits, dataset-agnostic)
+- Updated contributions (5 items), updated Discussion, corrected Mahal total (38, not 28)
 - 5-paragraph related work; Formal Limitations section
+- References: added liu2020energy (NeurIPS 2020)
 
 **Branch:** All work is on `main`. Feature branches have been merged.
