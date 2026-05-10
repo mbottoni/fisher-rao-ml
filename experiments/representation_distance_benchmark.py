@@ -28,7 +28,6 @@ from __future__ import annotations
 
 import argparse
 import csv
-import itertools
 from pathlib import Path
 
 import numpy as np
@@ -44,10 +43,7 @@ from fisher_rao_ml.representation_distance import (
     cka_linear,
     fr_ood_score,
     fr_representation_distance,
-    pairwise_cka,
-    pairwise_fr_rd,
 )
-
 
 # ---------------------------------------------------------------------------
 # Model
@@ -80,7 +76,9 @@ def load_digits_split(
 ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, int]:
     data = load_digits()
     x, y = data.data.astype(np.float32), data.target
-    x_tr, x_te, y_tr, y_te = train_test_split(x, y, test_size=test_size, random_state=seed, stratify=y)
+    x_tr, x_te, y_tr, y_te = train_test_split(
+        x, y, test_size=test_size, random_state=seed, stratify=y
+    )
     scaler = StandardScaler().fit(x_tr)
     x_tr = torch.from_numpy(scaler.transform(x_tr))
     x_te = torch.from_numpy(scaler.transform(x_te))
@@ -96,8 +94,8 @@ def load_mnist_subset(
 ) -> tuple[torch.Tensor, torch.Tensor]:
     """Load a small MNIST subset, standardized with a provided scaler."""
     try:
-        from torchvision.datasets import MNIST
         import torchvision.transforms as T
+        from torchvision.datasets import MNIST
         mnist = MNIST(root="data", train=False, download=True,
                       transform=T.Compose([T.ToTensor(), T.Lambda(lambda x: x.view(-1))]))
         rng = np.random.default_rng(seed)
@@ -106,13 +104,52 @@ def load_mnist_subset(
         y = torch.tensor([mnist[int(i)][1] for i in idx])
         if scaler is not None:
             x = scaler.transform(x)
-        x = torch.from_numpy(x)
-        return x, y
+        return torch.from_numpy(x), y
     except Exception:
         return None, None
 
 
-def inject_noise(labels: torch.Tensor, noise_rate: float, n_classes: int, seed: int) -> torch.Tensor:
+def load_mnist_split(
+    n_train: int = 3000,
+    n_test: int = 500,
+    seed: int = 0,
+) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, int]:
+    """Load MNIST train/test split, standardized, flattened to 784 dims."""
+    try:
+        import torchvision.transforms as T
+        from torchvision.datasets import MNIST
+        transform = T.Compose([T.ToTensor(), T.Lambda(lambda x: x.view(-1))])
+        train_ds = MNIST(root="data", train=True, download=True, transform=transform)
+        test_ds = MNIST(root="data", train=False, download=True, transform=transform)
+        rng = np.random.default_rng(seed)
+
+        def _sample(ds, n: int) -> tuple[np.ndarray, np.ndarray]:
+            labels = np.array([ds[i][1] for i in range(len(ds))])
+            classes = np.unique(labels)
+            n_per = max(1, n // len(classes))
+            idxs = []
+            for c in classes:
+                c_idxs = np.where(labels == c)[0]
+                chosen = rng.choice(c_idxs, size=min(n_per, len(c_idxs)), replace=False)
+                idxs.extend(chosen.tolist())
+            idxs = np.array(idxs[:n])
+            rng.shuffle(idxs)
+            x = torch.stack([ds[int(i)][0] for i in idxs]).numpy().astype(np.float32)
+            return x, labels[idxs].astype(np.int64)
+
+        x_tr, y_tr = _sample(train_ds, n_train)
+        x_te, y_te = _sample(test_ds, n_test)
+        scaler = StandardScaler().fit(x_tr)
+        x_tr = torch.from_numpy(scaler.transform(x_tr))
+        x_te = torch.from_numpy(scaler.transform(x_te))
+        return x_tr, torch.from_numpy(y_tr), x_te, torch.from_numpy(y_te), 10
+    except Exception as e:
+        raise RuntimeError(f"MNIST unavailable: {e}") from e
+
+
+def inject_noise(
+    labels: torch.Tensor, noise_rate: float, n_classes: int, seed: int
+) -> torch.Tensor:
     rng = np.random.default_rng(seed)
     noisy = labels.clone()
     n = len(labels)
@@ -239,22 +276,31 @@ def write_rows(path: Path, rows: list[dict]) -> None:
 
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser()
-    p.add_argument("--dataset", default="digits", choices=["digits"])
+    p.add_argument("--dataset", default="digits", choices=["digits", "mnist"])
     p.add_argument("--seeds", type=int, default=5)
     p.add_argument("--n-steps", type=int, default=300)
     p.add_argument("--hidden", type=int, default=128)
-    p.add_argument("--out-pairwise", default="reports/results/fr_rd_pairwise.csv")
-    p.add_argument("--out-trajectory", default="reports/results/fr_rd_trajectory.csv")
-    p.add_argument("--out-ood", default="reports/results/fr_rd_ood.csv")
+    p.add_argument("--out-pairwise", default=None,
+                   help="Output path (auto-set from dataset if not given)")
+    p.add_argument("--out-trajectory", default=None)
+    p.add_argument("--out-ood", default=None)
     return p.parse_args()
 
 
 def main() -> None:
     args = parse_args()
     device = get_device()
-    print(f"[fr-rd] device={device}")
+    print(f"[fr-rd] device={device}, dataset={args.dataset}")
 
-    x_tr, y_tr, x_te, y_te, n_classes = load_digits_split(seed=0)
+    tag = args.dataset
+    out_pairwise = Path(args.out_pairwise or f"reports/results/fr_rd_{tag}_pairwise.csv")
+    out_trajectory = Path(args.out_trajectory or f"reports/results/fr_rd_{tag}_trajectory.csv")
+    out_ood = Path(args.out_ood or f"reports/results/fr_rd_{tag}_ood.csv")
+
+    if args.dataset == "mnist":
+        x_tr, y_tr, x_te, y_te, n_classes = load_mnist_split(seed=0)
+    else:
+        x_tr, y_tr, x_te, y_te, n_classes = load_digits_split(seed=0)
     conditions = list(CONDITION_NOISE.keys())
     seeds = list(range(args.seeds))
 
@@ -302,16 +348,14 @@ def main() -> None:
                 "weight_l2": w_l2,
             })
 
-    write_rows(Path(args.out_pairwise), pairwise_rows)
-    print(f"[fr-rd] wrote {len(pairwise_rows)} pairwise rows → {args.out_pairwise}")
+    write_rows(out_pairwise, pairwise_rows)
+    print(f"[fr-rd] wrote {len(pairwise_rows)} pairwise rows → {out_pairwise}")
 
     # --- Part 2: trajectory (training dynamics) ---
     traj_rows = []
     for cond in conditions:
         for seed in seeds:
             key = (cond, seed)
-            final_probs = probs_map[key]  # probs on TEST set from final model
-            # Rebuild final probs on train set for trajectory comparison
             final_train_probs = None
             for step, probs in reversed(traj_map[key]):
                 if step == traj_steps[-1]:
@@ -329,40 +373,42 @@ def main() -> None:
                     "final_test_acc": acc_map[key],
                 })
 
-    write_rows(Path(args.out_trajectory), traj_rows)
-    print(f"[fr-rd] wrote {len(traj_rows)} trajectory rows → {args.out_trajectory}")
+    write_rows(out_trajectory, traj_rows)
+    print(f"[fr-rd] wrote {len(traj_rows)} trajectory rows → {out_trajectory}")
 
-    # --- Part 3: OOD detection ---
+    # --- Part 3: OOD detection (digits only — MNIST OOD against digits ID) ---
     ood_rows = []
-    try:
-        from sklearn.preprocessing import StandardScaler as SS
-        data = load_digits()
-        scaler_for_mnist = SS().fit(data.data.astype(np.float32))
-        x_mnist, y_mnist = load_mnist_subset(n=300, seed=0, scaler=scaler_for_mnist)
-        if x_mnist is not None:
-            for cond in conditions:
-                all_probs_id = torch.cat([probs_map[(cond, s)] for s in seeds], dim=0)
-                for seed in seeds:
-                    model_key = (cond, seed)
-                    model, _ = train_model(
-                        x_tr, y_tr, n_classes, cond, seed, device,
-                        n_steps=args.n_steps, hidden=args.hidden,
-                    )
-                    probs_mnist, _ = get_probs_and_features(model, x_mnist, device)
-                    ood_scores_mnist = fr_ood_score(all_probs_id, probs_mnist).numpy()
-                    ood_scores_id = fr_ood_score(all_probs_id, probs_map[model_key]).numpy()
-                    ood_rows.append({
-                        "condition": cond,
-                        "seed": seed,
-                        "mean_ood_score_mnist": float(ood_scores_mnist.mean()),
-                        "mean_ood_score_id": float(ood_scores_id.mean()),
-                        "separation": float(ood_scores_mnist.mean() - ood_scores_id.mean()),
-                    })
-    except Exception as e:
-        print(f"[fr-rd] OOD section skipped: {e}")
+    if args.dataset == "digits":
+        try:
+            from sklearn.preprocessing import StandardScaler as SS
+            data = load_digits()
+            scaler_for_mnist = SS().fit(data.data.astype(np.float32))
+            x_mnist_ood, _ = load_mnist_subset(n=300, seed=0, scaler=scaler_for_mnist)
+            if x_mnist_ood is not None:
+                for cond in conditions:
+                    all_probs_id = torch.cat([probs_map[(cond, s)] for s in seeds], dim=0)
+                    for seed in seeds:
+                        model_key = (cond, seed)
+                        model, _ = train_model(
+                            x_tr, y_tr, n_classes, cond, seed, device,
+                            n_steps=args.n_steps, hidden=args.hidden,
+                        )
+                        probs_ood, _ = get_probs_and_features(model, x_mnist_ood, device)
+                        ood_scores_ood = fr_ood_score(all_probs_id, probs_ood).numpy()
+                        ood_scores_id = fr_ood_score(all_probs_id, probs_map[model_key]).numpy()
+                        ood_rows.append({
+                            "condition": cond,
+                            "seed": seed,
+                            "mean_ood_score_ood": float(ood_scores_ood.mean()),
+                            "mean_ood_score_id": float(ood_scores_id.mean()),
+                            "separation": float(ood_scores_ood.mean() - ood_scores_id.mean()),
+                        })
+        except Exception as e:
+            print(f"[fr-rd] OOD section skipped: {e}")
 
-    write_rows(Path(args.out_ood), ood_rows)
-    print(f"[fr-rd] wrote {len(ood_rows)} OOD rows → {args.out_ood}")
+    if ood_rows:
+        write_rows(out_ood, ood_rows)
+        print(f"[fr-rd] wrote {len(ood_rows)} OOD rows → {out_ood}")
 
     # Print summary
     print("\n[fr-rd] Pairwise FR-RD summary by condition pair:")
