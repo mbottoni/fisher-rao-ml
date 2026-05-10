@@ -42,8 +42,9 @@ of $\approx1.47$--$1.50\times$ and a correlation with accuracy differences of $r
 confirming that the properties are dataset-agnostic. We further show that FR-RD between
 the cross-entropy and Fisher--Rao objectives on clean labels is $0.064$--$0.121$
 (dataset-dependent), confirming their near-identical behavior under non-corrupted targets.
-FR-RD provides a compute-cheap, metric-theoretically grounded tool for model comparison,
-fine-tuning divergence tracking, and out-of-distribution detection.
+FR-RD provides a compute-cheap, metric-theoretically grounded tool for model comparison
+and fine-tuning divergence tracking. An OOD detection experiment reveals a failure mode of
+centroid-based scoring for confident classifiers, motivating class-conditional variants.
 \end{abstract}
 
 \section{Introduction}
@@ -83,8 +84,9 @@ Fisher--Rao geodesic distance on the $C$-class simplex, bounded by $\pi$.
   \item A comparison to linear CKA, highlighting that they are complementary: FR-RD
         measures behavioral divergence at the output, CKA measures representational geometry
         in hidden layers.
-  \item An application sketch for FR-RD-based out-of-distribution detection via the
-        centroid distance in output-distribution space.
+  \item An empirical OOD detection experiment showing that centroid-based FR-RD scoring
+        fails for high-confidence classifiers (centroid collapses to uniform, inverting
+        the ranking), with a mechanistic explanation and a proposed class-conditional fix.
 \end{enumerate}
 
 \section{Background}
@@ -261,6 +263,36 @@ the output, while $1 - \mathrm{CKA}$ captures hidden-representation divergence.
   \end{tabular}
 \end{table}
 
+\subsection{OOD detection via centroid FR-RD}
+\label{sec:ood}
+
+We test a simple OOD scorer: for a trained model $\theta$ and an in-distribution (ID)
+reference set, compute the centroid $\bar{p} = \frac{1}{n}\sum_i P_\theta(x_i)$ of softmax
+outputs, then score a query $x$ as $s(x) = d_{\mathrm{FR}}(\bar{p}, P_\theta(x))$.
+We evaluate on UCI Digits (ID) vs.\ MNIST resized to $8\times 8$ (OOD), 300 OOD samples,
+5 seeds per condition.
+
+\textbf{Result:} For well-trained clean models, the separation is \emph{negative}
+(mean $-0.38$ across seeds): ID samples score \emph{higher} than OOD samples,
+the opposite of the desired direction. Label-smoothed models show the strongest
+negative separation ($-0.94$). Noisy models at $60\%$ noise are the exception:
+4/5 seeds show positive separation (mean $+0.21$).
+
+\textbf{Mechanistic explanation.} For a confident $C$-class classifier, the centroid
+$\bar{p} \approx \frac{1}{n}\sum_i e_{y_i}$ where $e_{y_i}$ is the predicted one-hot
+label. With balanced classes this centroid is near-uniform ($\approx \mathbf{1}/C$).
+The ID samples themselves are near one-hot (high confidence), which are far from the
+uniform centroid in Fisher--Rao distance. MNIST digits, being out-of-domain, elicit
+less confident outputs --- closer to the centroid. The centroid approach therefore
+\emph{inverts} the intended ranking for any high-confidence classifier.
+
+\textbf{Implication.} Centroid FR-RD works only when the model is uncertain:
+the noisy-60\% condition yields $\bar{p}$ that is already uncertain, so OOD inputs
+are not closer to it. A class-conditional centroid
+$\bar{p}_c = \mathbb{E}[P_\theta(x) \mid \hat{y} = c]$ and
+$s(x) = \min_c d_{\mathrm{FR}}(\bar{p}_c, P_\theta(x))$ would avoid this collapse
+by measuring per-class prototype distance; we leave this for future work.
+
 \section{Discussion and Future Work}
 
 \paragraph{FR-RD vs.\ CKA: complementary, not competing.}
@@ -276,11 +308,13 @@ low FR-RD to the pretrained model means the fine-tuned model has preserved the o
 output distribution. This is more informative than weight-space $L_2$ distance, which is
 confounded by reparameterization.
 
-\paragraph{OOD detection.}
-The FR-RD from a test input's model output to the in-distribution centroid,
-$d_{\mathrm{FR}}(\bar{p}_{\mathrm{ID}}, P_\theta(x))$, provides a simple, bounded OOD
-score. Unlike maximum softmax probability (MSP), this centroid distance is symmetric and
-metric, enabling principled thresholding.
+\paragraph{OOD detection: lessons from the centroid experiment.}
+The centroid-based FR-RD scorer (\S\ref{sec:ood}) fails for high-confidence models because
+the population centroid collapses toward uniform, making ID samples (near one-hot) score
+farther than OOD samples. This is a useful negative result: it clarifies that FR-RD is a
+distance between \emph{two distributions}, not an absolute score, and that a useful OOD
+score requires a meaningful reference point. Class-conditional centroids or kernel density
+estimates in output space are natural remedies.
 
 \paragraph{Scale-up.}
 The main limitation is that FR-RD requires access to the full output distribution, not just
@@ -355,15 +389,39 @@ soft-label classification is studied in the companion paper
 in settings where false affinities are present.
 The present paper proposes its first use as a \emph{model comparison metric}.
 
+\section{Limitations}
+
+\begin{itemize}
+  \item \textbf{Requires output distributions.} FR-RD requires access to the full softmax
+    output distribution, not just class predictions or hidden representations. This
+    precludes its use with black-box APIs that return only labels.
+  \item \textbf{Sensitivity to reference dataset.} FR-RD is conditioned on a reference
+    dataset $X$. Two models may have high FR-RD on one dataset and low FR-RD on another
+    if they disagree only on certain input regions. This is by design for fine-tuning
+    divergence tracking, but users should choose $X$ to cover the region of interest.
+  \item \textbf{Small-scale experiments.} The empirical validation uses MLP classifiers
+    on UCI Digits (1,797 samples) and MNIST (3,000 train). Scaling to ResNet-scale
+    models on CIFAR-100 or ImageNet is left to future work.
+  \item \textbf{Centroid OOD score inverts for confident models.} As shown in
+    \S\ref{sec:ood}, the global centroid of a high-confidence classifier collapses
+    toward uniform, making confident ID samples score \emph{farther} than uncertain
+    OOD samples. Class-conditional centroids or learned prototypes are needed for
+    reliable OOD scoring in practice.
+\end{itemize}
+
 \section{Conclusion}
 
 FR-RD is a proper metric on model behaviors, bounded by $\pi$, and compute-cheap. On
-digits classifiers, it separates training conditions with $1.50\times$ between-to-within
-ratio, tracks training dynamics, and correlates with accuracy differences at $r = 0.74$.
-It is complementary to CKA: where CKA measures hidden-representation alignment, FR-RD
-measures behavioral divergence at the output. Its metric properties and bounded scale make
-it a principled drop-in tool for model comparison, fine-tuning divergence tracking, and
-OOD scoring in any setting where model output distributions are accessible.
+MLP classifiers (UCI Digits and MNIST), it separates training conditions with
+$1.47$--$1.50\times$ between-to-within ratio, tracks training dynamics, and correlates
+with accuracy differences at $r = 0.74$ on both datasets, confirming dataset-agnostic
+stability. It is complementary to CKA: where CKA measures hidden-representation alignment,
+FR-RD measures behavioral divergence at the output. An OOD experiment reveals an important
+failure mode of global centroid scoring: the centroid of confident predictions is near-uniform,
+inverting the OOD score for well-trained models; class-conditional centroids are the natural
+remedy. FR-RD's metric properties and bounded scale make it a principled drop-in tool for
+model comparison and fine-tuning divergence tracking, with OOD application requiring
+careful choice of the reference distribution.
 
 \bibliographystyle{plainnat}
 \bibliography{references}

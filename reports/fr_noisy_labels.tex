@@ -427,7 +427,7 @@ pending).
     GCE ($q=0.7$) & 81.9 & 48.8 & $-33.1$ \\
     MAE           & 72.4 & 20.2 & $-52.2$ \\
     SCE           & 77.4 & 69.0 & $-8.4$ \\
-    Hellinger     & 82.5 & -- & -- \\
+    Hellinger     & 82.5 & 46.3 & $-36.2$ \\
     Fisher--Rao   & 84.2 & -- & -- \\
     \bottomrule
   \end{tabular}
@@ -453,9 +453,15 @@ This differential sensitivity is mechanistically informative:
     the necessary curvature and training essentially fails.
 \end{itemize}
 
-Whether Fisher--Rao (predicted to be more stable than GCE/MAE due to its bounded but
-non-flat gradient) shows an intermediate drop is the key open question, pending full
-5-seed results.
+Hellinger drops by $36.2\%$ (to $46.3\%$), similar to GCE.
+This is consistent with Hellinger's gradient structure: like GCE ($q<1$), Hellinger's
+gradient saturates near the correct class ($\partial \ell_H / \partial p_k \to 0$ as
+$p_k \to 1$), providing weak signal when early layers produce near-correct activations
+without BN's normalization.
+
+Whether Fisher--Rao (predicted to be more stable than GCE/Hellinger due to its bounded
+but non-flat gradient, which achieves its maximum away from zero) shows an intermediate
+drop is the key open question, pending full 5-seed results.
 
 \subsection{Calibration and Brier score}
 
