@@ -36,10 +36,10 @@ Unlike the widely used linear CKA \citep{kornblith2019similarity}, FR-RD is a \e
 metric}: it satisfies the triangle inequality and equals zero if and only if the two models
 agree on every input. It is bounded by $\pi$ (the diameter of the unit sphere under the
 Fisher information metric), making it interpretable without normalization. We validate
-FR-RD on two datasets: UCI Digits (1,797 samples, 5 conditions, 5 seeds) and MNIST
+FR-RD on two datasets: UCI Digits (1,797 samples, 5 conditions, \emph{10 seeds}) and MNIST
 (3,000 train, 5 conditions, 5 seeds). Both yield a between-to-within separation ratio
-of $\approx1.47$--$1.50\times$ and a correlation with accuracy differences of $r=0.74$,
-confirming that the properties are dataset-agnostic. We further show that FR-RD between
+of $1.47$--$1.49\times$ and a correlation with accuracy differences of $r=0.74$,
+stable across seed counts and confirming dataset-agnostic properties. We further show that FR-RD between
 the cross-entropy and Fisher--Rao objectives on clean labels is $0.064$--$0.121$
 (dataset-dependent), confirming their near-identical behavior under non-corrupted targets.
 FR-RD provides a compute-cheap, metric-theoretically grounded tool for model comparison
@@ -172,29 +172,30 @@ under the same five conditions on two datasets:
 \end{itemize}
 
 \textbf{UCI Digits}: 1,797 examples, 64 features, 10 classes, 70/30 stratified split,
-300 training steps. Five seeds per condition (25 models total). FR-RD is computed on the
-held-out test set ($n \approx 539$).
+300 training steps. \emph{Ten seeds} per condition (50 models total, 1,225 model pairs).
+FR-RD is computed on the held-out test set ($n \approx 539$).
 
 \textbf{MNIST}: 3,000 training examples (stratified from 60k), 500 test examples, 784
-flattened pixels, 400 steps. Five seeds per condition (25 models total).
+flattened pixels, 400 steps. Five seeds per condition (25 models total, 300 model pairs).
 
 \subsection{Pairwise FR-RD separates training conditions}
 
-Figure~\ref{fig:heatmap} shows the mean pairwise FR-RD and linear CKA across all $\binom{25}{2}
-= 300$ model pairs. FR-RD cleanly separates conditions on both datasets:
+Figure~\ref{fig:heatmap} shows the mean pairwise FR-RD and linear CKA across all
+$\binom{50}{2} = 1{,}225$ model pairs (Digits, 10 seeds) and $\binom{25}{2} = 300$
+pairs (MNIST, 5 seeds). FR-RD cleanly separates conditions on both datasets:
 \begin{itemize}
-  \item CE (clean) vs.\ FR (clean): $\mathrm{FR\text{-}RD} = 0.064$ on Digits and $0.121$
+  \item CE (clean) vs.\ FR (clean): $\mathrm{FR\text{-}RD} = 0.070$ on Digits and $0.121$
         on MNIST, confirming that the two objectives converge to nearly identical behavioral
         solutions on clean data. This is consistent with the second-order expansion
         $d_{\mathrm{FR}}^2 \approx 2\,\mathrm{KL}$ near the optimum.
-  \item Within-condition FR-RD on Digits: mean $0.079$ (clean), $0.071$ (FR-loss), $0.157$
-        (smoothed), $1.427$ (30\% noise), $2.230$ (60\% noise). MNIST shows the same
-        pattern: $0.129$, $0.136$, $0.260$, $1.398$, $2.296$ respectively.
-  \item Between-condition vs.\ within-condition ratio: $1.50\times$ on Digits and $1.47\times$
-        on MNIST, demonstrating consistent systematic separation across datasets.
-  \item Correlation with accuracy differences: $r = 0.74$ on both Digits and MNIST
-        (vs.\ $|1 - \mathrm{CKA}| = 0.85$ on MNIST), showing that FR-RD is a reliable
-        predictor of behavioral divergence.
+  \item Within-condition FR-RD on Digits (10 seeds): $0.073$ (clean), $0.072$ (FR-loss),
+        $0.155$ (smoothed), $1.409$ (30\% noise), $2.258$ (60\% noise). MNIST shows the
+        same pattern: $0.129$, $0.136$, $0.260$, $1.398$, $2.296$ respectively.
+  \item Between-condition vs.\ within-condition ratio: $1.49\times$ on Digits (10 seeds)
+        and $1.47\times$ on MNIST (5 seeds), demonstrating consistent separation across
+        datasets and seed counts.
+  \item Correlation with accuracy differences: $r = 0.741$ on Digits (10 seeds), $r = 0.74$
+        on MNIST (5 seeds), stable across seeds (vs.\ $r = 0.85$--$0.87$ for $1-\mathrm{CKA}$).
 \end{itemize}
 
 \begin{figure}[t]
@@ -250,18 +251,21 @@ the output, while $1 - \mathrm{CKA}$ captures hidden-representation divergence.
 
 \begin{table}[t]
   \centering
-  \caption{Mean test accuracy $\pm$ std across 5 seeds, and mean within-condition FR-RD.}
+  \caption{Mean test accuracy $\pm$ std and mean within-condition FR-RD on UCI Digits
+  (10 seeds) and MNIST (5 seeds).}
   \label{tab:accuracy}
   \scriptsize
-  \begin{tabular}{lrr}
+  \begin{tabular}{lrrrr}
     \toprule
-    Condition & Test accuracy $\uparrow$ & Within-condition FR-RD $\downarrow$ \\
+    & \multicolumn{2}{c}{UCI Digits (10 seeds)} & \multicolumn{2}{c}{MNIST (5 seeds)} \\
+    \cmidrule(lr){2-3}\cmidrule(lr){4-5}
+    Condition & Accuracy $\uparrow$ & FR-RD $\downarrow$ & Accuracy $\uparrow$ & FR-RD $\downarrow$ \\
     \midrule
-    CE (clean)     & $0.977 \pm 0.003$ & $0.072$ \\
-    FR (clean)     & $0.977 \pm 0.003$ & $0.071$ \\
-    LS (clean)     & $0.989 \pm 0.003$ & $0.156$ \\
-    CE 30\% noise  & $0.733 \pm 0.010$ & $1.427$ \\
-    CE 60\% noise  & $0.428 \pm 0.008$ & $2.230$ \\
+    CE (clean)     & $0.976 \pm 0.003$ & $0.073$ & $0.977 \pm 0.003$ & $0.129$ \\
+    FR (clean)     & $0.976 \pm 0.003$ & $0.072$ & $0.977 \pm 0.003$ & $0.136$ \\
+    LS (clean)     & $0.986 \pm 0.004$ & $0.155$ & $0.989 \pm 0.003$ & $0.260$ \\
+    CE 30\% noise  & $0.743 \pm 0.024$ & $1.409$ & $0.733 \pm 0.010$ & $1.398$ \\
+    CE 60\% noise  & $0.424 \pm 0.020$ & $2.258$ & $0.428 \pm 0.008$ & $2.296$ \\
     \bottomrule
   \end{tabular}
 \end{table}
