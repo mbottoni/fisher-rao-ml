@@ -830,22 +830,33 @@ At asym\,40, FR significantly hurts ($-2.7\%$, $p=0.002$) while Hellinger and
 GCE are neutral, suggesting FR's bounded gradient provides insufficient
 discrimination for class-conditional noise.
 
+A gradient norm analysis (3 seeds) provides direct mechanistic evidence:
+KL memorises noisy samples (noisy/clean ratio $1.43\uparrow$), FR and Hellinger
+bound gradients (ratio $\approx 1$, stable), and GCE actively deweights
+($0.71\downarrow$) — explaining the empirical ordering at sym\,60.
 A 5-seed BN ablation confirms FR is the most BN-robust objective (mean drop
-$-5.3\%$ vs.\ KL's $-13.3\%$), followed by SCE ($-7.9\%$), consistent with
-the bounded-gradient mechanism.
+$-5.3\%$ vs.\ KL's $-13.3\%$), consistent with bounded gradient providing
+implicit gradient clipping.
 
-For MLP/tabular settings, MAE and GCE remain the principled choices for
-symmetric noise.
-For ConvNet/image settings under symmetric noise, GCE is the strongest
-performer; FR is a reliable alternative with the advantage of mathematical
-metric properties.
-Avoid MAE for ConvNet training at moderate dataset scales.
+Beyond accuracy, FR and Hellinger deliver dramatically better calibration under
+noisy training: at sym\,40, FR achieves ECE\,$=0.025$ vs.\ KL's $0.233$ ($9\times$
+improvement), making them preferable not only for accuracy but for reliable uncertainty
+quantification in deployment.
+
+For MLP/tabular settings, MAE and GCE remain the principled choices for symmetric noise.
+For ConvNet/image settings under symmetric noise, GCE is the strongest performer;
+FR and Hellinger are reliable alternatives, and they offer the additional benefit
+of excellent calibration.
+For asymmetric noise, use GCE or KL; FR significantly hurts on ConvNet ($-2.7\%$, $p=0.002$).
 
 Future work should (i) test on CIFAR-N real-world noise to check whether the
-ConvNet advantage persists under instance-dependent human annotation errors,
-(ii) vary dataset size (50k vs 10k) to isolate the MAE flat-gradient hypothesis,
-and (iii) develop a theoretical framework accounting for architecture and
-optimization dynamics beyond the asymptotic Ghosh et al.\ analysis.
+ConvNet advantage and calibration benefits persist under instance-dependent human
+annotation errors, (ii) scale to ResNet-18 on full CIFAR-10 to confirm the
+finding at the 5× larger dataset scale, (iii) investigate the two-phase curriculum
+combining FR's early gradient stability with GCE's late-phase denoising
+(Appendix~\ref{sec:dynamic_loss}), and (iv) develop a theoretical framework
+accounting for architecture and optimization dynamics beyond the asymptotic
+Ghosh et al.\ analysis.
 
 \bibliographystyle{plainnat}
 \bibliography{references}
