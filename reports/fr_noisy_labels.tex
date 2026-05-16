@@ -334,19 +334,22 @@ Key observations:
 \begin{enumerate}
   \item \textbf{MAE dominates at all symmetric noise levels.}
     On Digits at sym\,40, MAE achieves $89.6\%$ vs KL's $70.0\%$ ($+19.6\%$,
-    $p=0.002$, 10/10 wins); on MNIST at sym\,40, MAE achieves $76.0\%$ vs
-    KL's $61.6\%$ ($+14.4\%$, 10/10 wins).
+    $p=0.002$, 10/10 wins); on MNIST at sym\,40, MAE achieves $75.2\%$ vs
+    KL's $61.6\%$ ($+13.6\%$, 10/10 wins).
   \item \textbf{FR and Hellinger are significantly worse than KL at sym\,40 and sym\,60.}
     Digits FR: $-3.2\%$ at sym\,40 ($p=0.002$, 0/10 wins);
     $-2.0\%$ at sym\,60 ($p=0.004$, 0/10 wins).
-    MNIST FR: $-1.4\%$ at sym\,40 ($p=0.059$, 2/10 wins).
-    FashionMNIST FR: $-1.9\%$ at sym\,40 ($p=0.002$, 0/10 wins);
-    $-1.4\%$ at sym\,60 ($p=0.037$, 2/10 wins).
+    MNIST FR: $-1.4\%$ at sym\,40 ($p=0.059$, 2/10 wins, directional);
+    $-1.0\%$ at sym\,60 ($p=0.049$, 2/10 wins).
+    FashionMNIST FR: $-1.9\%$ at sym\,40 ($p=0.062$, 0/5 wins);
+    $-1.4\%$ at sym\,60 ($p=0.188$, 1/5 wins).
+    With only 5 seeds ($p_{\min}=0.062$), these do not reach the $p<0.05$ threshold,
+    but the direction is consistent with Digits and MNIST.
     Hellinger tracks FR closely on all three datasets, confirming the pattern is
     not dataset-specific.
   \item \textbf{GCE consistently outperforms KL; SCE is unreliable.}
     On Digits, GCE/SCE achieve $+6.1$--$6.3\%$ at sym\,40.
-    On MNIST, GCE achieves $+1.1\%$ while SCE falls $-4.2\%$.
+    On MNIST, GCE achieves $+1.8\%$ ($p=0.004$) while SCE falls $-3.7\%$ ($p=0.004$).
   \item \textbf{At sym\,80, differences vanish.}
     All objectives converge near random ($\approx 19$--$29\%$) as SNR collapses.
   \item \textbf{Asymmetric noise: only MAE wins consistently.}
@@ -357,7 +360,7 @@ Key observations:
 The results in Table~\ref{tab:accuracy_cifar10} reveal a sharp reversal:
 \begin{enumerate}
   \item \textbf{FR and Hellinger now \emph{outperform} KL under symmetric noise, with strong statistical significance.}
-    FR: $+2.3\%$ at sym\,20 (10/10 wins, $p=0.002$), $+2.4\%$ at sym\,40 (10/10 wins, $p=0.002$),
+    FR: $+2.4\%$ at sym\,20 (10/10 wins, $p=0.002$), $+2.4\%$ at sym\,40 (10/10 wins, $p=0.002$),
     $+3.4\%$ at sym\,60 (10/10 wins, $p=0.002$).
     Hellinger shows the same direction and is also significant at sym\,20--60 (all $p=0.002$, 10/10 wins).
     At high noise (sym\,60), Hellinger (+7.6\%) exceeds FR (+3.4\%), suggesting its
@@ -379,23 +382,23 @@ The results in Table~\ref{tab:accuracy_cifar10} reveal a sharp reversal:
 
 \begin{table}[t]
   \centering
-  \caption{Mean test accuracy (\%) on MNIST (5,000 train, 5 seeds each).
-    The ranking pattern is consistent with UCI Digits, but GCE and SCE are
-    less reliable on MNIST.
-    Bold: best non-KL objective per noise regime.
-    Underline: statistically below KL.}
+  \caption{Mean test accuracy (\%) on MNIST (5,000 train, 10 seeds each).
+    The ranking pattern is consistent with UCI Digits: MAE dominates at all
+    noise levels, while FR and Hellinger underperform KL at moderate noise.
+    Bold: significantly or numerically best non-KL objective(s) above KL.
+    Underline: statistically below KL ($p<0.05$, Wilcoxon).}
   \label{tab:accuracy_mnist}
   \small
   \begin{tabular}{lcccccc}
     \toprule
     Noise & KL (CE) & FR & Hellinger & GCE & MAE & SCE \\
     \midrule
-    Clean    & 93.8 & 93.6 & 93.9 & 93.7 & 93.6 & 93.8 \\
-    Sym 20\% & 79.7 & 79.7 & 79.8 & \textbf{82.7} & \textbf{87.2} & 78.0 \\
-    Sym 40\% & 61.6 & \underline{59.9} & \underline{60.0} & 62.7 & \textbf{76.0} & \underline{57.4} \\
-    Sym 60\% & 41.6 & \underline{40.8} & \underline{40.0} & 40.5 & \textbf{50.4} & \underline{37.4} \\
-    Sym 80\% & 18.7 & 18.9 & 18.7 & \textbf{20.3} & \textbf{23.0} & 18.8 \\
-    Asym 40\% & 56.6 & 55.4 & 56.4 & \textbf{57.2} & \textbf{60.0} & 55.3 \\
+    Clean    & 93.7 & 93.6 & 93.9 & 93.7 & 93.5 & 93.7 \\
+    Sym 20\% & 79.6 & 79.2 & 79.7 & \textbf{83.0} & \textbf{88.1} & \underline{78.5} \\
+    Sym 40\% & 61.6 & 60.2 & \underline{59.9} & \textbf{63.4} & \textbf{75.2} & \underline{57.9} \\
+    Sym 60\% & 41.3 & \underline{40.3} & \underline{39.9} & 41.0 & \textbf{50.7} & \underline{37.7} \\
+    Sym 80\% & 19.1 & 19.0 & 19.1 & 20.1 & \textbf{22.7} & 18.9 \\
+    Asym 40\% & 55.6 & 54.9 & 55.4 & \textbf{56.6} & \textbf{58.9} & 54.8 \\
     \bottomrule
   \end{tabular}
 \end{table}
