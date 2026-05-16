@@ -554,12 +554,14 @@ vs.\ a fixed batch of correctly-labelled samples, each epoch
     \midrule
     KL (CE)     & 1.03 & 1.16 & 1.24 & 1.36 & 1.33 & 1.46 & \textbf{1.43} $\uparrow$ \\
     Fisher--Rao & 0.86 & 0.70 & 0.74 & 0.83 & 0.85 & 0.98 & \textbf{0.99} $\approx 1$ \\
-    GCE         & 0.78 & 0.56 & 0.53 & 0.54 & 0.63 & 0.70 & \textbf{0.71} $\downarrow$ \\
+    Hellinger   & 0.83 & 0.63 & 0.62 & 0.70 & 0.76 & 0.88 & \textbf{0.85} $\approx 1$ \\
+    GCE         & 0.78 & 0.56 & 0.53 & 0.54 & 0.63 & 0.69 & \textbf{0.71} $\downarrow$ \\
+    MAE         & 0.77 & 0.48 & 0.77 & 0.69 & 0.67 & 0.63 & \textbf{0.77} erratic \\
     \bottomrule
   \end{tabular}
 \end{table}
 
-Three qualitatively different gradient dynamics emerge:
+Four qualitatively different gradient dynamics emerge:
 \begin{itemize}
   \item \textbf{KL (memorisation, ratio $> 1$, increasing).}
     As the model grows confident in the correct class, the wrong-class probability
@@ -568,12 +570,15 @@ Three qualitatively different gradient dynamics emerge:
     By epoch 59, noisy samples drive 43\% larger gradient updates than clean ones —
     the hallmark of memorisation.
 
-  \item \textbf{FR (gradient bounding, ratio $\approx 1$, stable).}
-    FR's loss $4\arccos^2(\sqrt{p_j})$ is bounded by $\pi^2 \approx 9.87$.
-    As $p_j \to 0$ on noisy samples, the loss saturates and the gradient cannot
+  \item \textbf{FR and Hellinger (gradient bounding, ratio $\approx 1$, stable).}
+    FR's loss $4\arccos^2(\sqrt{p_j})$ is bounded by $\pi^2 \approx 9.87$, and
+    Hellinger's $(\sqrt{p_j} - 1)^2$ is bounded by 1.
+    As $p_j \to 0$ on noisy samples, both losses saturate and their gradients cannot
     diverge.
-    The ratio stabilises near 1.0: the model does not preferentially overfit to
+    Both ratios stabilise near 1.0: the model does not preferentially overfit to
     mislabelled samples, even late in training.
+    Hellinger's slightly lower ratio (0.85 vs 0.99) is consistent with its tighter
+    bound, which may explain Hellinger's stronger result at sym\,60.
 
   \item \textbf{GCE (gradient warping, ratio $< 1$, decreasing).}
     GCE's gradient $\partial \mathcal{L}_\mathrm{GCE}/\partial p_j =
@@ -584,27 +589,32 @@ Three qualitatively different gradient dynamics emerge:
     clean samples.
     This explains why GCE dominates at high noise (sym\,60): it is the only
     loss that explicitly deweights noisy examples dynamically during training.
+
+  \item \textbf{MAE (flat gradients, ratio erratic).}
+    MAE has constant loss magnitude $\sum_k |y_k - p_k| \in [0,2]$ irrespective
+    of prediction confidence, leading to erratic noisy/clean ratios (0.48--0.77).
+    This flat signal satisfies the Ghosh condition for MLP models but starves
+    ConvNets of discriminative gradient needed to learn convolutional filters at
+    moderate dataset scales.
 \end{itemize}
 
 This mechanistic picture explains the performance ordering at sym\,60:
-GCE ($+9.5\%$, active deweighting) $>$ FR ($+3.4\%$, bounding) $>$ KL (memorisation).
+GCE ($+9.5\%$, active deweighting) $>$ Hellinger ($+7.6\%$, tight bounding) $>$
+FR ($+3.4\%$, bounding) $>$ KL (memorisation) $>$ MAE (flat gradient failure).
 It also explains the BN ablation ordering in Table~\ref{tab:no_bn}: FR's
 intrinsic gradient bound partially substitutes for BN's implicit normalisation,
 so FR is the most robust to BN removal (mean drop $-5.3\%$ vs KL $-13.3\%$).
+GCE and Hellinger collapse without BN ($-32.9\%$ and $-37.5\%$) because their
+gradient-warping and bounding properties depend on well-calibrated confidence
+scores, which BN provides.
 
-The three mechanisms are complementary rather than exclusive:
-GCE and FR could in principle be combined (GCE objective on FR-regularized outputs),
-though we leave that for future work.
-\begin{itemize}
-  \item \textbf{MAE's flat gradients hurt ConvNet training.}
-    MAE has constant loss magnitude $\sum_k |y_k - p_k| \in [0,2]$ irrespective
-    of prediction confidence.
-    This flat gradient satisfies the Ghosh condition for MLP models but starves
-    ConvNets of the discriminative signal needed to learn convolutional filters
-    from a 10k-sample dataset.
-\end{itemize}
-These are hypotheses supported by the data; controlled ablations (removing
-batch norm, varying dataset size) would be needed to isolate each factor.
+The bounding and warping mechanisms are complementary:
+we test whether combining FR (early-phase gradient bounding) with GCE
+(late-phase active deweighting) as a two-phase curriculum outperforms either
+alone in Appendix~\ref{sec:dynamic_loss}.
+These are hypotheses supported by the data; additional controlled ablations
+(varying dataset size, architecture depth) would be needed to isolate each factor
+definitively.
 
 \paragraph{When does FR help?}
 Two regimes now have empirical support for FR outperforming KL:
@@ -765,5 +775,39 @@ optimization dynamics beyond the asymptotic Ghosh et al.\ analysis.
 
 \bibliographystyle{plainnat}
 \bibliography{references}
+
+% ============================================================
+\appendix
+% ============================================================
+
+\section{Dynamic Loss-Switching Curriculum}
+\label{sec:dynamic_loss}
+
+\paragraph{Motivation.}
+The gradient norm analysis (Table~\ref{tab:grad_ratio}) reveals three complementary
+mechanisms: KL memorises, FR bounds, GCE actively deweights.
+Since FR stabilises the noisy/clean gradient ratio early in training
+(preventing premature memorisation) while GCE increasingly downweights noisy
+samples late in training (actively denoising), a two-phase curriculum is a
+natural test of whether these mechanisms are compositional:
+
+\begin{enumerate}
+  \item \textbf{Phase 1 (epochs 0--29):} Train with FR to establish stable
+    gradient dynamics and learn discriminative features without memorising
+    corrupted labels.
+  \item \textbf{Phase 2 (epochs 30--59):} Switch to GCE to actively suppress
+    high-confidence wrong predictions and refine the decision boundary.
+\end{enumerate}
+
+\paragraph{Experimental setup.}
+Same 4-layer ConvNet, 10k CIFAR-10 subset, 5 seeds, 5 noise regimes as the main
+experiment (Section~\ref{sec:setup}).
+We compare 5 two-phase schedules (\texttt{FR$\to$GCE}, \texttt{FR$\to$KL},
+\texttt{GCE$\to$FR}, \texttt{KL$\to$GCE}, \texttt{FR$\to$MAE}) against
+all 6 static-objective baselines (KL, FR, GCE, MAE, Hellinger, SCE),
+with switch epoch fixed at 30.
+
+\paragraph{Results.}
+[Results pending — experiment currently running.]
 
 \end{document}
