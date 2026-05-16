@@ -768,9 +768,8 @@ controlled evaluation under realistic noise patterns.
 \citet{xiao2015learning} introduced Clothing-1M, a large-scale dataset
 (1~million images) where labels are generated from surrounding text and are
 noisy by construction.
-Both benchmarks are standard evaluation targets for noise-robust methods;
-the present work evaluates only synthetic noise and identifies scaling to
-these benchmarks as future work.
+Both benchmarks are standard evaluation targets for noise-robust methods.
+Section~\ref{sec:cifar_n} evaluates CIFAR-N; Clothing-1M remains future work.
 
 \paragraph{Architecture and optimisation interactions.}
 The sensitivity of noisy-label robustness to architecture has received
@@ -805,10 +804,11 @@ symmetric/asymmetric label noise model of \citet{ghosh2017robust}.
 
 \begin{itemize}
   \item The CIFAR-10 experiment uses only 10k training samples. Preliminary 50k
-    results (2 seeds) show FR still beats KL at sym\,20 ($+1.2\%$) and sym\,40
-    ($+2.6\%$); MAE partially recovers at sym\,40 ($+0.9\%$ vs KL) but remains
-    far below at sym\,60 ($-8.9\%$), consistent with the flat-gradient hypothesis.
-    Full 50k results (5 seeds, ResNet-18) require additional GPU compute.
+    results (2 seeds, same 4-layer ConvNet) confirm the pattern: FR beats KL at
+    sym\,20 ($+1.2\%$) and sym\,40 ($+2.6\%$); MAE partially recovers at
+    sym\,40 ($+0.9\%$ vs KL) but remains far below at sym\,60 ($-8.9\%$),
+    consistent with the flat-gradient hypothesis.
+    Scaling to ResNet-18 requires additional GPU compute.
   \item The CIFAR-10 experiment uses 10 seeds ($p_{\min}\approx0.002$, all regimes
     including asym\,40), and the BN ablation uses 5 seeds. These provide sufficient
     statistical power for all key comparisons.
