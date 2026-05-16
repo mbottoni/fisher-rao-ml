@@ -49,10 +49,17 @@ The ConvNet reversal suggests that optimization dynamics with batch
 normalization and learned representations partially compensate for the missing
 theoretical guarantee, and that MAE's flat gradients become detrimental in
 this regime.
-A full batch-normalization ablation (5 seeds) confirms FR is the most
-robust objective to BN removal ($-5.3\%$ mean drop vs.\ KL's $-13.3\%$).
-These findings sharpen the understanding of where FR-based training is and is
-not beneficial, and motivate further investigation of loss--architecture
+A gradient norm analysis reveals three distinct mechanisms: KL memorises noisy
+samples (noisy/clean ratio $1.43\uparrow$), FR bounds gradients (ratio $0.99\approx 1$),
+and GCE actively deweights (ratio $0.71\downarrow$), explaining the observed performance
+hierarchy.
+A batch-normalization ablation (5 seeds) confirms FR is the most robust to BN removal
+($-5.3\%$ mean drop vs.\ KL's $-13.3\%$).
+Critically, FR and Hellinger also deliver dramatically better calibration under noise:
+at sym\,40, FR achieves ECE\,$=0.025$ vs.\ KL's $0.233$ ($9\times$ improvement),
+making them preferable not only for accuracy but for deployment reliability.
+These findings sharpen the understanding of where information-geometric losses are
+and are not beneficial, and motivate further investigation of loss--architecture
 interactions.
 \end{abstract}
 
