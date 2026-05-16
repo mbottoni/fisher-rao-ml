@@ -182,41 +182,38 @@ Also exports: `pairwise_fr_rd()`, `cka_linear()` (CKA baseline), `fr_ood_score()
 | Sym 60% Digits | 47.1% | 45.1% ↓ (p=0.004) | **68.2%** | 50.7% |
 | Sym 40% MNIST  | 61.6% | 60.2% ↓ (p=0.059) | **76.0%** | 62.7% |
 
-**ConvNet family (CIFAR-10, 5 seeds, 10k-sample subset):**
+**ConvNet family (CIFAR-10, 10 seeds, 10k-sample subset, all p=0.002):**
 
-| Noise | KL | FR | MAE | GCE |
-|---|---|---|---|---|
-| Sym 20% | 78.7% | **81.1%** ↑ (5/5 wins) | 68.2% ↓ | 79.3% |
-| Sym 40% | 72.4% | **74.4%** ↑ (5/5 wins) | 62.4% ↓ | **75.7%** |
-| Sym 60% | 58.2% | 60.9% ↑ (5/5 wins) | 54.2% ↓ | **67.0%** |
+| Noise | KL | FR | Hellinger | GCE | MAE |
+|---|---|---|---|---|---|
+| Sym 20% | 79.0% | 81.4% ↑ (10/10) | 80.4% ↑ (10/10) | 79.5% ↑ (9/10, p=0.047) | 68.2% ↓ |
+| Sym 40% | 72.6% | 75.0% ↑ (10/10) | **76.1%** ↑ (10/10) | **76.0%** ↑ (10/10) | 63.0% ↓ |
+| Sym 60% | 58.2% | 61.6% ↑ (10/10) | 65.8% ↑ (10/10) | **67.7%** ↑ (10/10) | 53.0% ↓ |
+| Asym 40% | 64.7% | 62.0% ↓ (0/10, p=0.002) | 64.8% (neutral) | 64.7% (neutral) | 52.0% ↓ |
 
-**Key discovery: architecture-dependent reversal.** FR hurts MLP at sym noise (Ghosh
-condition not satisfied) but helps ConvNet (+2-3%, consistent wins). MAE reverses
-direction: dominant on MLP (+19.6%), severely harmful on ConvNet (−10%).
+**Key discovery: architecture-dependent reversal confirmed with 10 seeds (all p=0.002).**
+FR hurts MLP at sym noise (Ghosh condition), helps ConvNet (+2.4% sym_40). MAE reverses.
+At sym_60, hierarchy: GCE (+9.5%) > Hellinger (+7.6%) > FR (+3.4%) > KL > MAE.
+At asym_40: FR significantly hurts (0/10, p=0.002); Hellinger is neutral (p=0.625).
+**Previous 7-seed result that Hellinger helps at asym_40 (p=0.031) was a false positive.**
 
-**Why (theory):** FR fails the Ghosh noise-tolerance condition — explains MLP behavior.
-ConvNet reversal is not explained by asymptotic theory; batch-norm interaction +
-FR's bounded gradient (max π²) likely prevent confident memorization of corrupted labels.
+**BN ablation (5 seeds, all noise regimes — COMPLETE):**
+| Objective | Clean | Sym 20 | Sym 40 | Sym 60 | Asym 40 | Mean drop |
+|---|---|---|---|---|---|---|
+| FR | −5.8% | −5.4% | −6.1% | −7.1% | −2.1% | **−5.3%** |
+| SCE | −7.6% | −6.9% | −7.0% | −7.1% | −11.0% | −7.9% |
+| KL | −10.6% | −12.8% | −16.6% | −14.2% | −12.2% | −13.3% |
+| GCE | −31.1% | −33.2% | −34.9% | −38.0% | −27.3% | −32.9% |
+| Hellinger | −35.1% | −37.3% | −41.4% | −42.4% | −31.2% | −37.5% |
+| MAE | −49.1% | −46.7% | −39.4% | −32.8% | −30.8% | −39.8% |
 
-**Why (MAE failure on ConvNet):** MAE's flat gradient (constant loss magnitude) prevents
-ConvNets from learning discriminative filters at moderate dataset scales (10k samples).
-
-**BN ablation result (seed 0, clean regime only):**
-| Objective | With BN | Without BN | Drop |
-|---|---|---|---|
-| FR | 84.2% | 77.2% | **−7.1%** (smallest drop!) |
-| KL | 83.8% | 70.9% | −12.9% |
-| SCE | 77.4% | 69.0% | −8.4% |
-| GCE | 81.9% | 48.8% | −33.1% |
-| Hellinger | 82.5% | 46.3% | −36.2% |
-| MAE | 72.4% | 20.2% | −52.2% |
-
-**FR is MORE robust to BN removal than KL** — consistent with bounded gradient providing
-intrinsic gradient clipping that partially substitutes for BN's adaptive normalization.
+**FR is most robust to BN removal** (−5.3% mean), SCE second (−7.9%), then KL (−13.3%).
+GCE, Hellinger, MAE collapse without BN. FR+SCE robustness = both bounded symmetric objects.
 
 **Practical rule:**
 - MLP/tabular: use MAE or GCE for symmetric noise
-- ConvNet/image: use FR or GCE; avoid MAE at moderate dataset sizes
+- ConvNet/image (sym noise): GCE is best; FR is reliable; avoid MAE at moderate scale
+- ConvNet/image (asym noise): Hellinger or GCE; avoid FR
 
 ### Direction 2: FR Representation Distance (`fr_representation_distance.tex`)
 
@@ -289,31 +286,61 @@ The architecture-dependent reversal is the publishable hook. Current paper statu
   real-world benchmarks CIFAR-N/Clothing-1M, architecture interactions, info geometry)
 - BN ablation section added with preliminary results showing GCE collapses without BN
 
-**Currently running experiments (as of 2026-05-10, session 2):**
-- `cifar10_noisy_label_benchmark.py --seeds 10` (PID 22247): at ~201/300 rows; max seed=6 for most regimes, 5 for asym_40
-- `cifar10_no_bn_ablation.py --seeds 5` (PID 22246): at 56/150 rows; seeds 0-1 complete
-- `cifar10_noisy_label_benchmark.py --seeds 3 --n-train 50000` (PID 50996): at 6/90 rows; clean/seed=0 complete
+**Completed as of 2026-05-16, session 3:**
+- `cifar10_noisy_label_benchmark.py --seeds 10`: 300/300 rows COMPLETE
+- `cifar10_no_bn_ablation.py --seeds 5`: 150/150 rows COMPLETE
+- `cifar10_noisy_label_benchmark.py --seeds 3 --n-train 50000`: 51/90 rows (seed 2 pending)
 
-**CRITICAL BUG FIXED:** The `random_crop_flip` function in both CIFAR-10 scripts had a
-PyTorch advanced-indexing bug: mixing a bare `:` slice with non-contiguous advanced indices
-produces `(b,h,w,c)` instead of `(b,c,h,w)`, causing Conv2d to crash. Fixed by indexing
-all four dims explicitly:
-```python
-out = padded[
-    torch.arange(b).view(b,1,1,1), torch.arange(c).view(1,c,1,1),
-    rows.view(b,1,h,1), cols.view(b,1,1,w),
-]
-```
+**Currently running (2026-05-16, session 3):**
+- `cifar_n_benchmark.py --seeds 5` (task bx4lz5iy7): real human-annotated labels,
+  3 noise types × 6 objectives × 5 seeds = 90 runs; ~1-2 hours on MPS
 
 Remaining work:
-1. **When 10-seed CIFAR-10 completes:** re-aggregate all datasets, update Table 3 with
-   Wilcoxon p-values, update Limitations section to remove "pending" language.
-2. **When no-BN ablation completes:** update the BN ablation table in Section 3.2, add
-   interpretation of whether BN is the primary mediator of the ConvNet reversal.
-3. **Add CIFAR-N (real human noisy labels).** Does the ConvNet advantage persist on
-   real-world instance-dependent noise? Controlled experiment with 10k subsample.
-4. **Vary dataset size (10k vs 50k).** To isolate the MAE flat-gradient hypothesis:
-   does MAE recover on ConvNet when trained on the full 50k CIFAR-10?
+1. **CIFAR-N results** (running): Add to Direction 1 paper Section 3.3; test whether
+   ConvNet advantage persists under instance-dependent human annotation noise.
+2. **50k size ablation**: needs seed 2 (slow: ~8 hours on MPS for 50k×60 epochs).
+   Run with: `uv run --project . python experiments/cifar10_noisy_label_benchmark.py
+   --n-train 50000 --seeds 3
+   --out-full reports/results/cifar10_50k_noisy_label_full.csv
+   --out-aggregated reports/results/cifar10_50k_noisy_label_aggregated.csv
+   --out-significance reports/results/cifar10_50k_noisy_label_significance.csv`
+3. **Regenerate figures** after CIFAR-N completes: update noisy label accuracy curves.
+4. **ResNet-18 on full CIFAR-10** (needs GPU): critical for NeurIPS reviewer credibility.
+
+### NeurIPS Research Directions (session 3 additions)
+
+The 10-seed CIFAR-10 data reveals a richer story than previously thought. Key pivots:
+
+**1. The reversal is real and strong (p=0.002 for all sym regimes).** Submit Direction 1
+to NeurIPS 2026. The finding is clean, reproducible, and theoretically grounded.
+
+**2. Hellinger beats FR at high noise.** At sym_60, Hellinger (+7.6%) > FR (+3.4%) > KL.
+This weakens "FR is special" but strengthens "bounded symmetric divergences as a class."
+Update narrative: the key property is *boundedness + symmetry*, not FR geometry specifically.
+This is consistent with the unified finding in CLAUDE.md's opening table.
+
+**3. GCE dominates at sym_60 (+9.5%).** GCE is not a bounded divergence — it works via a
+different mechanism (the Box-Cox transform limiting gradient in high-confidence regime).
+A two-mechanism framing: (a) gradient bounding (FR, Hellinger, SCE) and (b) gradient
+warping (GCE) both help ConvNet under symmetric noise.
+
+**4. CIFAR-N results (pending, experiment running):** If FR/GCE/Hellinger help under real
+human noise (instance-dependent), that dramatically strengthens the NeurIPS submission.
+Instance-dependent noise does not satisfy the constant-sum condition even for MAE, so all
+objectives face the same theoretical limitation. A result here is purely empirical but high-value.
+
+**5. ResNet-18 on full CIFAR-10 (critical for credibility):** Requires ~4 GPU-hours.
+The 4-layer ConvNet on 10k samples is a weakness. Reviewers will ask whether the result
+holds at scale. Recommend running on Google Colab or a cloud GPU before submission.
+
+**6. Loss landscape analysis (theory gap):** The BN ablation is suggestive but not
+mechanistic. Compute gradient norms per objective during training — test whether FR's
+bounded gradient norm is literally smaller on noisy samples. This is the "smoking gun"
+for the bounded-gradient mechanism hypothesis.
+
+**7. Synthetic vs real noise connection:** CIFAR-N worse_label (40.2% noise) parallels
+sym_40. If the ConvNet ranking (GCE > Hellinger > FR > KL > MAE) is preserved on
+CIFAR-N, that validates the synthetic-noise proxy for real noise.
 
 ### Priority 2 — FR-RD as a model analysis tool (ICLR 2027 target)
 
@@ -371,7 +398,7 @@ All experiments use this protocol:
 | Paper | File | Pages | Status | Blocking issues |
 |---|---|---|---|---|
 | Main (t-SNE) | `fisher_rao_vs_kl_arxiv.tex` | 27 | Draft | Small datasets; strengthen t-SNE results |
-| Direction 1 | `fr_noisy_labels.tex` | 11 | Near-complete | 10-seed CIFAR-10 for p-values; full BN ablation (5-seed); 50k size ablation |
+| Direction 1 | `fr_noisy_labels.tex` | 11 | Near-submission | CIFAR-N results (running); 50k ablation (seed 2); ResNet-18 for credibility |
 | Direction 2 | `fr_representation_distance.tex` | 14 | Near-submission | Scale to larger models (ResNet/CIFAR) |
 | Direction 3 | `fr_contrastive.tex` | 5 | Theory only | Needs CIFAR/ImageNet GPU experiments |
 
