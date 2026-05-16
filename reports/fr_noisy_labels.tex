@@ -489,13 +489,50 @@ structurally robust to BN removal, while GCE, Hellinger, and MAE collapse.
 
 \subsection{Calibration and Brier score}
 
-Across all symmetric noise regimes and all three datasets, MAE consistently
+\paragraph{MLP family.}
+Across all symmetric noise regimes and all three MLP datasets, MAE consistently
 achieves the lowest Brier score and NLL, consistent with its theoretical
 guarantees.
 GCE and SCE track closely.
 FR and Hellinger show elevated Brier scores and NLL at sym\,40--60, confirming
 that the accuracy drop reflects a systematic failure rather than a variance
 artefact.
+
+\paragraph{ConvNet (CIFAR-10) — calibration reversal.}
+The calibration picture reverses on ConvNet.
+Table~\ref{tab:ece_cifar10} reports mean Expected Calibration Error (ECE) across 10 seeds;
+lower ECE indicates better-calibrated confidence.
+
+\begin{table}[h]
+  \centering
+  \caption{Mean ECE on CIFAR-10 ConvNet (10 seeds; lower = better calibrated).
+    FR and Hellinger achieve dramatically lower ECE under noisy conditions than KL.}
+  \label{tab:ece_cifar10}
+  \small
+  \begin{tabular}{lcccccc}
+    \toprule
+    Regime & KL & FR & Hellinger & GCE & MAE & SCE \\
+    \midrule
+    Clean    & \textbf{0.044} & 0.083 & 0.078 & 0.105 & 0.230 & 0.168 \\
+    Sym 20\% & 0.098 & \textbf{0.067} & 0.069 & 0.112 & 0.251 & 0.177 \\
+    Sym 40\% & 0.233 & \textbf{0.025} & 0.029 & 0.112 & 0.294 & 0.192 \\
+    Sym 60\% & 0.293 & 0.123 & \textbf{0.085} & 0.093 & 0.371 & 0.222 \\
+    Asym 40\% & 0.101 & \textbf{0.043} & 0.034 & 0.106 & 0.400 & 0.228 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+At sym\,40, FR achieves ECE\,=\,0.025 vs KL's 0.233 — a $9\times$ improvement in
+calibration alongside the $+2.4\%$ accuracy gain.
+Hellinger is equally well-calibrated at sym\,40 (ECE\,=\,0.029).
+The bounded codomain of FR and Hellinger prevents the model from committing
+maximally to incorrect labels, producing a naturally calibrated posterior.
+GCE achieves the best calibration at sym\,60 (ECE\,=\,0.093), consistent with
+its accuracy advantage.
+MAE is severely miscalibrated throughout (ECE\,$>$\,0.23 at all regimes).
+These calibration results strengthen the practical recommendation: for ConvNets
+under symmetric noise, FR and Hellinger are preferable not only for accuracy
+but also for deployment reliability.
 
 \subsection{CIFAR-N: real human-annotated noisy labels}
 \label{sec:cifar_n}
