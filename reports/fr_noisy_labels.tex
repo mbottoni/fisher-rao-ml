@@ -497,6 +497,17 @@ arbitrarily large gradients near simplex vertices — lose this stabilization en
 The 5-seed results confirm and sharpen the 2-seed qualitative pattern: FR and SCE are
 structurally robust to BN removal, while GCE, Hellinger, and MAE collapse.
 
+\textbf{Critical implication: BN is not the sole mediator.}
+The BN-ablated results also reveal a counterintuitive pattern: \emph{FR beats KL even more
+strongly without BN} than with it.
+At sym\,40 without BN: FR\,=\,68.3\% vs KL\,=\,55.7\% ($+12.6\%$), compared to
+$+2.4\%$ with BN.
+This rules out the hypothesis that the ConvNet reversal is entirely mediated by BN:
+FR's advantage persists and actually grows when BN is removed.
+The ConvNet architecture itself (convolutional feature extraction and learned
+representations) interacts with FR's gradient structure in a way that is
+independent of batch normalization.
+
 \subsection{Calibration and Brier score}
 
 \paragraph{MLP family.}
@@ -790,9 +801,11 @@ symmetric/asymmetric label noise model of \citet{ghosh2017robust}.
 % ------------------------------------------------------------------
 
 \begin{itemize}
-  \item The CIFAR-10 experiment uses only 10k training samples; scaling to the
-    full 50k or to CIFAR-100 with ResNet-18 may change the quantitative balance,
-    though the qualitative reversal is expected to persist.
+  \item The CIFAR-10 experiment uses only 10k training samples. Preliminary 50k
+    results (2 seeds) show FR still beats KL at sym\,20 ($+1.2\%$) and sym\,40
+    ($+2.6\%$); MAE partially recovers at sym\,40 ($+0.9\%$ vs KL) but remains
+    far below at sym\,60 ($-8.9\%$), consistent with the flat-gradient hypothesis.
+    Full 50k results (5 seeds, ResNet-18) require additional GPU compute.
   \item The CIFAR-10 experiment uses 10 seeds ($p_{\min}\approx0.002$, all regimes
     including asym\,40), and the BN ablation uses 5 seeds. These provide sufficient
     statistical power for all key comparisons.
