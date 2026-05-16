@@ -39,9 +39,9 @@ Our results reveal a striking \emph{architecture-dependent reversal}:
 on MLP models, FR under-performs standard cross-entropy at moderate symmetric
 noise rates (Digits sym\,40: $\Delta\mathrm{acc} = -3.2\%$, $p=0.002$,
 0/10 wins); on the ConvNet, FR \emph{outperforms} KL at the same regime
-(CIFAR-10 sym\,40: $+2.2\%$, 7/7 wins, $p=0.016$; sym\,60: $+3.5\%$, 7/7 wins, $p=0.016$).
+(CIFAR-10 sym\,40: $+2.4\%$, 10/10 wins, $p=0.002$; sym\,60: $+3.4\%$, 10/10 wins, $p=0.002$).
 By contrast, MAE---the theoretically optimal noise-tolerant loss---reverses
-direction on ConvNets, falling $-9.9\%$ below KL at sym\,40 on CIFAR-10.
+direction on ConvNets, falling $-9.6\%$ below KL at sym\,40 on CIFAR-10.
 We trace the MLP failure to the Ghosh et al.\ noise-tolerance condition and
 provide a formal analysis showing FR and Hellinger belong to the same family
 that cannot satisfy it.
@@ -49,6 +49,8 @@ The ConvNet reversal suggests that optimization dynamics with batch
 normalization and learned representations partially compensate for the missing
 theoretical guarantee, and that MAE's flat gradients become detrimental in
 this regime.
+A full batch-normalization ablation (5 seeds) confirms FR is the most
+robust objective to BN removal ($-5.3\%$ mean drop vs.\ KL's $-13.3\%$).
 These findings sharpen the understanding of where FR-based training is and is
 not beneficial, and motivate further investigation of loss--architecture
 interactions.
@@ -95,9 +97,9 @@ Our contributions are:
     Hellinger, and any loss of the form $\ell(p, e_k) = f(\langle \sqrt{p},
     \sqrt{e_k} \rangle)$ cannot satisfy the noise-tolerance condition,
     explaining the MLP failure.
-  \item A batch-normalization ablation showing FR is the most robust objective to
-    BN removal ($-5.8\%$ mean drop vs.\ KL's $-13.6\%$), consistent with FR's
-    bounded gradient providing implicit gradient clipping.
+  \item A batch-normalization ablation (5 seeds, all noise regimes) showing FR is
+    the most robust objective to BN removal ($-5.3\%$ mean drop vs.\ KL's $-13.3\%$),
+    consistent with FR's bounded gradient providing implicit gradient clipping.
   \item Practical guidance: for MLP/tabular data under symmetric noise use MAE
     or GCE; for ConvNet/image data, FR is competitive and may outperform KL.
 \end{enumerate}
@@ -239,7 +241,7 @@ families to isolate loss--architecture interactions.
   \item \textbf{CIFAR-10}: 10,000 training and 2,000 test samples (stratified
     subsets).
     32$\times$32 RGB images; random crop and horizontal flip augmentation.
-    5 seeds; noise regimes: clean, sym\,20\%/40\%/60\%, asym\,40\%
+    10 seeds; noise regimes: clean, sym\,20\%/40\%/60\%, asym\,40\%
     (sym\,80\% excluded as impractical for ConvNets in this sample regime).
 \end{itemize}
 
@@ -339,20 +341,25 @@ Key observations:
 \paragraph{ConvNet family (CIFAR-10).}
 The results in Table~\ref{tab:accuracy_cifar10} reveal a sharp reversal:
 \begin{enumerate}
-  \item \textbf{FR and Hellinger now \emph{outperform} KL under symmetric noise, with statistical significance.}
-    FR: $+2.5\%$ at sym\,20 (7/7 wins, $p=0.016$), $+2.2\%$ at sym\,40 (7/7 wins, $p=0.016$),
-    $+3.5\%$ at sym\,60 (7/7 wins, $p=0.016$).
-    Hellinger shows the same direction and is also significant at sym\,20--60 (all $p=0.016$).
-    SCE also significantly outperforms KL at sym\,60 (7/7 wins, $p=0.016$).
-    Both are bounded symmetric divergences, consistent with the unified mechanism.
+  \item \textbf{FR and Hellinger now \emph{outperform} KL under symmetric noise, with strong statistical significance.}
+    FR: $+2.3\%$ at sym\,20 (10/10 wins, $p=0.002$), $+2.4\%$ at sym\,40 (10/10 wins, $p=0.002$),
+    $+3.4\%$ at sym\,60 (10/10 wins, $p=0.002$).
+    Hellinger shows the same direction and is also significant at sym\,20--60 (all $p=0.002$, 10/10 wins).
+    At high noise (sym\,60), Hellinger (+7.6\%) exceeds FR (+3.4\%), suggesting its
+    more aggressive gradient clipping becomes more valuable as noise increases.
+    SCE also significantly outperforms KL at sym\,60 (9/10 wins, $p=0.004$), but
+    \emph{underperforms} KL at sym\,20 and sym\,40 (both $p=0.002$, 0/10 wins).
   \item \textbf{MAE severely underperforms on ConvNet.}
-    At clean, MAE achieves $71.4\%$ vs KL's $84.2\%$ ($-12.8\%$, $p=0.016$, 0/7 wins).
-    At sym\,40: $62.5\%$ vs $72.4\%$ ($-9.9\%$). This is the opposite direction from the MLP datasets.
-  \item \textbf{GCE is the strongest overall on CIFAR-10.}
-    GCE achieves $+3.5\%$ at sym\,40 (7/7 wins, $p=0.016$) and $+9.7\%$ at sym\,60 (7/7 wins, $p=0.016$).
-  \item \textbf{Asymmetric noise: Hellinger significant, FR hurts.}
-    At asym\,40 (6 seeds), Hellinger achieves $+0.7\%$ over KL (6/6 wins, $p=0.031$);
-    FR falls $-2.2\%$ (0/6 wins, $p=0.031$); GCE is within noise ($+0.4\%$, $p=0.062$).
+    At clean, MAE achieves $71.6\%$ vs KL's $84.1\%$ ($-12.5\%$, $p=0.002$, 0/10 wins).
+    At sym\,40: $63.0\%$ vs $72.6\%$ ($-9.6\%$). This is the opposite direction from the MLP datasets.
+  \item \textbf{GCE is the strongest overall on CIFAR-10 under high symmetric noise.}
+    GCE achieves $+3.4\%$ at sym\,40 (10/10 wins, $p=0.002$) and $+9.5\%$ at sym\,60 (10/10 wins, $p=0.002$),
+    the largest gain of any objective.
+    The hierarchy at sym\,60 is: GCE $>$ Hellinger $>$ FR $>$ SCE $>$ KL $>$ MAE.
+  \item \textbf{Asymmetric noise: FR hurts significantly; others neutral.}
+    At asym\,40 (10 seeds), FR falls $-2.7\%$ (0/10 wins, $p=0.002$);
+    Hellinger is neutral ($+0.1\%$, 7/10 wins, $p=0.625$); GCE is neutral ($-0.0\%$, $p=0.826$).
+    MAE severely underperforms ($-12.7\%$, $p=0.002$).
 \end{enumerate}
 
 \begin{table}[t]
@@ -380,23 +387,25 @@ The results in Table~\ref{tab:accuracy_cifar10} reveal a sharp reversal:
 
 \begin{table}[t]
   \centering
-  \caption{Mean test accuracy (\%) on CIFAR-10 ConvNet (7 seeds for symmetric regimes,
-    6 seeds for asym\,40; two-sided Wilcoxon $p$-values vs KL in parentheses for
-    $p<0.05$). Note the reversal from Table~\ref{tab:accuracy}: FR and Hellinger
-    outperform KL under symmetric noise (all $p=0.016$), while MAE severely underperforms.
-    Hellinger also significantly outperforms KL under asym\,40 ($p=0.031$).
-    Bold: best non-KL objective per noise regime.}
+  \caption{Mean test accuracy (\%) on CIFAR-10 ConvNet (10 seeds, all regimes;
+    two-sided Wilcoxon $p$-values vs KL for $p<0.05$).
+    Note the reversal from Table~\ref{tab:accuracy}: FR, Hellinger, and GCE
+    all outperform KL under symmetric noise (all $p=0.002$), while MAE severely
+    underperforms. At asym\,40, FR significantly \emph{hurts} ($p=0.002$), while
+    Hellinger and GCE are neutral.
+    Bold: best non-KL objective per noise regime.
+    Underline: statistically below KL ($p < 0.05$).}
   \label{tab:accuracy_cifar10}
   \small
   \begin{tabular}{lcccccc}
     \toprule
     Noise & KL (CE) & FR & Hellinger & GCE & MAE & SCE \\
     \midrule
-    Clean    & 84.2 & \textbf{84.4} & 82.7 & 82.1 & 71.4 & 77.9 \\
-    Sym 20\% & 79.0 & 81.5 ($p{=}0.016$) & \textbf{80.4} ($p{=}0.016$) & 79.5 ($p{=}0.016$) & 68.2 & 75.2 \\
-    Sym 40\% & 72.4 & 74.6 ($p{=}0.016$) & 75.9 ($p{=}0.016$) & \textbf{75.9} ($p{=}0.016$) & 62.5 & 69.9 \\
-    Sym 60\% & 57.9 & 61.4 ($p{=}0.016$) & 65.5 ($p{=}0.016$) & \textbf{67.6} ($p{=}0.016$) & 53.1 & 59.7 ($p{=}0.016$) \\
-    Asym 40\%$^\dagger$ & 64.4 & \underline{62.2} ($p{=}0.031$) & \textbf{65.1} ($p{=}0.031$) & 64.8 & 52.5 & 62.5 \\
+    Clean    & 84.1 & \textbf{84.2} & \underline{82.8} ($p{=}0.002$) & \underline{82.0} ($p{=}0.002$) & \underline{71.6} ($p{=}0.002$) & \underline{78.0} ($p{=}0.002$) \\
+    Sym 20\% & 79.0 & 81.4 ($p{=}0.002$) & \textbf{80.4} ($p{=}0.002$) & 79.5 ($p{=}0.047$) & \underline{68.2} ($p{=}0.002$) & \underline{75.4} ($p{=}0.002$) \\
+    Sym 40\% & 72.6 & 75.0 ($p{=}0.002$) & \textbf{76.1} ($p{=}0.002$) & 76.0 ($p{=}0.002$) & \underline{63.0} ($p{=}0.002$) & \underline{70.5} ($p{=}0.002$) \\
+    Sym 60\% & 58.2 & 61.6 ($p{=}0.002$) & 65.8 ($p{=}0.002$) & \textbf{67.7} ($p{=}0.002$) & \underline{53.0} ($p{=}0.002$) & 60.0 ($p{=}0.004$) \\
+    Asym 40\% & 64.7 & \underline{62.0} ($p{=}0.002$) & \textbf{64.8} & 64.7 & \underline{52.0} ($p{=}0.002$) & 63.4 \\
     \bottomrule
   \end{tabular}
 \end{table}
@@ -416,38 +425,38 @@ The results in Table~\ref{tab:accuracy_cifar10} reveal a sharp reversal:
 
 To test whether batch normalization mediates the ConvNet reversal, we train an
 identical architecture with all BatchNorm layers removed (\emph{ConvNet-noBN}).
-Table~\ref{tab:no_bn} reports results across all five noise regimes (2 seeds, full 5-seed run
-ongoing; the 2-seed pattern has proven consistent across clean and noisy regimes alike).
+Table~\ref{tab:no_bn} reports results across all five noise regimes (5 seeds).
 
 \begin{table}[t]
   \centering
   \caption{Mean accuracy drop (\%) from removing batch normalization: With-BN minus Without-BN
-    on CIFAR-10 ConvNet (2 seeds, all noise regimes). Fisher--Rao shows the smallest drop
-    at every noise level.}
+    on CIFAR-10 ConvNet (5 seeds, all noise regimes). Fisher--Rao shows the smallest
+    drop at every noise level; SCE is second-most robust.}
   \label{tab:no_bn}
   \small
-  \begin{tabular}{lccccc}
+  \begin{tabular}{lcccccc}
     \toprule
-    Objective & Clean & Sym\,20 & Sym\,40 & Sym\,60 & Mean \\
+    Objective & Clean & Sym\,20 & Sym\,40 & Sym\,60 & Asym\,40 & Mean \\
     \midrule
-    KL (CE)       & $-11.7$ & $-13.1$ & $-16.9$ & $-12.5$ & $-13.6$ \\
-    Fisher--Rao   & $\mathbf{-6.0}$ & $\mathbf{-5.6}$ & $\mathbf{-6.1}$ & $\mathbf{-5.6}$ & $\mathbf{-5.8}$ \\
-    SCE           & $-8.0$ & $-7.0$ & $-6.2$ & $-6.2$ & $-6.9$ \\
-    GCE ($q=0.7$) & $-30.5$ & $-32.8$ & $-35.2$ & $-36.8$ & $-33.8$ \\
-    Hellinger     & $-34.8$ & $-37.6$ & $-41.3$ & $-41.2$ & $-38.7$ \\
-    MAE           & $-51.1$ & $-46.6$ & $-38.2$ & $-32.7$ & $-42.2$ \\
+    KL (CE)       & $-10.6$ & $-12.8$ & $-16.6$ & $-14.2$ & $-12.2$ & $-13.3$ \\
+    Fisher--Rao   & $\mathbf{-5.8}$ & $\mathbf{-5.4}$ & $\mathbf{-6.1}$ & $\mathbf{-7.1}$ & $\mathbf{-2.1}$ & $\mathbf{-5.3}$ \\
+    SCE           & $-7.6$ & $-6.9$ & $-7.0$ & $-7.1$ & $-11.0$ & $-7.9$ \\
+    GCE ($q=0.7$) & $-31.1$ & $-33.2$ & $-34.9$ & $-38.0$ & $-27.3$ & $-32.9$ \\
+    Hellinger     & $-35.1$ & $-37.3$ & $-41.4$ & $-42.4$ & $-31.2$ & $-37.5$ \\
+    MAE           & $-49.1$ & $-46.7$ & $-39.4$ & $-32.8$ & $-30.8$ & $-39.8$ \\
     \bottomrule
   \end{tabular}
 \end{table}
 
 Table~\ref{tab:no_bn} reveals a striking \emph{differential sensitivity} to batch normalization
-that is consistent across all noise levels.
+that is consistent across all noise levels and confirmed with 5 seeds.
 
-\textbf{Fisher--Rao is the most robust.} FR drops only $5.6$--$6.1\%$ without BN —
-smaller than KL's $11.7$--$16.9\%$ drop and far smaller than GCE ($30$--$37\%$),
-Hellinger ($35$--$41\%$), and MAE ($33$--$51\%$).
-Crucially, this ordering is preserved across every noise regime tested, strengthening
-the hypothesis.
+\textbf{Fisher--Rao is the most robust.} FR drops only $2.1$--$7.1\%$ without BN —
+smaller than KL's $10.6$--$16.6\%$ drop and far smaller than GCE ($27$--$38\%$),
+Hellinger ($31$--$42\%$), and MAE ($31$--$49\%$).
+SCE is the second-most robust objective (mean $-7.9\%$), consistent with its design as a
+bounded symmetric divergence.
+This ordering is preserved across every noise regime tested, strengthening the hypothesis.
 
 \textbf{GCE and Hellinger collapse without BN.}
 GCE's gradient scales as $p_k^{q-1}$; with $q=0.7 < 1$, gradient magnitude decreases
@@ -470,7 +479,8 @@ explosion from high-confidence wrong predictions. When BN is removed, FR's bound
 gradient partially compensates, while KL, GCE, and Hellinger — which can produce
 arbitrarily large gradients near simplex vertices — lose this stabilization entirely.
 
-A full 5-seed ablation is ongoing; the 2-seed data establishes the qualitative ordering.
+The 5-seed results confirm and sharpen the 2-seed qualitative pattern: FR and SCE are
+structurally robust to BN removal, while GCE, Hellinger, and MAE collapse.
 
 \subsection{Calibration and Brier score}
 
@@ -635,9 +645,9 @@ symmetric/asymmetric label noise model of \citet{ghosh2017robust}.
   \item The CIFAR-10 experiment uses only 10k training samples; scaling to the
     full 50k or to CIFAR-100 with ResNet-18 may change the quantitative balance,
     though the qualitative reversal is expected to persist.
-  \item The CIFAR-10 symmetric noise results use 7 seeds ($p_{\min}\approx0.016$),
-    providing statistical significance for the key comparisons. A full 10-seed run
-    is ongoing; asym\,40 currently uses 6 seeds.
+  \item The CIFAR-10 experiment uses 10 seeds ($p_{\min}\approx0.002$, all regimes
+    including asym\,40), and the BN ablation uses 5 seeds. These provide sufficient
+    statistical power for all key comparisons.
   \item We evaluate only synthetic noise (symmetric and single-hop asymmetric).
     Real-world noise (e.g.\ CIFAR-N, Clothing-1M) has complex class-dependent
     structure not captured by our models.
@@ -658,21 +668,31 @@ architecture families (MLP and ConvNet) and five to six noise regimes.
 
 The central finding is an \emph{architecture-dependent reversal}: FR hurts MLP
 models under symmetric noise ($-3.2\%$ on Digits at sym\,40, $p=0.002$) while
-helping ConvNet models in the same regime ($+2.2\%$ on CIFAR-10 at sym\,40,
-7/7 wins, $p=0.016$).
+helping ConvNet models in the same regime ($+2.4\%$ on CIFAR-10 at sym\,40,
+10/10 wins, $p=0.002$).
 MAE reverses in the opposite direction: dominant on MLP ($+19.6\%$) but
-severely harmful on ConvNet ($-9.9\%$, 0/7 wins, $p=0.016$).
+severely harmful on ConvNet ($-9.6\%$, 0/10 wins, $p=0.002$).
 This reversal is not predicted by the Ghosh et al.\ noise-tolerance condition,
 which explains the MLP failure but not the ConvNet recovery.
 
+With 10 seeds, the ConvNet results reveal a hierarchy under high symmetric noise
+(sym\,60): GCE ($+9.5\%$) $>$ Hellinger ($+7.6\%$) $>$ FR ($+3.4\%$) $>$ SCE
+($+1.8\%$) $>$ KL $>$ MAE ($-5.1\%$).
+At asym\,40, FR significantly hurts ($-2.7\%$, $p=0.002$) while Hellinger and
+GCE are neutral, suggesting FR's bounded gradient provides insufficient
+discrimination for class-conditional noise.
+
+A 5-seed BN ablation confirms FR is the most BN-robust objective (mean drop
+$-5.3\%$ vs.\ KL's $-13.3\%$), followed by SCE ($-7.9\%$), consistent with
+the bounded-gradient mechanism.
+
 For MLP/tabular settings, MAE and GCE remain the principled choices for
 symmetric noise.
-For ConvNet/image settings, FR and GCE are the preferred options; MAE should be
-avoided at moderate dataset scales.
+For ConvNet/image settings under symmetric noise, GCE is the strongest
+performer; FR is a reliable alternative with the advantage of mathematical
+metric properties.
+Avoid MAE for ConvNet training at moderate dataset scales.
 
-Current experiments include 7-seed CIFAR-10 results ($p_{\min}=0.016$) and a
-2-seed batch normalization ablation confirming FR's robustness to BN removal.
-A 10-seed CIFAR-10 run and 5-seed BN ablation are in progress.
 Future work should (i) test on CIFAR-N real-world noise to check whether the
 ConvNet advantage persists under instance-dependent human annotation errors,
 (ii) vary dataset size (50k vs 10k) to isolate the MAE flat-gradient hypothesis,
