@@ -97,11 +97,16 @@ Our contributions are:
     Hellinger, and any loss of the form $\ell(p, e_k) = f(\langle \sqrt{p},
     \sqrt{e_k} \rangle)$ cannot satisfy the noise-tolerance condition,
     explaining the MLP failure.
-  \item A batch-normalization ablation (5 seeds, all noise regimes) showing FR is
-    the most robust objective to BN removal ($-5.3\%$ mean drop vs.\ KL's $-13.3\%$),
-    consistent with FR's bounded gradient providing implicit gradient clipping.
+  \item Mechanistic analysis via gradient norm trajectories (3 seeds, sym\,40):
+    KL memorises noisy samples (noisy/clean norm ratio 1.43$\uparrow$), FR bounds
+    gradients (ratio 0.99$\approx$1), GCE actively deweights (ratio 0.71$\downarrow$),
+    explaining the empirical ordering GCE $>$ Hellinger $>$ FR $>$ KL at sym\,60.
+    A batch-normalization ablation (5 seeds, all regimes) further shows FR is the
+    most BN-robust objective ($-5.3\%$ mean drop vs.\ KL's $-13.3\%$).
   \item Practical guidance: for MLP/tabular data under symmetric noise use MAE
-    or GCE; for ConvNet/image data, FR is competitive and may outperform KL.
+    or GCE; for ConvNet/image data under symmetric noise, GCE is strongest, FR
+    reliable; for asymmetric noise, use GCE or KL — FR significantly hurts on
+    ConvNet at asym\,40 ($-2.7\%$, $p=0.002$).
 \end{enumerate}
 
 % ------------------------------------------------------------------
