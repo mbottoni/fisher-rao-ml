@@ -145,9 +145,54 @@ def save_gain_heatmap() -> None:
     print("saved noisy_label_gain_heatmap.pdf")
 
 
+def save_cifar10_ece() -> None:
+    """ECE calibration comparison on CIFAR-10 ConvNet."""
+    path = RESULTS / "cifar10_noisy_label_aggregated.csv"
+    if not path.exists():
+        print("cifar10_noisy_label_aggregated.csv not found — skipping")
+        return
+
+    rows = read_rows(path)
+    data: dict[str, dict[str, float]] = {}
+    for r in rows:
+        data.setdefault(r["noise_regime"], {})[r["objective"]] = float(r["eval_ece_mean"])
+
+    noise_regimes = [nr for nr in CIFAR10_NOISE_ORDER if nr in data]
+    focus = ["kl", "fisher_rao", "hellinger", "gce", "mae"]
+    available = [o for o in focus if any(data[nr].get(o) is not None for nr in noise_regimes)]
+    if not available:
+        print("no ECE data — skipping")
+        return
+
+    x = np.arange(len(noise_regimes))
+    width = 0.14
+    n = len(available)
+
+    fig, ax = plt.subplots(figsize=(10, 4.5))
+    for i, obj in enumerate(available):
+        vals = [data[nr].get(obj, np.nan) for nr in noise_regimes]
+        offset = (i - n / 2 + 0.5) * width
+        ax.bar(x + offset, vals, width, label=OBJ_LABELS[obj], color=OBJ_COLORS[obj])
+
+    ax.set_xlabel("Noise Regime", fontsize=12)
+    ax.set_ylabel("Expected Calibration Error (ECE)", fontsize=12)
+    ax.set_title("CIFAR-10 ConvNet: Calibration (ECE) — lower is better", fontsize=12)
+    ax.set_xticks(x)
+    ax.set_xticklabels([NOISE_LABELS.get(nr, nr) for nr in noise_regimes], fontsize=10)
+    ax.legend(fontsize=9)
+    ax.grid(axis="y", alpha=0.3)
+
+    plt.tight_layout()
+    out = FIGURES / "cifar10_ece.pdf"
+    plt.savefig(out, bbox_inches="tight", dpi=150)
+    plt.close()
+    print(f"saved {out.name}")
+
+
 def main() -> None:
     save_accuracy_curves()
     save_gain_heatmap()
+    save_cifar10_ece()
 
 
 if __name__ == "__main__":
