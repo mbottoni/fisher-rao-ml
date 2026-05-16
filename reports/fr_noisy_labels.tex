@@ -104,7 +104,7 @@ Our contributions are:
     Hellinger, and any loss of the form $\ell(p, e_k) = f(\langle \sqrt{p},
     \sqrt{e_k} \rangle)$ cannot satisfy the noise-tolerance condition,
     explaining the MLP failure.
-  \item Mechanistic analysis via gradient norm trajectories (3 seeds, sym\,40):
+  \item Mechanistic analysis via gradient norm trajectories (seed\,0, sym\,40):
     KL memorises noisy samples (noisy/clean norm ratio 1.43$\uparrow$), FR bounds
     gradients (ratio 0.99$\approx$1), GCE actively deweights (ratio 0.71$\downarrow$),
     explaining the empirical ordering GCE $>$ Hellinger $>$ FR $>$ KL at sym\,60.
@@ -885,6 +885,38 @@ Ghosh et al.\ analysis.
 % ============================================================
 \appendix
 % ============================================================
+
+\section{FashionMNIST Full Results (5 seeds)}
+\label{sec:fashion_mnist}
+
+Table~\ref{tab:accuracy_fashion} reports mean accuracy on FashionMNIST.
+With only 5 seeds, the minimum achievable Wilcoxon $p$-value is 0.062,
+so no comparison reaches $p<0.05$; we report win counts to convey directionality.
+The pattern is fully consistent with Digits and MNIST:
+MAE dominates at all symmetric noise levels (5/5 wins at sym\,40 and sym\,60),
+while FR is directionally below KL at sym\,40 (0/5 wins, $-1.9\%$).
+
+\begin{table}[h]
+  \centering
+  \caption{Mean test accuracy (\%) on FashionMNIST (5 seeds; no comparison reaches
+    $p<0.05$ due to power limitation).
+    Numbers in parentheses are win counts vs.\ KL.
+    Pattern is consistent with Table~\ref{tab:accuracy} (Digits) and Table~\ref{tab:accuracy_mnist} (MNIST).}
+  \label{tab:accuracy_fashion}
+  \small
+  \begin{tabular}{lcccccc}
+    \toprule
+    Noise & KL (CE) & FR & Hellinger & GCE & MAE & SCE \\
+    \midrule
+    Clean    & 84.2 & 84.1\,(2/5) & 84.5\,(2/5) & 84.4\,(3/5) & 84.9\,(4/5) & 84.3\,(2/5) \\
+    Sym 20\% & 73.7 & 73.5\,(3/5) & 74.5\,(4/5) & 79.8\,(5/5) & 83.2\,(5/5) & 76.3\,(5/5) \\
+    Sym 40\% & 57.4 & 55.5\,(0/5) & 56.7\,(1/5) & 65.4\,(5/5) & 77.1\,(5/5) & 59.4\,(5/5) \\
+    Sym 60\% & 37.1 & 35.7\,(1/5) & 36.4\,(1/5) & 44.1\,(5/5) & 61.6\,(5/5) & 38.6\,(5/5) \\
+    Sym 80\% & 18.5 & 18.6\,(3/5) & 18.4\,(2/5) & 20.2\,(5/5) & 28.5\,(5/5) & 19.0\,(2/5) \\
+    Asym 40\% & 51.0 & 50.9\,(2/5) & 50.1\,(0/5) & 50.9\,(3/5) & 58.6\,(5/5) & 50.4\,(1/5) \\
+    \bottomrule
+  \end{tabular}
+\end{table}
 
 \section{Dynamic Loss-Switching Curriculum}
 \label{sec:dynamic_loss}
