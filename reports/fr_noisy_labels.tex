@@ -799,6 +799,10 @@ symmetric/asymmetric label noise model of \citet{ghosh2017robust}.
   \item We evaluate only synthetic noise (symmetric and single-hop asymmetric).
     Real-world noise (e.g.\ CIFAR-N, Clothing-1M) has complex class-dependent
     structure not captured by our models.
+  \item The gradient norm analysis (Table~\ref{tab:grad_ratio},
+    Figure~\ref{fig:grad_ratio}) reports seed\,0 only; multi-seed means are
+    needed to confirm the ratio trajectories quantitatively (experiments with
+    3 seeds are ongoing).
   \item The proposed explanations for the ConvNet reversal are hypotheses;
     controlled ablations (removing batch norm, varying dataset size, varying
     architecture depth) are needed to isolate causal factors.
