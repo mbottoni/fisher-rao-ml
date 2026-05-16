@@ -57,9 +57,24 @@ experiments/
                                resumable; outputs to reports/results/)
   cifar10_noisy_label_benchmark.py
                               Direction 1 scale-up: CIFAR-10 ConvNet benchmark
-                              (same 6 objectives × 5 noise regimes × 5 seeds;
-                               10k train subset, 4-layer ConvNet;
+                              (same 6 objectives × 5 noise regimes × 10 seeds;
+                               10k train subset, 4-layer ConvNet; COMPLETE 300/300 rows;
                                outputs to reports/results/cifar10_noisy_label_*.csv)
+  cifar10_no_bn_ablation.py   BN ablation: same ConvNet without BatchNorm layers
+                              (6 objectives × 5 regimes × 5 seeds; COMPLETE 150/150 rows;
+                               outputs to reports/results/cifar10_no_bn_*.csv)
+  cifar_n_benchmark.py        CIFAR-N real human-annotated labels (UCSC-REAL)
+                              (6 objectives × 3 noise types × 5 seeds = 90 runs;
+                               outputs to reports/results/cifar_n_*.csv)
+  gradient_norm_analysis.py   Mechanistic: gradient norm on clean vs noisy batches
+                              (6 objectives × 3 seeds × 60 epochs; CIFAR-10 sym_40;
+                               outputs to reports/results/gradient_norm_full.csv)
+  dynamic_loss_benchmark.py   Two-phase curriculum: phase1_obj → phase2_obj switching
+                              (5 schedules + 6 baselines × 5 regimes × 5 seeds;
+                               switch_epoch=30 of 60; outputs to reports/results/dynamic_loss_*.csv)
+  resnet_noisy_label_benchmark.py
+                              ResNet-18 on full CIFAR-10 50k (needs GPU ~3-5h A100;
+                               outputs to reports/results/resnet_noisy_label_*.csv)
   representation_distance_benchmark.py
                               Direction 2: 25-model FR-RD experiment
                               (5 training conditions × 5 seeds on UCI Digits)
@@ -78,6 +93,9 @@ reports/
   references.bib              Shared bibliography (all papers)
   generate_figures.py         Main paper figures
   generate_noisy_label_figures.py  Direction 1 figures
+  generate_cifar_n_figures.py       CIFAR-N bar charts + LaTeX table
+  generate_gradient_norm_figures.py gradient norm trajectories + ratio + loss curves
+  generate_dynamic_loss_figures.py  dynamic switching vs static bar charts + gain plot
   generate_fr_rd_figures.py   Direction 2 figures
   generate_fr_contrastive_figures.py  Direction 3 figures
   results/                    All experiment output CSVs (committed)
@@ -291,21 +309,20 @@ The architecture-dependent reversal is the publishable hook. Current paper statu
 - `cifar10_no_bn_ablation.py --seeds 5`: 150/150 rows COMPLETE
 - `cifar10_noisy_label_benchmark.py --seeds 3 --n-train 50000`: 51/90 rows (seed 2 pending)
 
-**Currently running (2026-05-16, session 3):**
-- `cifar_n_benchmark.py --seeds 5` (task bx4lz5iy7): real human-annotated labels,
-  3 noise types × 6 objectives × 5 seeds = 90 runs; ~1-2 hours on MPS
+**Currently running (2026-05-16, session 4):**
+- `cifar_n_benchmark.py --seeds 5` (PID 37250): 8/90 rows; seed=0 aggre done, random1 in progress
+- `gradient_norm_analysis.py --seeds 3` (PID 40969): 480/720 rows; seed=0 4/6 obj done
+- `dynamic_loss_benchmark.py --seeds 5` (PID 49195): 5 schedules + 6 baselines × 5 regimes × 5 seeds
 
 Remaining work:
-1. **CIFAR-N results** (running): Add to Direction 1 paper Section 3.3; test whether
-   ConvNet advantage persists under instance-dependent human annotation noise.
-2. **50k size ablation**: needs seed 2 (slow: ~8 hours on MPS for 50k×60 epochs).
-   Run with: `uv run --project . python experiments/cifar10_noisy_label_benchmark.py
-   --n-train 50000 --seeds 3
-   --out-full reports/results/cifar10_50k_noisy_label_full.csv
-   --out-aggregated reports/results/cifar10_50k_noisy_label_aggregated.csv
-   --out-significance reports/results/cifar10_50k_noisy_label_significance.csv`
-3. **Regenerate figures** after CIFAR-N completes: update noisy label accuracy curves.
-4. **ResNet-18 on full CIFAR-10** (needs GPU): critical for NeurIPS reviewer credibility.
+1. **CIFAR-N results** (running, PID 37250): 8/90 rows. When complete, fill §3.3 table in
+   `fr_noisy_labels.tex`, run `generate_cifar_n_figures.py`.
+2. **Gradient norm figures** (running, PID 40969): 480/720 rows. When complete, update
+   Discussion Table 6 with multi-seed means, run `generate_gradient_norm_figures.py`.
+3. **Dynamic loss results** (running, PID 49195): When complete, add a new §3.4 to
+   `fr_noisy_labels.tex` if FR→GCE curriculum beats both static objectives.
+4. **50k size ablation**: slow on MPS (~8h). Lower priority; deferred.
+5. **ResNet-18 on full CIFAR-10** (needs GPU): critical for NeurIPS reviewer credibility.
 
 ### NeurIPS Research Directions (session 3 additions)
 
@@ -341,6 +358,14 @@ for the bounded-gradient mechanism hypothesis.
 **7. Synthetic vs real noise connection:** CIFAR-N worse_label (40.2% noise) parallels
 sym_40. If the ConvNet ranking (GCE > Hellinger > FR > KL > MAE) is preserved on
 CIFAR-N, that validates the synthetic-noise proxy for real noise.
+
+**8. Dynamic loss curriculum (new experiment running):** Motivated by gradient-norm analysis:
+KL memorizes (ratio 1.43↑), FR bounds (ratio 0.99≈1), GCE downweights (ratio 0.71↓).
+Hypothesis: FR→GCE two-phase switching outperforms either alone.
+Phase 1 (epochs 0-29): FR for stable early learning.
+Phase 2 (epochs 30-59): GCE for active denoising.
+Experiment: `experiments/dynamic_loss_benchmark.py` (5 schedules + 6 baselines × 5 regimes × 5 seeds).
+If confirmed, add §3.4 to `fr_noisy_labels.tex` as a practical application of the mechanistic insight.
 
 ### Priority 2 — FR-RD as a model analysis tool (ICLR 2027 target)
 
@@ -398,7 +423,7 @@ All experiments use this protocol:
 | Paper | File | Pages | Status | Blocking issues |
 |---|---|---|---|---|
 | Main (t-SNE) | `fisher_rao_vs_kl_arxiv.tex` | 27 | Draft | Small datasets; strengthen t-SNE results |
-| Direction 1 | `fr_noisy_labels.tex` | 11 | Near-submission | CIFAR-N results (running); 50k ablation (seed 2); ResNet-18 for credibility |
+| Direction 1 | `fr_noisy_labels.tex` | 12 | Near-submission | CIFAR-N results (running); dynamic loss results (running); ResNet-18 for credibility |
 | Direction 2 | `fr_representation_distance.tex` | 14 | Near-submission | Scale to larger models (ResNet/CIFAR) |
 | Direction 3 | `fr_contrastive.tex` | 5 | Theory only | Needs CIFAR/ImageNet GPU experiments |
 
@@ -409,12 +434,14 @@ All experiments use this protocol:
 - Table 2 updated: FR row 47/48, 48/48, 46/48, 42/48 (was 44, 43); caption updated
 - Data integrity RESOLVED: 10-seed dimred data restored from commit 2667d09
 
-**Direction 1 paper (fr_noisy_labels.tex, 11 pages) now includes:**
+**Direction 1 paper (fr_noisy_labels.tex, 12 pages) now includes:**
 - Theorem 1 + Corollary 1 (formal noise-tolerance analysis for FR/Hellinger)
 - 5-paragraph related work section with 9 new references
-- BN ablation §3.2: 2-seed × all 5 noise regimes; FR most robust (−5.8% mean drop)
-- Table 3 updated: sym_60 now all p=0.016 (was p=0.031); asym_40 Hellinger sig. (+p=0.031)
-- Abstract updated: 7-seed stats (+2.2% sym_40, +3.5% sym_60, p=0.016); BN item in contributions
+- Table 3: 10-seed CIFAR-10, all p=0.002; asym_40 corrected (FR hurts 0/10; Hellinger neutral p=0.625)
+- Table 4: BN ablation 5 seeds all regimes; FR most robust (−5.3% mean); SCE second (−7.9%)
+- §3.3 CIFAR-N stub: noise conditions described; table to be filled when experiment completes
+- Discussion Table 6: gradient norm ratio mechanistic analysis (KL: 1.43↑, FR: 0.99≈1, GCE: 0.71↓)
+- Conclusion: 10/10 wins p=0.002; sym_60 hierarchy; asym_40 FR hurts; BN ablation result
 
 **Direction 2 paper (fr_representation_distance.tex, 14 pages) now includes:**
 - §4.4: OOD 5-method comparison — FR-RD CC 45/50 vs Mahal 38/50 vs Energy 36/50 vs MSP 33/50
