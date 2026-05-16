@@ -536,6 +536,17 @@ MAE is severely miscalibrated throughout (ECE\,$>$\,0.23 at all regimes).
 These calibration results strengthen the practical recommendation: for ConvNets
 under symmetric noise, FR and Hellinger are preferable not only for accuracy
 but also for deployment reliability.
+Figure~\ref{fig:ece} visualises these ECE comparisons across noise regimes.
+
+\begin{figure}[h]
+  \centering
+  \includegraphics[width=0.9\linewidth]{figures/cifar10_ece.pdf}
+  \caption{Expected Calibration Error (ECE) on CIFAR-10 ConvNet (10 seeds, lower is better).
+    FR and Hellinger achieve dramatically lower ECE than KL under symmetric noise
+    (FR ECE\,=\,0.025 vs KL\,=\,0.233 at sym\,40). MAE is severely miscalibrated throughout.
+    GCE improves at high noise.}
+  \label{fig:ece}
+\end{figure}
 
 \subsection{CIFAR-N: real human-annotated noisy labels}
 \label{sec:cifar_n}
@@ -606,6 +617,7 @@ vs.\ a fixed batch of correctly-labelled samples, each epoch
   \end{tabular}
 \end{table}
 
+Figure~\ref{fig:grad_ratio} plots the ratio trajectory for each objective.
 Four qualitatively different gradient dynamics emerge:
 \begin{itemize}
   \item \textbf{KL (memorisation, ratio $> 1$, increasing).}
@@ -652,6 +664,16 @@ so FR is the most robust to BN removal (mean drop $-5.3\%$ vs KL $-13.3\%$).
 GCE and Hellinger collapse without BN ($-32.9\%$ and $-37.5\%$) because their
 gradient-warping and bounding properties depend on well-calibrated confidence
 scores, which BN provides.
+
+\begin{figure}[h]
+  \centering
+  \includegraphics[width=0.85\linewidth]{figures/gradient_norm_ratio.pdf}
+  \caption{Noisy/clean gradient norm ratio over training epochs on CIFAR-10
+    ConvNet (sym\,40, seed\,0). KL memorises (ratio $>1$, increasing); FR and Hellinger
+    bound gradients (ratio $\approx$1, stable); GCE actively deweights noisy samples
+    (ratio $<$1, decreasing). MAE is erratic.}
+  \label{fig:grad_ratio}
+\end{figure}
 
 The bounding and warping mechanisms are complementary:
 we test whether combining FR (early-phase gradient bounding) with GCE
