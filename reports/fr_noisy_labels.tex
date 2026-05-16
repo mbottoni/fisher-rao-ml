@@ -492,6 +492,24 @@ FR and Hellinger show elevated Brier scores and NLL at sym\,40--60, confirming
 that the accuracy drop reflects a systematic failure rather than a variance
 artefact.
 
+\subsection{CIFAR-N: real human-annotated noisy labels}
+\label{sec:cifar_n}
+
+All previous results use \emph{synthetic} label noise (uniform symmetric or single-hop
+asymmetric).
+To test whether the ConvNet advantage holds under \emph{instance-dependent} noise,
+we evaluate on CIFAR-N~\citep{wei2022learning}, which pairs CIFAR-10 training images
+with real human annotations collected via Amazon Mechanical Turk.
+We use the same 4-layer ConvNet, 10k stratified subset, and 5 seeds as in the main experiment.
+Three annotation conditions are used:
+\begin{itemize}
+  \item \textbf{aggre}: majority-vote aggregate ($\approx 9\%$ noise)
+  \item \textbf{random1}: single annotator run 1 ($\approx 17\%$ noise)
+  \item \textbf{worse}: worst-of-3 consensus ($\approx 40\%$ noise)
+\end{itemize}
+
+[Results pending — experiment currently running.]
+
 % ------------------------------------------------------------------
 \section{Discussion}
 % ------------------------------------------------------------------
