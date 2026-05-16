@@ -103,10 +103,13 @@ Our contributions are:
     explaining the empirical ordering GCE $>$ Hellinger $>$ FR $>$ KL at sym\,60.
     A batch-normalization ablation (5 seeds, all regimes) further shows FR is the
     most BN-robust objective ($-5.3\%$ mean drop vs.\ KL's $-13.3\%$).
+  \item A ConvNet calibration result: FR achieves ECE\,=\,0.025 vs KL's 0.233
+    at sym\,40 (a $9\times$ improvement), indicating that bounded-gradient objectives
+    are preferable not only for accuracy but also for deployment reliability.
   \item Practical guidance: for MLP/tabular data under symmetric noise use MAE
-    or GCE; for ConvNet/image data under symmetric noise, GCE is strongest, FR
-    reliable; for asymmetric noise, use GCE or KL — FR significantly hurts on
-    ConvNet at asym\,40 ($-2.7\%$, $p=0.002$).
+    or GCE; for ConvNet/image data under symmetric noise, GCE is strongest, FR and
+    Hellinger reliable and well-calibrated; for asymmetric noise, use GCE or KL
+    — FR significantly hurts on ConvNet at asym\,40 ($-2.7\%$, $p=0.002$).
 \end{enumerate}
 
 % ------------------------------------------------------------------
