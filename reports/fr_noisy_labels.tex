@@ -812,13 +812,12 @@ symmetric/asymmetric label noise model of \citet{ghosh2017robust}.
   \item The CIFAR-10 experiment uses 10 seeds ($p_{\min}\approx0.002$, all regimes
     including asym\,40), and the BN ablation uses 5 seeds. These provide sufficient
     statistical power for all key comparisons.
-  \item We evaluate only synthetic noise (symmetric and single-hop asymmetric).
-    Real-world noise (e.g.\ CIFAR-N, Clothing-1M) has complex class-dependent
-    structure not captured by our models.
+  \item We evaluate only synthetic noise for the main CIFAR-10 results.
+    The CIFAR-N section (Section~\ref{sec:cifar_n}) addresses real human-annotated
+    noise; Clothing-1M and other large-scale real-world benchmarks remain future work.
   \item The gradient norm analysis (Table~\ref{tab:grad_ratio},
-    Figure~\ref{fig:grad_ratio}) reports seed\,0 only; multi-seed means are
-    needed to confirm the ratio trajectories quantitatively (experiments with
-    3 seeds are ongoing).
+    Figure~\ref{fig:grad_ratio}) reports seed\,0 only; multi-seed confirmation
+    of the ratio trajectories is planned as follow-up work.
   \item The proposed explanations for the ConvNet reversal are hypotheses;
     controlled ablations (removing batch norm, varying dataset size, varying
     architecture depth) are needed to isolate causal factors.
@@ -850,7 +849,7 @@ At asym\,40, FR significantly hurts ($-2.7\%$, $p=0.002$) while Hellinger and
 GCE are neutral, suggesting FR's bounded gradient provides insufficient
 discrimination for class-conditional noise.
 
-A gradient norm analysis (3 seeds) provides direct mechanistic evidence:
+A gradient norm analysis (seed\,0) provides direct mechanistic evidence:
 KL memorises noisy samples (noisy/clean ratio $1.43\uparrow$), FR and Hellinger
 bound gradients (ratio $\approx 1$, stable), and GCE actively deweights
 ($0.71\downarrow$) — explaining the empirical ordering at sym\,60.
@@ -869,12 +868,14 @@ FR and Hellinger are reliable alternatives, and they offer the additional benefi
 of excellent calibration.
 For asymmetric noise, use GCE or KL; FR significantly hurts on ConvNet ($-2.7\%$, $p=0.002$).
 
-Future work should (i) test on CIFAR-N real-world noise to check whether the
-ConvNet advantage and calibration benefits persist under instance-dependent human
-annotation errors, (ii) scale to ResNet-18 on full CIFAR-10 to confirm the
-finding at the 5× larger dataset scale, (iii) investigate the two-phase curriculum
-combining FR's early gradient stability with GCE's late-phase denoising
-(Appendix~\ref{sec:dynamic_loss}), and (iv) develop a theoretical framework
+Our CIFAR-N evaluation (Section~\ref{sec:cifar_n}) tests whether the ConvNet
+advantage persists under instance-dependent human annotation noise.
+Future work should (i) scale to ResNet-18 on full CIFAR-10 to confirm the
+finding at the 5$\times$ larger dataset and deeper architecture scale,
+(ii) investigate the two-phase curriculum combining FR's early gradient stability
+with GCE's late-phase denoising (Appendix~\ref{sec:dynamic_loss}),
+(iii) add multi-seed gradient norm analysis to confirm the mechanistic
+4-mechanism picture, and (iv) develop a theoretical framework
 accounting for architecture and optimization dynamics beyond the asymptotic
 Ghosh et al.\ analysis.
 
