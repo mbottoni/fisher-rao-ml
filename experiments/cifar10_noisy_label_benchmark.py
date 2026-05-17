@@ -38,7 +38,9 @@ NOISE_REGIMES = {
     "sym_20": ("sym", 0.20),
     "sym_40": ("sym", 0.40),
     "sym_60": ("sym", 0.60),
+    "asym_20": ("asym", 0.20),
     "asym_40": ("asym", 0.40),
+    "asym_60": ("asym", 0.60),
 }
 
 N_CLASSES = 10
