@@ -18,7 +18,8 @@ FIGURES.mkdir(parents=True, exist_ok=True)
 NOISE_ORDER = ["clean", "sym_20", "sym_40", "sym_60", "sym_80", "asym_40"]
 NOISE_LABELS = {
     "clean": "0%", "sym_20": "sym 20%", "sym_40": "sym 40%",
-    "sym_60": "sym 60%", "sym_80": "sym 80%", "asym_40": "asym 40%",
+    "sym_60": "sym 60%", "sym_80": "sym 80%",
+    "asym_20": "asym 20%", "asym_40": "asym 40%", "asym_60": "asym 60%",
 }
 OBJ_ORDER = ["kl", "fisher_rao", "hellinger", "gce", "mae", "sce"]
 OBJ_LABELS = {
@@ -34,7 +35,7 @@ DATASET_TITLES = {
     "digits": "UCI Digits / MLP", "mnist": "MNIST / MLP",
     "fashion_mnist": "FashionMNIST / MLP", "cifar10": "CIFAR-10 / ConvNet",
 }
-CIFAR10_NOISE_ORDER = ["clean", "sym_20", "sym_40", "sym_60", "asym_40"]
+CIFAR10_NOISE_ORDER = ["clean", "sym_20", "sym_40", "sym_60", "asym_20", "asym_40", "asym_60"]
 
 
 def read_rows(path: Path) -> list[dict]:
