@@ -284,9 +284,13 @@ while FR's gradient saturates to zero, preventing further memorisation.
 The proof follows from direct differentiation: $\ell_\mathrm{FR} = 4\arccos^2(\sqrt{p_k})$,
 so $\partial\ell_\mathrm{FR}/\partial p_k = -4\arccos(\sqrt{p_k})/(\sqrt{p_k}\sqrt{1-p_k})$,
 and $\partial p_k/\partial z_k = p_k(1-p_k)$, giving the expression above.
-Figure~\ref{fig:grad_saturation} illustrates the gradient magnitudes as functions of~$p_k$.
+For Hellinger, $\ell_\mathrm{H} = 1 - \sqrt{p_k}$, so $\partial\ell_\mathrm{H}/\partial z_k = -\tfrac{1}{2}\sqrt{p_k}(1-p_k) \to 0$ as $p_k\to 0$,
+also saturating; but Hellinger's peak gradient ($\approx 0.19$ at $p_k=1/3$) is \emph{always below} KL's,
+so Hellinger provides \emph{uniform} gradient reduction without FR's early-training amplification regime.
+Figure~\ref{fig:grad_saturation} illustrates the gradient magnitudes as functions of~$p_k$; the shaded region
+shows where FR exceeds KL ($p_k > 0.032$).
 GCE ($q=0.7$) also saturates at $p_k\to 0$ via $p_k^q(1-p_k)\to 0$, providing
-a second family of gradient-saturating losses distinct from FR.
+a third mechanism distinct from FR and Hellinger.
 
 \begin{corollary}[Quantitative gradient advantage]
 \label{cor:grad_ratio}
@@ -309,9 +313,13 @@ the advantage is unbounded (the ratio vanishes) while KL's gradient approaches $
   \includegraphics[width=0.78\linewidth]{figures/gradient_saturation.pdf}
   \caption{Gradient magnitude $|\partial\ell/\partial z_k|$ as a function of the
     probability $p_k$ assigned to the corrupted label $k$.
-    At small $p_k$ (model correctly assigns low probability to the wrong label),
-    FR and GCE saturate to zero, while KL maintains near-maximal pressure~$\approx 1$.
-    This is the gradient saturation property of Proposition~\ref{prop:grad_saturation}.}
+    FR's gradient exceeds KL's for $p_k \in (0.032, 1)$ (shaded region) —
+    the early-training amplification danger zone — before saturating to zero.
+    Hellinger ($\max \approx 0.19$ at $p_k=1/3$) is \emph{always} below KL,
+    providing uniform gradient reduction without the amplification phase.
+    GCE also saturates, via a different mechanism.
+    This is the gradient saturation property of Proposition~\ref{prop:grad_saturation};
+    the Hellinger comparison explains why Hellinger beats FR at high noise (Section~\ref{sec:convnet_results}).}
   \label{fig:grad_saturation}
 \end{figure}
 
@@ -326,6 +334,14 @@ in ConvNets with batch normalisation, representations converge early enough
 for gradient saturation to operate; in MLPs without such inductive structure,
 corrupted gradients accumulate before saturation, and the Ghosh-condition
 violation dominates.
+
+The Hellinger vs.\ FR comparison reveals a key structural difference:
+Hellinger's gradient is \emph{always} below KL (universally softer),
+while FR's gradient exceeds KL for $p_k \in (0.032, 1)$.
+This explains why Hellinger is more consistently beneficial than FR at high
+symmetric noise (sym\,60: Hellinger $+7.6\%$ vs.\ FR $+3.4\%$): Hellinger
+never amplifies corrupted gradients, while FR does during early training before
+representations converge past the peak at $p_k \approx 0.28$.
 \end{remark}
 
 % ------------------------------------------------------------------
@@ -837,10 +853,14 @@ Five qualitatively different gradient dynamics emerge:
     Hellinger's gradient analogously saturates.
     Both ratios stabilise near 1.0: the model does not preferentially overfit to
     mislabelled samples, even late in training.
-    Hellinger's slightly lower ratio (0.88 vs 0.98) is consistent with its earlier
-    saturation, which may explain Hellinger's stronger result at sym\,60.
+    Hellinger's slightly lower ratio (0.88 vs 0.98) reflects a fundamental structural
+    difference: Hellinger's peak gradient ($\approx 0.19$ at $p_j=1/3$) is \emph{always}
+    below KL's, providing uniform suppression without an amplification phase.
+    FR's peak gradient ($\approx 1.82$ at $p_j=0.28$) exceeds KL's for $p_j \in (0.032,1)$ —
+    the early-training danger zone — explaining why Hellinger outperforms FR at sym\,60
+    ($+7.6\%$ vs $+3.4\%$): Hellinger never amplifies corrupted gradients.
 
-    \textit{Caveat: early-training amplification.}
+    \textit{Caveat: FR early-training amplification.}
     At moderate $p_j \approx 0.28$, FR's gradient peaks at $\approx 1.82$ (visible in
     Figure~\ref{fig:grad_saturation}), exceeding KL's maximum of $1.0$.
     When the model remains uncertain for extended periods (as on MLPs without
