@@ -690,7 +690,7 @@ Hellinger is equally well-calibrated at sym\,40 (ECE\,=\,0.029).
 The bounded codomain of FR and Hellinger prevents the model from committing
 maximally to incorrect labels, producing a naturally calibrated posterior.
 Hellinger achieves the best calibration at sym\,60 (ECE\,=\,0.085), ahead of
-GCE (ECE\,=\,0.093), consistent with Hellinger's tighter gradient bound.
+GCE (ECE\,=\,0.093), consistent with Hellinger's universally softer gradient (always below KL's).
 MAE is severely miscalibrated throughout (ECE\,$>$\,0.23 at all regimes).
 These calibration results strengthen the practical recommendation: for ConvNets
 under symmetric noise, FR and Hellinger are preferable not only for accuracy
