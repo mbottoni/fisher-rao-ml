@@ -595,8 +595,8 @@ we report win counts and mean gains to convey directionality.
 \begin{table}[t]
   \centering
   \caption{CIFAR-N real human-annotated noisy labels on CIFAR-10 ConvNet (5 seeds;
-    $p_{\min}=0.062$ with 5 seeds). Win counts vs.\ KL shown for each objective.
-    Bold: 5/5 wins (consistent direction across all seeds).}
+    $p_{\min}=0.062$ precludes $p<0.05$). Win counts vs.\ KL in parentheses.
+    Bold: 5/5 wins. Underline: large gap below KL.}
   \label{tab:cifar_n}
   \small
   \begin{tabular}{lcccccc}
@@ -609,6 +609,15 @@ we report win counts and mean gains to convey directionality.
     \bottomrule
   \end{tabular}
 \end{table}
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=0.85\linewidth]{figures/cifar_n_accuracy_bars.pdf}
+  \caption{Accuracy on CIFAR-N real human-annotated labels (5 seeds, CIFAR-10 ConvNet).
+    FR and Hellinger consistently outperform KL. MAE collapses across all conditions.
+    GCE is beneficial only at the highest real-noise condition (worse $\approx 40\%$).}
+  \label{fig:cifar_n}
+\end{figure}
 
 The key findings are:
 
