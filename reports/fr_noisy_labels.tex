@@ -379,8 +379,9 @@ families to isolate loss--architecture interactions.
   \item \textbf{CIFAR-10}: 10,000 training and 2,000 test samples (stratified
     subsets).
     32$\times$32 RGB images; random crop and horizontal flip augmentation.
-    10 seeds; noise regimes: clean, sym\,20\%/40\%/60\%, asym\,40\%
-    (sym\,80\% excluded as impractical for ConvNets in this sample regime).
+    10 seeds; noise regimes: clean, sym\,20\%/40\%/60\%, asym\,40\%.
+    Asym\,20\% and asym\,60\% are planned as explicit tests of the danger zone
+    prediction (Remark~\ref{rem:asym_failure} in the Discussion).
 \end{itemize}
 
 \paragraph{MLP model.}
@@ -1182,6 +1183,9 @@ symmetric/asymmetric label noise model of \citet{ghosh2017robust}.
     architecture depth) are needed to isolate causal factors.
   \item We do not evaluate co-learning, teacher--student, or semi-supervised
     approaches; the comparison is restricted to the loss function alone.
+  \item The asymmetric noise evaluation uses only one rate (asym\,40\%).
+    The danger zone analysis (Remark~\ref{rem:asym_failure}) predicts FR also hurts
+    at asym\,20\% and asym\,60\%; empirical validation of these predictions is planned.
 \end{itemize}
 
 % ------------------------------------------------------------------
