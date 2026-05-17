@@ -630,12 +630,15 @@ bounded symmetric divergence.
 This ordering is preserved across every noise regime tested, strengthening the hypothesis.
 
 \textbf{GCE and Hellinger collapse without BN.}
-GCE's gradient scales as $p_k^{q-1}$; with $q=0.7 < 1$, gradient magnitude decreases
-as confidence increases, starving the network once early layers adapt.
-Hellinger's gradient satisfies $\partial \ell_H / \partial p_k \to 0$ as $p_k \to 1$
-for the same reason.
-Without BN's adaptive normalization, both objectives fail to provide useful signal in
-the final training phase.
+GCE's logit gradient $|\partial\ell_\mathrm{GCE}/\partial z_j| = p_j^q(1-p_j)$
+saturates to zero as $p_j \to 1$ (confident correct) and $p_j \to 0$: the
+gradient-warping mechanism requires well-calibrated probability estimates that BN
+provides.
+Without BN, GCE's gradient cannot reliably distinguish high-confidence-correct from
+high-confidence-wrong predictions, and the active deweighting becomes indiscriminate.
+Hellinger's logit gradient $|\partial\ell_\mathrm{H}/\partial z_j| = \frac{1}{2}\sqrt{p_j}(1-p_j)$
+saturates analogously, and without BN's normalisation both objectives starve the
+network of discriminative signal in the later training phase.
 
 \textbf{MAE collapses worst at clean, improves slightly at high noise.}
 MAE's flat gradient provides constant magnitude regardless of prediction correctness.
@@ -1113,8 +1116,14 @@ For MLP/tabular data under asymmetric noise: MAE is the clear winner
 For ConvNet/image data under asymmetric noise: use Hellinger — it maintains
 accuracy and achieves $3\times$ better ECE than KL ($0.034$ vs $0.101$)
 while FR significantly hurts ($-2.7\%$, $p=0.002$).
+For ConvNet/image data under \emph{real or instance-dependent} noise: prefer
+FR or Hellinger — GCE's active deweighting can hurt at low noise levels
+($p=0.008$ at CIFAR-N aggre $\approx 9\%$) and is less effective than FR or Hellinger
+even at $\approx 40\%$ real noise (FR $+1.6\%$, Hellinger $+1.4\%$, GCE $+1.0\%$
+vs synthetic sym\,60 where GCE $+9.5\%$ dominates).
 When in doubt: Hellinger is the safest ConvNet default — it never amplifies
-corrupted gradients and provides the best calibration under asymmetric noise.
+corrupted gradients, is robust across all noise types, and provides better
+calibration than KL under both symmetric and asymmetric noise.
 
 % ------------------------------------------------------------------
 \section{Related Work}
