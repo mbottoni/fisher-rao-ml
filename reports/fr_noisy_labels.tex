@@ -106,10 +106,13 @@ Our contributions are:
   \item The empirical observation that FR's behavior \emph{reverses} between
     architectures: harmful for MLP under symmetric noise, beneficial for
     ConvNet; MAE reverses in the opposite direction.
-  \item A formal analysis via the Ghosh et al.\ condition showing that FR,
-    Hellinger, and any loss of the form $\ell(p, e_k) = f(\langle \sqrt{p},
-    \sqrt{e_k} \rangle)$ cannot satisfy the noise-tolerance condition,
-    explaining the MLP failure.
+  \item A formal analysis consisting of two complementary results:
+    (a) Theorem~\ref{thm:fr_no_ntc} shows FR, Hellinger, and any Bhattacharyya-form
+    loss cannot satisfy the Ghosh noise-tolerance condition, explaining the MLP failure;
+    (b) Proposition~\ref{prop:grad_saturation} shows FR's logit gradient saturates
+    to zero as the model becomes confident in the true class, explaining the
+    ConvNet recovery: once representations converge under BN, FR stops
+    applying pressure toward corrupted labels.
   \item Mechanistic analysis via gradient norm trajectories (3-seed mean, sym\,40):
     KL memorises noisy samples (noisy/clean norm ratio 1.49$\uparrow$), FR bounds
     gradients (ratio 0.98$\approx$1), GCE actively deweights (ratio 0.69$\downarrow$),
