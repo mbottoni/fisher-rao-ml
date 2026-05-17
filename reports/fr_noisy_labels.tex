@@ -984,9 +984,14 @@ easy/clean examples and later memorize corrupted ones (the ``early
 learning'' phenomenon), with depth and capacity influencing the rate.
 \citet{jiang2018mentornet} use a teacher network trained on clean data to
 reweight noisy examples, exploiting the training-order curriculum effect.
+Our Proposition~\ref{prop:grad_saturation} provides a formal counterpart:
+losses with gradient saturation (FR, Hellinger) naturally align with the
+early-learning trajectory — once the model correctly classifies a sample,
+these losses apply negligible gradient pressure even if the label is corrupted.
 Our observation that FR \emph{helps} ConvNets but \emph{hurts} MLPs under
 symmetric noise adds an explicit loss--architecture interaction to this
-literature.
+literature: gradient saturation is beneficial only when the architecture
+enables early-phase feature learning fast enough to precede corruption memorisation.
 
 \paragraph{Information geometry and bounded divergences.}
 Information-geometric divergences as loss functions for machine learning have
