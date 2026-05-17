@@ -1,0 +1,16 @@
+noise_type,objective,n_seeds,mean_diff,wins,wilcoxon_p,significant
+aggre,fisher_rao,5,0.006200000000000094,5,0.0625,False
+aggre,gce,5,-0.006399999999999961,0,0.0625,False
+aggre,hellinger,5,-0.0016999999999998128,1,0.625,False
+aggre,mae,5,-0.11969999999999992,0,0.0625,False
+aggre,sce,5,-0.02079999999999993,0,0.0625,False
+random1,fisher_rao,5,0.013599999999999945,5,0.0625,False
+random1,gce,5,-0.0023000000000000798,1,0.375,False
+random1,hellinger,5,0.008300000000000085,5,0.0625,False
+random1,mae,5,-0.1301,0,0.0625,False
+random1,sce,5,-0.012099999999999889,0,0.0625,False
+worse,fisher_rao,5,0.015199999999999991,5,0.0625,False
+worse,gce,5,0.011800000000000033,3,0.25,False
+worse,hellinger,5,0.0131,5,0.0625,False
+worse,mae,5,-0.1613000000000001,0,0.0625,False
+worse,sce,5,-0.0020000000000000018,3,0.75,False
