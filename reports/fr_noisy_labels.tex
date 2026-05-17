@@ -601,8 +601,20 @@ Table~\ref{tab:no_bn} reports results across all five noise regimes (5 seeds).
   \end{tabular}
 \end{table}
 
-Table~\ref{tab:no_bn} reveals a striking \emph{differential sensitivity} to batch normalization
-that is consistent across all noise levels and confirmed with 5 seeds.
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=0.85\linewidth]{figures/bn_ablation_heatmap.pdf}
+  \caption{Accuracy drop on removing BatchNorm (percentage points, with-BN minus
+    without-BN) for each objective and noise regime (5 seeds, CIFAR-10 ConvNet).
+    Green cells = small drop (robust); red cells = large drop (BN-dependent).
+    FR and SCE are consistently robust; GCE, Hellinger, and MAE collapse across
+    all regimes.}
+  \label{fig:bn_heatmap}
+\end{figure}
+
+Table~\ref{tab:no_bn} and Figure~\ref{fig:bn_heatmap} reveal a striking \emph{differential
+sensitivity} to batch normalization that is consistent across all noise levels and
+confirmed with 5 seeds.
 
 \textbf{Fisher--Rao is the most robust.} FR drops only $2.1$--$7.1\%$ without BN —
 smaller than KL's $10.6$--$16.6\%$ drop and far smaller than GCE ($27$--$38\%$),
@@ -1209,8 +1221,9 @@ With 10 seeds, the ConvNet results reveal a hierarchy under high symmetric noise
 (sym\,60): GCE ($+9.5\%$) $>$ Hellinger ($+7.6\%$) $>$ FR ($+3.4\%$) $>$ SCE
 ($+1.8\%$) $>$ KL $>$ MAE ($-5.1\%$).
 At asym\,40, FR significantly hurts ($-2.7\%$, $p=0.002$) while Hellinger and
-GCE are neutral, suggesting FR's gradient saturation provides insufficient
-discrimination for class-conditional noise.
+GCE are neutral; the mechanism is danger-zone persistence (Remark~\ref{rem:asym_failure}):
+asymmetric noise keeps the wrong-class probability $p_k\in(0.3,0.4)$ throughout
+training, squarely inside the regime where FR amplifies corrupted gradients above KL.
 
 A gradient norm analysis (3-seed mean, sym\,40) provides direct mechanistic evidence:
 KL memorises noisy samples (noisy/clean ratio $1.49\uparrow$), FR and Hellinger
