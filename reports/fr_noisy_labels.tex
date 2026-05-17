@@ -217,9 +217,11 @@ $\mathcal{L}_\mathrm{MAE} = \sum_k |y_k - p_k|$.
 With one-hot target $\mathbf{e}_j$, the gradient on any logit $z_k$ satisfies
 $|\partial\mathcal{L}_\mathrm{MAE}/\partial z_k| = 2p_j p_k$ ($k \neq j$) and
 $|\partial\mathcal{L}_\mathrm{MAE}/\partial z_j| = 2p_j(1-p_j)$, both bounded by $2p_j$.
-Early in training when $p_j \ll 1$, MAE applies \emph{minimal} gradient toward any target
-— half that of KL's $|\partial\mathcal{L}_\mathrm{KL}/\partial z_j| = 1-p_j \to 1$ —
-a key reason MAE trains slowly on ConvNets despite its noise-tolerance guarantee.
+The ratio $|\partial\mathcal{L}_\mathrm{MAE}/\partial z_j|/|\partial\mathcal{L}_\mathrm{KL}/\partial z_j| = 2p_j$:
+at initialisation with 10 classes ($p_j \approx 0.1$), MAE applies only $\tfrac{1}{5}$ the
+gradient of KL toward the target label.
+This progressive suppression starves ConvNets of discriminative signal needed
+to learn convolutional filters in early epochs.
 
 \paragraph{Symmetric Cross Entropy (SCE)~\citep{wang2019symmetric}.}
 $\mathcal{L}_\mathrm{SCE} = 0.1\cdot\mathcal{L}_\mathrm{KL} +
