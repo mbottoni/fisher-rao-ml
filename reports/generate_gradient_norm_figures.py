@@ -203,8 +203,82 @@ def save_loss_trajectories() -> None:
     print(f"saved {out.name}")
 
 
+def save_architecture_comparison() -> None:
+    """Side-by-side ConvNet vs MLP gradient ratio: shows architecture-specific dynamics.
+
+    Key visual: FR ratio stays near 1 on ConvNet (gradient saturation works)
+    but grows to 2.61 on MLP (saturation fails — early-amplification dominates).
+    """
+    convnet_path = RESULTS / "gradient_norm_full.csv"
+    mlp_path = RESULTS / "mlp_gradient_norm_full.csv"
+    if not convnet_path.exists() or not mlp_path.exists():
+        print("missing gradient norm data — skipping architecture comparison")
+        return
+
+    def load_ratio(path: Path) -> dict[str, dict[int, float]]:
+        rows = read_rows(path)
+        data: dict[str, dict[str, dict[int, list[float]]]] = defaultdict(
+            lambda: defaultdict(lambda: defaultdict(list))
+        )
+        for r in rows:
+            data[r["objective"]][r["sample_type"]][int(r["epoch"])].append(
+                float(r["mean_grad_norm"])
+            )
+        out: dict[str, dict[int, float]] = {}
+        for obj, stype_data in data.items():
+            epochs = sorted(set(stype_data["noisy"].keys()) & set(stype_data["clean"].keys()))
+            out[obj] = {}
+            for ep in epochs:
+                n = np.mean(stype_data["noisy"][ep]) if stype_data["noisy"][ep] else np.nan
+                c = np.mean(stype_data["clean"][ep]) if stype_data["clean"][ep] else np.nan
+                out[obj][ep] = n / max(c, 1e-8) if not np.isnan(c) else np.nan
+        return out
+
+    convnet_ratios = load_ratio(convnet_path)
+    mlp_ratios = load_ratio(mlp_path)
+
+    objectives = ["kl", "fisher_rao", "hellinger", "gce", "mae"]
+    fig, axes = plt.subplots(1, 2, figsize=(11, 4.5), sharey=False)
+
+    for ax, (ratios, title, xlabel) in zip(
+        axes,
+        [
+            (convnet_ratios, "CIFAR-10 ConvNet (sym 40%)", "Training Epoch (0–59)"),
+            (mlp_ratios, "UCI Digits MLP (sym 40%)", "Training Epoch (0–99)"),
+        ],
+        strict=True,
+    ):
+        for obj in objectives:
+            if obj not in ratios:
+                continue
+            ep_ratio = ratios[obj]
+            epochs = sorted(ep_ratio.keys())
+            vals = [ep_ratio[e] for e in epochs]
+            ax.plot(epochs, vals, color=OBJ_COLORS.get(obj, "gray"),
+                    label=OBJ_LABELS.get(obj, obj), linewidth=2)
+        ax.axhline(y=1.0, color="black", linestyle="--", linewidth=1, alpha=0.5)
+        ax.set_xlabel(xlabel, fontsize=11)
+        ax.set_ylabel("Noisy/clean gradient norm ratio" if ax is axes[0] else "")
+        ax.set_title(title, fontsize=11)
+        ax.legend(fontsize=9)
+        ax.grid(True, alpha=0.3)
+
+    fig.suptitle(
+        "Architecture-specific gradient dynamics under sym 40% noise\n"
+        "FR ratio stays near 1 on ConvNet (gradient saturation); "
+        "grows to 2.61 on MLP (early-amplification dominates)",
+        fontsize=10,
+    )
+    fig.tight_layout()
+    out = FIGURES / "gradient_norm_architecture_comparison.pdf"
+    fig.savefig(out, bbox_inches="tight")
+    plt.close(fig)
+    print(f"saved {out.name}")
+
+
 if __name__ == "__main__":
     save_gradient_norm_trajectories()
     save_gradient_norm_ratio()
     save_loss_trajectories()
+    save_architecture_comparison()
     print("Done.")
