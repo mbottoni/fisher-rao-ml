@@ -464,7 +464,7 @@ The results in Table~\ref{tab:accuracy_cifar10} reveal a sharp reversal:
     $+3.4\%$ at sym\,60 (10/10 wins, $p=0.002$).
     Hellinger shows the same direction and is also significant at sym\,20--60 (all $p=0.002$, 10/10 wins).
     At high noise (sym\,60), Hellinger (+7.6\%) exceeds FR (+3.4\%), suggesting its
-    more aggressive gradient clipping becomes more valuable as noise increases.
+    more aggressive gradient saturation becomes more valuable as noise increases.
     SCE also significantly outperforms KL at sym\,60 (9/10 wins, $p=0.004$), but
     \emph{underperforms} KL at sym\,20 and sym\,40 (both $p=0.002$, 0/10 wins).
   \item \textbf{MAE severely underperforms on ConvNet.}
