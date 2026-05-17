@@ -959,7 +959,9 @@ for asymmetric noise, only MAE wins consistently across all three MLP datasets.
 For ConvNet/image settings under symmetric noise: GCE is the strongest performer;
 FR and Hellinger are reliable alternatives with the additional benefit of excellent
 calibration.
-For ConvNet asymmetric noise: use GCE or KL; FR significantly hurts ($-2.7\%$, $p=0.002$).
+For ConvNet asymmetric noise: Hellinger maintains accuracy and provides substantially
+better calibration (ECE\,=\,0.034 vs.\ KL's 0.101; Brier score $p=0.002$, 10/10 wins);
+FR significantly hurts accuracy ($-2.7\%$, $p=0.002$).
 Under real instance-dependent noise (CIFAR-N): FR and Hellinger are the best choices;
 GCE can hurt at low noise levels and MAE collapses entirely.
 
