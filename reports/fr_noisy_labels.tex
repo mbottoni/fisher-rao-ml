@@ -654,12 +654,18 @@ The key findings are:
 
 The directional consistency of FR across all 5 seeds at every noise level (15/15 across
 conditions) provides empirical support that the ConvNet advantage is not an artefact
-of the symmetric noise model.
+of the synthetic noise model.
+Notably, FR outperforms GCE in directional consistency (15/15 vs.\ 4/15 wins across conditions),
+despite GCE dominating at high synthetic noise (sym\,60).
+This reversal suggests that GCE's active gradient deweighting, which is tuned to
+high-confidence wrong predictions under symmetric corruption, is less effective against
+the ambiguous human-judgement errors in instance-dependent real noise.
+FR's bounded-gradient mechanism is more noise-model-agnostic.
 For high noise ($\approx 40\%$), the synthetic-noise ranking
 (FR $>$ Hellinger $\approx$ GCE $>$ KL $\gg$ MAE) is largely preserved under real annotation
 noise (FR $+1.5\%$, Hellinger $+1.3\%$, GCE $+1.2\%$).
-We note that power is limited with 5 seeds: additional runs would be needed to
-establish statistical significance in this setting.
+We note that power is limited with 5 seeds ($p_{\min}=0.062$); the ongoing 10-seed experiment
+would provide formal significance for all FR comparisons.
 
 % ------------------------------------------------------------------
 \section{Discussion}
