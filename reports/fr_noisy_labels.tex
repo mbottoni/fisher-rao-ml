@@ -505,6 +505,9 @@ The results in Table~\ref{tab:accuracy_cifar10} reveal a sharp reversal:
     GCE achieves $+3.4\%$ at sym\,40 (10/10 wins, $p=0.002$) and $+9.5\%$ at sym\,60 (10/10 wins, $p=0.002$),
     the largest gain of any objective.
     The hierarchy at sym\,60 is: GCE $>$ Hellinger $>$ FR $>$ SCE $>$ KL $>$ MAE.
+    Both GCE and Hellinger are \emph{universally soft} (gradient always below KL's; see Remark after Proposition~\ref{prop:grad_saturation}),
+    but GCE achieves a noisy/clean gradient ratio of $0.69\downarrow$ (active deweighting),
+    while Hellinger achieves $0.88$ (passive reduction), explaining GCE's greater margin at high noise.
   \item \textbf{Asymmetric noise: FR hurts significantly; others neutral.}
     At asym\,40 (10 seeds), FR falls $-2.7\%$ (0/10 wins, $p=0.002$);
     Hellinger is neutral ($+0.1\%$, 7/10 wins, $p=0.625$); GCE is neutral ($-0.0\%$, $p=0.826$).
