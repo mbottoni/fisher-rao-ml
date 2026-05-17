@@ -332,12 +332,13 @@ the advantage is unbounded (the ratio vanishes) while KL's gradient approaches $
   \caption{Gradient magnitude $|\partial\ell/\partial z_k|$ as a function of the
     probability $p_k$ assigned to the corrupted label $k$.
     FR's gradient exceeds KL's for $p_k \in (0.032, 1)$ (shaded region) —
-    the early-training amplification danger zone — before saturating to zero.
-    Hellinger ($\max \approx 0.19$ at $p_k=1/3$) is \emph{always} below KL,
-    providing uniform gradient reduction without the amplification phase.
-    GCE also saturates, via a different mechanism.
+    the early-training amplification danger zone — before saturating to zero as $p_k\to 0$.
+    Hellinger ($\max \approx 0.19$ at $p_k=1/3$) is \emph{always} below KL
+    (\emph{universally soft}), providing uniform gradient reduction without the amplification phase.
+    GCE ($q=0.7$, $p_k^q(1-p_k)$) is also universally soft and additionally saturates
+    at both extremes ($p_k\to 0$ and $p_k\to 1$), combining saturation with active deweighting.
     This is the gradient saturation property of Proposition~\ref{prop:grad_saturation};
-    the Hellinger comparison explains why Hellinger beats FR at high noise (Section~\ref{sec:convnet_results}).}
+    the Hellinger/GCE comparisons explain the sym\,60 ordering (Section~\ref{sec:convnet_results}).}
   \label{fig:grad_saturation}
 \end{figure}
 
