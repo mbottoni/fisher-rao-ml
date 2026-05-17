@@ -998,14 +998,17 @@ and FR hurts.
 \paragraph{Practical recommendation.}
 For MLP/tabular data under symmetric label noise: use MAE or GCE, which
 satisfy the noise-tolerance condition or approximate it.
-For ConvNet/image data under moderate symmetric noise: FR and GCE are
-competitive; avoid MAE, whose flat gradients impair convolutional feature
-learning at moderate dataset scales.
+For ConvNet/image data under symmetric noise: at moderate noise (sym\,20--40), FR and GCE are
+competitive; at high noise (sym\,60+), prefer Hellinger, which is universally softer
+than KL (max gradient $\approx$0.19) and avoids FR's early-training amplification danger
+zone. Avoid MAE, whose flat gradients impair convolutional feature learning.
 For MLP/tabular data under asymmetric noise: MAE is the clear winner
 (consistent $+3$--$8\%$ gains across all three MLP datasets).
 For ConvNet/image data under asymmetric noise: use Hellinger — it maintains
 accuracy and achieves $3\times$ better ECE than KL ($0.034$ vs $0.101$)
 while FR significantly hurts ($-2.7\%$, $p=0.002$).
+When in doubt: Hellinger is the safest ConvNet default — it never amplifies
+corrupted gradients and provides the best calibration under asymmetric noise.
 
 % ------------------------------------------------------------------
 \section{Related Work}
