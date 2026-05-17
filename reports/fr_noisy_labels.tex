@@ -54,7 +54,7 @@ KL memorises noisy samples (noisy/clean ratio $1.49\uparrow$), FR bounds gradien
 (ratio $0.98\approx 1$), and GCE actively deweights (ratio $0.69\downarrow$),
 explaining the observed performance hierarchy.
 On MLP, FR's ratio grows to 2.61 by epoch 99 --- the same memorisation direction
-as KL --- mechanistically explaining why gradient bounding requires ConvNet
+as KL --- mechanistically explaining why gradient saturation requires ConvNet
 structure to be beneficial.
 A batch-normalization ablation (5 seeds) confirms FR is the most robust to BN removal
 ($-5.3\%$ mean drop vs.\ KL's $-13.3\%$).
@@ -97,7 +97,7 @@ However, no systematic empirical study has compared FR/Hellinger against
 established noise-tolerant baselines across a range of noise conditions.
 
 We fill this gap and find a striking result that challenges the prevailing
-assumption: FR's bounded gradient does \emph{not} universally improve noise
+assumption: FR's gradient saturation does \emph{not} universally improve noise
 robustness.
 Instead, it produces an \emph{architecture-dependent reversal}: harmful for
 MLP models under symmetric noise (where the Ghosh noise-tolerance condition
@@ -125,12 +125,12 @@ Our contributions are:
     explaining the empirical ordering GCE $>$ Hellinger $>$ FR $>$ SCE $>$ KL $>$ MAE at sym\,60.
     A parallel MLP analysis (Table~\ref{tab:mlp_grad_ratio}) shows that FR's gradient
     stability is architecture-specific: on MLP, FR's ratio grows to 2.61 (same
-    direction as KL memorisation), mechanistically explaining why gradient bounding
-    helps ConvNets but not MLPs.
+    direction as KL memorisation), mechanistically explaining why gradient saturation
+    requires the early representation convergence provided by ConvNets.
     A batch-normalization ablation (5 seeds, all regimes) further shows FR is the
     most BN-robust objective ($-5.3\%$ mean drop vs.\ KL's $-13.3\%$).
   \item A ConvNet calibration result: FR achieves ECE\,=\,0.025 vs KL's 0.233
-    at sym\,40 (a $9\times$ improvement), indicating that bounded-gradient objectives
+    at sym\,40 (a $9\times$ improvement), indicating that gradient-saturating objectives
     are preferable not only for accuracy but also for deployment reliability.
     The advantage is conditional on noise: at clean training, KL is significantly
     better calibrated than FR (ECE\,=\,0.044 vs 0.083, $p=0.002$).
@@ -653,7 +653,7 @@ lower ECE indicates better-calibrated confidence.
 Under \emph{clean} training, the direction reverses: KL achieves ECE\,=\,0.044
 vs FR's 0.083 (KL significantly better, $p=0.002$, 10/10 lower).
 KL's unconstrained gradient pushes probability mass freely to the correct class,
-yielding sharp and well-calibrated predictions; FR's bounded gradient limits this.
+yielding sharp and well-calibrated predictions; FR's gradient saturation limits this.
 The calibration advantage of FR and Hellinger is therefore \emph{conditional on
 noise}: they shine precisely when the gradient magnitude matters for robustness.
 
@@ -739,7 +739,7 @@ The key findings are:
   \item \textbf{Hellinger is significant at random1 and worse but not aggre.}
     7/7 wins at random1 ($+0.7\%$, $p=0.016$) and 7/7 wins at worse ($+1.7\%$, $p=0.016$).
     At aggre ($\approx 9\%$), only 3/7 wins ($+0.1\%$, $p=0.547$):
-    bounded gradients provide little benefit when noise is sparse.
+    gradient saturation provides little benefit when noise is sparse.
 
   \item \textbf{GCE significantly hurts at aggre ($p=0.031$, 1/7 wins, $-0.5\%$) and is
     neutral at random1 and worse.}
@@ -756,12 +756,12 @@ The key findings are:
     so MAE's theoretical guarantee is void for ConvNet training under any real noise.
 \end{enumerate}
 
-FR uniquely combines bounded gradients (preventing corruption memorisation) without
+FR uniquely combines gradient saturation (preventing corruption memorisation) without
 the constant-sum constraint (enabling generalisation), making it noise-model-agnostic.
 Notably, the real-noise ranking at high noise differs from the synthetic ranking:
 (real: FR $\approx$ Hellinger [$+1.6$--$1.7\%$, $p=0.016$] $>$ GCE [$+1.2\%$, n.s.] $>$ KL $\approx$ SCE $\gg$ MAE [$-16\%$] vs.\
 synthetic: GCE $>$ Hellinger $>$ FR $>$ KL $\gg$ MAE at sym\,60).
-FR outperforms GCE on real instance-dependent noise, suggesting that gradient bounding
+FR outperforms GCE on real instance-dependent noise, suggesting that gradient saturation
 is more robust than active deweighting when noise labels do not follow a symmetric model.
 
 % ------------------------------------------------------------------
@@ -897,15 +897,15 @@ scores, which BN provides.
 \end{figure}
 
 The bounding and warping mechanisms are complementary:
-we test whether combining FR (early-phase gradient bounding) with GCE
+we test whether combining FR (early-phase gradient saturation) with GCE
 (late-phase active deweighting) as a two-phase curriculum outperforms either
 alone in Appendix~\ref{sec:dynamic_loss}.
 These are hypotheses supported by the data; additional controlled ablations
 (varying dataset size, architecture depth) would be needed to isolate each factor
 definitively.
 
-\paragraph{MLP gradient dynamics: why gradient bounding fails without ConvNet structure.}
-To understand why FR hurts MLPs despite its bounded gradient, we repeat the gradient
+\paragraph{MLP gradient dynamics: why gradient saturation fails without ConvNet structure.}
+To understand why FR hurts MLPs despite its gradient saturation, we repeat the gradient
 norm measurement on MLP training (UCI Digits, sym\,40, 3-seed mean).
 Table~\ref{tab:mlp_grad_ratio} reports the noisy/clean ratio trajectory.
 
@@ -938,7 +938,7 @@ on ConvNets. Hellinger likewise grows to 2.40.
 The architecture-specific gradient dynamics now complete the mechanistic picture:
 \begin{itemize}
   \item \textbf{ConvNet:} FR achieves ratio $\approx 1$ (BN + convolutional representations
-    allow bounded gradients to provide true stability) $\to$ gradient benefit dominates $\to$ FR helps.
+    allow gradient saturation to provide true stability) $\to$ gradient benefit dominates $\to$ FR helps.
   \item \textbf{MLP:} FR's ratio grows to 2.61 (gradient stability lost) $\to$ the Ghosh
     condition violation dominates $\to$ FR hurts.
 \end{itemize}
@@ -1109,7 +1109,7 @@ With 10 seeds, the ConvNet results reveal a hierarchy under high symmetric noise
 (sym\,60): GCE ($+9.5\%$) $>$ Hellinger ($+7.6\%$) $>$ FR ($+3.4\%$) $>$ SCE
 ($+1.8\%$) $>$ KL $>$ MAE ($-5.1\%$).
 At asym\,40, FR significantly hurts ($-2.7\%$, $p=0.002$) while Hellinger and
-GCE are neutral, suggesting FR's bounded gradient provides insufficient
+GCE are neutral, suggesting FR's gradient saturation provides insufficient
 discrimination for class-conditional noise.
 
 A gradient norm analysis (3-seed mean, sym\,40) provides direct mechanistic evidence:
@@ -1120,7 +1120,7 @@ A parallel MLP analysis reveals that FR's gradient stability is architecture-spe
 on MLP, FR's ratio grows to 2.61 by epoch 99 (same memorisation direction as KL),
 completing the mechanistic picture of the architecture reversal.
 A 5-seed BN ablation confirms FR is the most BN-robust objective (mean drop
-$-5.3\%$ vs.\ KL's $-13.3\%$), consistent with bounded gradient providing
+$-5.3\%$ vs.\ KL's $-13.3\%$), consistent with gradient saturation providing
 implicit gradient clipping.
 
 Beyond accuracy, FR and Hellinger deliver dramatically better calibration under
