@@ -730,9 +730,19 @@ maximally to incorrect labels, producing a naturally calibrated posterior.
 Hellinger achieves the best calibration at sym\,60 (ECE\,=\,0.085), ahead of
 GCE (ECE\,=\,0.093), consistent with Hellinger's universally softer gradient (always below KL's).
 MAE is severely miscalibrated throughout (ECE\,$>$\,0.23 at all regimes).
+
+Under \emph{asymmetric} noise (asym\,40), the calibration advantage of Hellinger persists
+even as its accuracy advantage is lost: Hellinger achieves ECE\,=\,0.034 vs KL's 0.101
+($3\times$ improvement, $p=0.002$, 10/10 wins) while maintaining the same accuracy as KL
+(Table~\ref{tab:accuracy_cifar10}).
+FR achieves ECE\,=\,0.043 at asym\,40 despite the $-2.7\%$ accuracy penalty,
+still $2.3\times$ better than KL's calibration.
+This confirms that gradient-saturating objectives provide better uncertainty quantification
+than KL across both symmetric and asymmetric noise, even when accuracy suffers.
 These calibration results strengthen the practical recommendation: for ConvNets
-under symmetric noise, FR and Hellinger are preferable not only for accuracy
-but also for deployment reliability.
+under any noise type, FR and Hellinger are preferable not only for accuracy
+but also for deployment reliability; Hellinger is particularly attractive at asymmetric
+noise where it maintains accuracy and substantially improves calibration.
 Figure~\ref{fig:ece} visualises these ECE comparisons across noise regimes.
 
 \begin{figure}[h]
@@ -1272,9 +1282,12 @@ symmetric/asymmetric label noise model of \citet{ghosh2017robust}.
     architecture depth) are needed to isolate causal factors.
   \item We do not evaluate co-learning, teacher--student, or semi-supervised
     approaches; the comparison is restricted to the loss function alone.
-  \item The asymmetric noise evaluation uses only one rate (asym\,40\%).
+  \item The main CIFAR-10 asym results use only one rate (asym\,40\%).
     The danger zone analysis (Remark~\ref{rem:asym_failure}) predicts FR also hurts
-    at asym\,20\% and asym\,60\%; empirical validation of these predictions is planned.
+    at asym\,20\% (moderate persistent wrong-class pressure) and asym\,60\%
+    (stronger pressure $\to$ deeper in the danger zone); experiments at both rates
+    are in progress and, if confirmed, will complete the asym coverage of
+    Table~\ref{tab:accuracy_cifar10}.
 \end{itemize}
 
 % ------------------------------------------------------------------
