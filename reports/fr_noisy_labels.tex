@@ -822,8 +822,11 @@ satisfy the noise-tolerance condition or approximate it.
 For ConvNet/image data under moderate symmetric noise: FR and GCE are
 competitive; avoid MAE, whose flat gradients impair convolutional feature
 learning at moderate dataset scales.
-For asymmetric noise on any architecture: GCE or KL; no loss tested here
-provides a clear advantage across both architecture families.
+For MLP/tabular data under asymmetric noise: MAE is the clear winner
+(consistent $+3$--$8\%$ gains across all three MLP datasets).
+For ConvNet/image data under asymmetric noise: use Hellinger — it maintains
+accuracy and achieves $3\times$ better ECE than KL ($0.034$ vs $0.101$)
+while FR significantly hurts ($-2.7\%$, $p=0.002$).
 
 % ------------------------------------------------------------------
 \section{Related Work}
