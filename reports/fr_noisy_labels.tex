@@ -151,7 +151,11 @@ Our contributions are:
     or GCE; for ConvNet/image data under symmetric noise, GCE is strongest, FR and
     Hellinger reliable and well-calibrated; for ConvNet asymmetric noise, use
     Hellinger (same accuracy as KL, $3\times$ better ECE) or GCE
-    — FR significantly hurts ($-2.7\%$, $p=0.002$).
+    — FR significantly hurts ($-2.7\%$, $p=0.002$);
+    for real/instance-dependent noise, prefer FR or Hellinger over GCE,
+    as GCE's active deweighting suppresses gradients from the clean majority
+    and is counterproductive when noise is sparse or instance-dependent
+    (CIFAR-N aggre $\approx$9\%: GCE hurts $p=0.008$, FR helps $p=0.002$).
 \end{enumerate}
 
 % ------------------------------------------------------------------
@@ -938,10 +942,12 @@ Five qualitatively different gradient dynamics emerge:
     requires the rapid early-representation convergence that ConvNets provide.
 
   \item \textbf{GCE (gradient warping, ratio $< 1$, decreasing).}
-    GCE's gradient $\partial \mathcal{L}_\mathrm{GCE}/\partial p_j =
-    -p_j^{q-1}$ \emph{decreases} as the model grows confident in the wrong class
-    ($p_j \to 1$): the Box--Cox transform actively suppresses gradient signal on
-    high-confidence wrong predictions.
+    GCE's logit gradient $|\partial \mathcal{L}_\mathrm{GCE}/\partial z_j| =
+    p_j^q(1-p_j)$ saturates toward zero as the model grows confident in the wrong class
+    ($p_j \to 1$), actively suppressing gradient signal on high-confidence wrong predictions.
+    GCE is also \emph{universally soft}: $p_j^q(1-p_j) < 1-p_j$ for all
+    $p_j\in(0,1)$ (Remark after Proposition~\ref{prop:grad_saturation}),
+    so it assigns less gradient pressure than KL to \emph{all} examples regardless of confidence.
     By epoch 59, GCE assigns 31\% \emph{less} gradient weight to noisy than to
     clean samples.
     This explains why GCE dominates at high noise (sym\,60): it is the only
