@@ -242,6 +242,7 @@ by contrapositive.
 
 % ------------------------------------------------------------------
 \section{Experimental Setup}
+\label{sec:setup}
 % ------------------------------------------------------------------
 
 \paragraph{Datasets and architectures.}
@@ -257,7 +258,7 @@ families to isolate loss--architecture interactions.
     28$\times$28 grayscale pixels flattened to 784 features.
     10 seeds.
   \item \textbf{FashionMNIST}: Same protocol as MNIST but Zalando fashion items.
-    5 seeds (directional consistency check only; $p_{\min}=0.062$ precludes $p<0.05$).
+    10 seeds.
 \end{itemize}
 
 \textit{ConvNet family (one dataset).}
@@ -350,12 +351,11 @@ Key observations:
     $-2.0\%$ at sym\,60 ($p=0.004$, 0/10 wins).
     MNIST FR: $-1.4\%$ at sym\,40 ($p=0.059$, 2/10 wins, directional);
     $-1.0\%$ at sym\,60 ($p=0.049$, 2/10 wins).
-    FashionMNIST FR: $-1.9\%$ at sym\,40 ($p=0.062$, 0/5 wins);
-    $-1.4\%$ at sym\,60 ($p=0.188$, 1/5 wins).
-    With only 5 seeds ($p_{\min}=0.062$), these do not reach the $p<0.05$ threshold,
-    but the direction is consistent with Digits and MNIST.
+    FashionMNIST FR: $-1.5\%$ at sym\,40 ($p=0.004$, 1/10 wins);
+    $-1.3\%$ at sym\,60 ($p=0.041$, 2/10 wins); both formally significant.
     Hellinger tracks FR closely on all three datasets, confirming the pattern is
-    not dataset-specific.
+    not dataset-specific; on FashionMNIST, Hellinger reaches significance at
+    asym\,40 ($-1.3\%$, $p=0.002$, 0/10 wins) and sym\,80 ($-1.0\%$, $p=0.023$, 2/10 wins).
   \item \textbf{GCE consistently outperforms KL; SCE is unreliable.}
     On Digits, GCE/SCE achieve $+6.1$--$6.3\%$ at sym\,40.
     On MNIST, GCE achieves $+1.8\%$ ($p=0.004$) while SCE falls $-3.7\%$ ($p=0.004$).
@@ -363,6 +363,9 @@ Key observations:
     All objectives converge near random ($\approx 19$--$29\%$) as SNR collapses.
   \item \textbf{Asymmetric noise: only MAE wins consistently.}
     Digits: $+6.2\%$ ($p=0.002$, 10/10 wins). MNIST: $+3.4\%$.
+    FashionMNIST: $+7.6\%$ ($p=0.002$, 10/10 wins).
+    On FashionMNIST at asym\,40, Hellinger ($p=0.002$, 0/10 wins) and SCE ($p=0.012$, 1/10 wins)
+    significantly underperform KL.
 \end{enumerate}
 
 \paragraph{ConvNet family (CIFAR-10).}
@@ -982,21 +985,24 @@ Ghosh et al.\ analysis.
 \appendix
 % ============================================================
 
-\section{FashionMNIST Full Results (5 seeds)}
+\section{FashionMNIST Full Results (10 seeds)}
 \label{sec:fashion_mnist}
 
-Table~\ref{tab:accuracy_fashion} reports mean accuracy on FashionMNIST.
-With only 5 seeds, the minimum achievable Wilcoxon $p$-value is 0.062,
-so no comparison reaches $p<0.05$; we report win counts to convey directionality.
-The pattern is fully consistent with Digits and MNIST:
-MAE dominates at all symmetric noise levels (5/5 wins at sym\,40 and sym\,60),
-while FR is directionally below KL at sym\,40 (0/5 wins, $-1.9\%$).
+Table~\ref{tab:accuracy_fashion} reports mean accuracy on FashionMNIST with 10 seeds
+($p_{\min}=0.002$).
+MAE dominates at all symmetric noise levels (10/10 wins at sym\,40 and sym\,60, $p=0.002$),
+while FR is significantly worse than KL at sym\,40 ($-1.5\%$, $p=0.004$, 1/10 wins) and
+sym\,60 ($-1.3\%$, $p=0.041$, 2/10 wins), consistent with the Ghosh condition analysis
+for MLP architectures.
+At sym\,80, Hellinger significantly underperforms KL ($-1.0\%$, $p=0.023$, 2/10 wins).
+At asym\,40, only MAE helps ($+7.6\%$, $p=0.002$, 10/10 wins); Hellinger ($-1.3\%$,
+$p=0.002$, 0/10 wins) and SCE ($-1.3\%$, $p=0.012$, 1/10 wins) significantly hurt.
 
 \begin{table}[h]
   \centering
-  \caption{Mean test accuracy (\%) on FashionMNIST (5 seeds; no comparison reaches
-    $p<0.05$ due to power limitation).
+  \caption{Mean test accuracy (\%) on FashionMNIST (10 seeds).
     Numbers in parentheses are win counts vs.\ KL.
+    Bold: significantly better than KL ($p<0.05$); underline: significantly worse.
     Pattern is consistent with Table~\ref{tab:accuracy} (Digits) and Table~\ref{tab:accuracy_mnist} (MNIST).}
   \label{tab:accuracy_fashion}
   \small
@@ -1004,12 +1010,12 @@ while FR is directionally below KL at sym\,40 (0/5 wins, $-1.9\%$).
     \toprule
     Noise & KL (CE) & FR & Hellinger & GCE & MAE & SCE \\
     \midrule
-    Clean    & 84.2 & 84.1\,(2/5) & 84.5\,(2/5) & 84.4\,(3/5) & 84.9\,(4/5) & 84.3\,(2/5) \\
-    Sym 20\% & 73.7 & 73.5\,(3/5) & 74.5\,(4/5) & 79.8\,(5/5) & 83.2\,(5/5) & 76.3\,(5/5) \\
-    Sym 40\% & 57.4 & 55.5\,(0/5) & 56.7\,(1/5) & 65.4\,(5/5) & 77.1\,(5/5) & 59.4\,(5/5) \\
-    Sym 60\% & 37.1 & 35.7\,(1/5) & 36.4\,(1/5) & 44.1\,(5/5) & 61.6\,(5/5) & 38.6\,(5/5) \\
-    Sym 80\% & 18.5 & 18.6\,(3/5) & 18.4\,(2/5) & 20.2\,(5/5) & 28.5\,(5/5) & 19.0\,(2/5) \\
-    Asym 40\% & 51.0 & 50.9\,(2/5) & 50.1\,(0/5) & 50.9\,(3/5) & 58.6\,(5/5) & 50.4\,(1/5) \\
+    Clean    & 84.4 & 84.3\,(4/10) & 84.8\,(6/10) & 84.4\,(5/10) & 84.6\,(6/10) & 84.5\,(5/10) \\
+    Sym 20\% & 73.6 & 73.8\,(6/10) & 74.6\,(8/10) & \textbf{79.9}\,(10/10) & \textbf{82.9}\,(10/10) & \textbf{76.3}\,(10/10) \\
+    Sym 40\% & 56.6 & \underline{55.2}\,(1/10) & 56.3\,(3/10) & \textbf{65.5}\,(10/10) & \textbf{76.6}\,(10/10) & \textbf{59.4}\,(10/10) \\
+    Sym 60\% & 37.4 & \underline{36.2}\,(2/10) & 36.8\,(2/10) & \textbf{44.4}\,(10/10) & \textbf{61.6}\,(10/10) & 38.7\,(8/10) \\
+    Sym 80\% & 18.6 & 18.1\,(3/10) & \underline{17.5}\,(2/10) & \textbf{19.7}\,(9/10) & \textbf{28.3}\,(10/10) & 18.4\,(3/10) \\
+    Asym 40\% & 51.1 & 50.4\,(2/10) & \underline{49.8}\,(0/10) & 50.3\,(3/10) & \textbf{58.7}\,(10/10) & \underline{49.8}\,(1/10) \\
     \bottomrule
   \end{tabular}
 \end{table}
