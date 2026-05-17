@@ -252,6 +252,44 @@ and $\mathbf{e}_1$.
 Corollary~\ref{cor:fr_not_robust} follows from Proposition~\ref{prop:ghosh}
 by contrapositive.
 
+\begin{proposition}[Gradient Saturation under Confident Correct Predictions]
+\label{prop:grad_saturation}
+Let $\mathbf{p} = \sigma(\mathbf{z}) \in \Delta^{C-1}$ be the softmax prediction
+and let $e_k$ be the assigned (possibly corrupted) label.
+The gradient of the per-sample loss with respect to the logit $z_k$ satisfies:
+\[
+  \frac{\partial \ell_\mathrm{KL}}{\partial z_k} = p_k - 1 \longrightarrow -1
+  \quad \text{as } p_k \to 0,
+\]
+\[
+  \frac{\partial \ell_\mathrm{FR}}{\partial z_k}
+    = -4\,\arccos(\sqrt{p_k})\cdot\sqrt{p_k}\cdot\sqrt{1-p_k}
+    \longrightarrow 0
+  \quad \text{as } p_k \to 0.
+\]
+Consequently, as the model becomes confident in the \emph{true} class
+($p_{j^*} \to 1$, hence $p_k \to 0$ for a corrupted label $k \neq j^*$),
+KL maintains near-maximal gradient pressure toward the wrong label,
+while FR's gradient saturates to zero, preventing further memorisation.
+\end{proposition}
+
+The proof follows from direct differentiation: $\ell_\mathrm{FR} = 4\arccos^2(\sqrt{p_k})$,
+so $\partial\ell_\mathrm{FR}/\partial p_k = -4\arccos(\sqrt{p_k})/(\sqrt{p_k}\sqrt{1-p_k})$,
+and $\partial p_k/\partial z_k = p_k(1-p_k)$, giving the expression above.
+
+\begin{remark}
+Proposition~\ref{prop:grad_saturation} provides a mechanistic complement to
+Theorem~\ref{thm:fr_no_ntc}: while Theorem~1 shows FR is not
+\emph{asymptotically} noise-tolerant, Proposition~\ref{prop:grad_saturation}
+shows FR is \emph{dynamically} corruption-resistant once the model achieves
+confident correct predictions on most samples.
+This distinction explains the architecture-dependent reversal:
+in ConvNets with batch normalisation, representations converge early enough
+for gradient saturation to operate; in MLPs without such inductive structure,
+corrupted gradients accumulate before saturation, and the Ghosh-condition
+violation dominates.
+\end{remark}
+
 % ------------------------------------------------------------------
 \section{Experimental Setup}
 \label{sec:setup}
