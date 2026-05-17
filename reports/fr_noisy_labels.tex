@@ -58,9 +58,9 @@ A batch-normalization ablation (5 seeds) confirms FR is the most robust to BN re
 Critically, FR and Hellinger also deliver dramatically better calibration under noise:
 at sym\,40, FR achieves ECE\,$=0.025$ vs.\ KL's $0.233$ ($9\times$ improvement),
 making them preferable not only for accuracy but for deployment reliability.
-On CIFAR-N real human-annotated labels, FR achieves 5/5 wins vs.\ KL
-across all three noise conditions, confirming the ConvNet advantage generalizes
-beyond the synthetic noise model.
+On CIFAR-N real human-annotated labels, FR is the only objective significantly
+better than KL across all three noise conditions ($p\leq 0.031$, 6--7/7 wins),
+confirming the ConvNet advantage generalizes beyond the synthetic noise model.
 These findings sharpen the understanding of where information-geometric losses are
 and are not beneficial, and motivate further investigation of loss--architecture
 interactions.
@@ -117,10 +117,12 @@ Our contributions are:
   \item A ConvNet calibration result: FR achieves ECE\,=\,0.025 vs KL's 0.233
     at sym\,40 (a $9\times$ improvement), indicating that bounded-gradient objectives
     are preferable not only for accuracy but also for deployment reliability.
-  \item A CIFAR-N evaluation on real human-annotated labels showing that FR
-    achieves 5/5 wins vs.\ KL at all three annotation conditions (aggre, random1,
-    worse), with gains growing from $+0.6\%$ to $+1.5\%$ as noise increases.
-    MAE collapses at all conditions ($-12\%$ to $-16\%$), confirming the
+  \item A CIFAR-N evaluation on real human-annotated labels showing that FR is
+    the only objective that significantly outperforms KL at all three annotation
+    conditions ($p\leq 0.031$, 6--7/7 wins), with gains growing from $+0.7\%$
+    (aggre) to $+1.4\%$ (worse, $\approx 40\%$ noise).
+    MAE and SCE collapse at low-to-moderate noise ($p=0.016$); GCE
+    significantly hurts at aggre ($p=0.031$), confirming the
     ConvNet reversal generalizes beyond the symmetric noise model.
   \item Practical guidance: for MLP/tabular data under symmetric noise use MAE
     or GCE; for ConvNet/image data under symmetric noise, GCE is strongest, FR and
@@ -958,12 +960,13 @@ FR and Hellinger are reliable alternatives, and they offer the additional benefi
 of excellent calibration.
 For asymmetric noise, use GCE or KL; FR significantly hurts on ConvNet ($-2.7\%$, $p=0.002$).
 
-On CIFAR-N real human-annotated noisy labels, FR achieves 5/5 wins vs.\ KL
-across all three annotation conditions (aggre $+0.6\%$, random1 $+1.4\%$,
-worse $+1.5\%$ at $\approx 40\%$ noise), and MAE collapses ($-12$\,--\,$-16\%$).
-With 5 seeds ($p_{\min}=0.062$), these are directional rather than statistically
-confirmed, but the perfect 15/15 consistency across conditions supports
-generalization beyond the symmetric noise model.
+On CIFAR-N real human-annotated noisy labels, FR is the only objective that
+significantly outperforms KL at all three annotation conditions ($p\leq 0.031$,
+7 seeds): aggre $+0.7\%$, random1 $+1.0\%$, worse $+1.4\%$ ($\approx 40\%$ noise).
+MAE and SCE significantly hurt at low-to-moderate noise ($p=0.016$); GCE
+significantly hurts at aggre ($p=0.031$).
+These formally significant results confirm the ConvNet advantage holds under
+instance-dependent noise, independent of the synthetic noise model.
 
 Future work should (i) scale to ResNet-18 on full CIFAR-10 to confirm the
 finding at the 5$\times$ larger dataset and deeper architecture scale,
