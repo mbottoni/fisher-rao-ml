@@ -116,6 +116,11 @@ Our contributions are:
   \item A ConvNet calibration result: FR achieves ECE\,=\,0.025 vs KL's 0.233
     at sym\,40 (a $9\times$ improvement), indicating that bounded-gradient objectives
     are preferable not only for accuracy but also for deployment reliability.
+  \item A CIFAR-N evaluation on real human-annotated labels showing that FR
+    achieves 5/5 wins vs.\ KL at all three annotation conditions (aggre, random1,
+    worse), with gains growing from $+0.6\%$ to $+1.5\%$ as noise increases.
+    MAE collapses at all conditions ($-12\%$ to $-16\%$), confirming the
+    ConvNet reversal generalizes beyond the symmetric noise model.
   \item Practical guidance: for MLP/tabular data under symmetric noise use MAE
     or GCE; for ConvNet/image data under symmetric noise, GCE is strongest, FR and
     Hellinger reliable and well-calibrated; for asymmetric noise, use GCE or KL
