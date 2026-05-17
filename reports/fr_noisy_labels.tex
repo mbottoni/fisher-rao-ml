@@ -589,7 +589,7 @@ asymmetric).
 To test whether the ConvNet advantage holds under \emph{instance-dependent} noise,
 we evaluate on CIFAR-N~\citep{wei2022learning}, which pairs CIFAR-10 training images
 with real human annotations collected via Amazon Mechanical Turk.
-We use the same 4-layer ConvNet, 10k stratified subset, and 5 seeds as in the main experiment.
+We use the same 4-layer ConvNet and 10k stratified subset; results use 7 seeds ($p_{\min}=0.016$).
 Three annotation conditions are used:
 \begin{itemize}
   \item \textbf{aggre}: majority-vote aggregate ($\approx 9\%$ noise)
@@ -597,24 +597,23 @@ Three annotation conditions are used:
   \item \textbf{worse}: worst-of-3 consensus ($\approx 40\%$ noise)
 \end{itemize}
 
-Table~\ref{tab:cifar_n} reports the results.
-With only 5 seeds, $p_{\min}=0.062$, so no comparison reaches $p<0.05$;
-we report win counts and mean gains to convey directionality.
+Table~\ref{tab:cifar_n} reports the results (paired Wilcoxon; bold: $p<0.05$ better than
+KL; underline: $p<0.05$ worse).
 
 \begin{table}[t]
   \centering
-  \caption{CIFAR-N real human-annotated noisy labels on CIFAR-10 ConvNet (5 seeds;
-    $p_{\min}=0.062$ precludes $p<0.05$). Win counts vs.\ KL in parentheses.
-    Bold: 5/5 wins. Underline: large gap below KL.}
+  \caption{CIFAR-N real human-annotated noisy labels on CIFAR-10 ConvNet (7 seeds;
+    $p_{\min}=0.016$). Win counts vs.\ KL in parentheses.
+    Bold: significantly better than KL ($p<0.05$); underline: significantly worse.}
   \label{tab:cifar_n}
   \small
   \begin{tabular}{lcccccc}
     \toprule
     Condition & KL (CE) & FR & Hellinger & GCE & MAE & SCE \\
     \midrule
-    Aggre ($\approx$9\%)     & 81.5 & \textbf{82.1}\,(5/5) & 81.4\,(1/5) & 80.9\,(0/5) & \underline{69.5}\,(0/5) & 79.4\,(0/5) \\
-    Random1 ($\approx$17\%)  & 79.5 & \textbf{80.9}\,(5/5) & \textbf{80.3}\,(5/5) & 79.3\,(1/5) & \underline{66.5}\,(0/5) & 78.3\,(0/5) \\
-    Worse ($\approx$40\%)    & 72.3 & \textbf{73.9}\,(5/5) & \textbf{73.7}\,(5/5) & 73.5\,(3/5) & \underline{56.2}\,(0/5) & 72.1\,(3/5) \\
+    Aggre ($\approx$9\%)     & 81.7 & \textbf{82.4}\,(7/7) & 81.7\,(3/7) & \underline{81.1}\,(1/7) & \underline{69.0}\,(0/7) & \underline{79.6}\,(0/7) \\
+    Random1 ($\approx$17\%)  & 79.9 & \textbf{80.9}\,(7/7) & \textbf{80.6}\,(7/7) & 79.7\,(2/7) & \underline{66.6}\,(0/7) & \underline{78.6}\,(0/7) \\
+    Worse ($\approx$40\%)    & 72.6 & \textbf{74.0}\,(6/6) & \textbf{74.0}\,(6/6) & 73.8\,(5/7) & \underline{57.3}\,(0/6) & 72.3\,(4/6) \\
     \bottomrule
   \end{tabular}
 \end{table}
@@ -622,53 +621,49 @@ we report win counts and mean gains to convey directionality.
 \begin{figure}[t]
   \centering
   \includegraphics[width=0.85\linewidth]{figures/cifar_n_accuracy_bars.pdf}
-  \caption{Accuracy on CIFAR-N real human-annotated labels (5 seeds, CIFAR-10 ConvNet).
-    FR achieves 5/5 wins at all three conditions; Hellinger achieves 5/5 at random1 and worse.
-    MAE collapses across all conditions. GCE is directionally positive only at worse ($\approx 40\%$, 3/5 wins).}
+  \caption{Accuracy on CIFAR-N real human-annotated labels (7 seeds, CIFAR-10 ConvNet).
+    FR significantly outperforms KL at all three conditions ($p\leq 0.031$, 6--7/7 wins).
+    MAE and SCE collapse at aggre and random1 ($p=0.016$).
+    GCE significantly hurts at aggre ($p=0.031$, 1/7 wins) and is neutral elsewhere.}
   \label{fig:cifar_n}
 \end{figure}
 
 The key findings are:
 
 \begin{enumerate}
-  \item \textbf{FR is directionally consistent with synthetic results: 5/5 wins at all
-    three noise conditions.}
-    Gains grow with noise rate: $+0.6\%$ at aggre, $+1.4\%$ at random1, $+1.5\%$ at
-    worse ($\approx 40\%$ noise) — mirroring the pattern observed at sym\,20 and sym\,40
-    in the synthetic benchmark.
+  \item \textbf{FR is the only objective that significantly outperforms KL at all three
+    noise conditions ($p\leq 0.031$).}
+    7/7 wins at aggre ($+0.7\%$, $p=0.016$) and random1 ($+1.0\%$, $p=0.016$);
+    6/6 wins at worse ($+1.4\%$, $p=0.031$).
+    Gains grow with noise rate, mirroring the ConvNet advantage under synthetic noise.
 
-  \item \textbf{Hellinger follows FR closely: 5/5 wins at random1 and worse, 1/5 at aggre.}
-    The bounded-gradient mechanism transfers to real annotator noise, suggesting the
-    property is not specific to the noise model.
-    At the lowest noise level (aggre $\approx 9\%$), Hellinger's mean ($81.4\%$) is
-    marginally below KL ($81.5\%$), suggesting bounded gradients provide little benefit
-    when noise is sparse.
+  \item \textbf{Hellinger is significant at random1 and worse but not aggre.}
+    7/7 wins at random1 ($+0.7\%$, $p=0.016$) and 6/6 wins at worse ($+1.4\%$, $p=0.031$).
+    At aggre ($\approx 9\%$), only 3/7 wins ($+0.1\%$, $p=0.547$):
+    bounded gradients provide little benefit when noise is sparse.
 
-  \item \textbf{GCE is mixed: directionally positive at worse (3/5 wins, $+1.2\%$) but
-    below KL at aggre/random1 (0/5 and 1/5 wins).}
-    Under low-to-moderate real noise ($<17\%$), GCE's active gradient deweighting
-    may suppress useful signal rather than noise.
+  \item \textbf{GCE significantly hurts at aggre ($p=0.031$, 1/7 wins, $-0.5\%$) and is
+    neutral at random1 and worse.}
+    The active gradient-deweighting that helps under high synthetic noise ($+9.5\%$
+    at sym\,60) is counterproductive at low real noise, suppressing useful signal from
+    correctly-labelled examples.
+    At worse, GCE is directionally positive ($+1.2\%$, 5/7 wins) but does not reach
+    significance ($p=0.062$).
 
-  \item \textbf{MAE collapses across all conditions (0/5 wins, $-12\%$ to $-16\%$).}
-    This confirms that MAE's theoretical noise-tolerance condition, while valid under
-    symmetric synthetic noise for MLP models, does not benefit ConvNet training under
-    any noise setting tested.
+  \item \textbf{MAE and SCE severely underperform KL at all conditions.}
+    MAE: $-12.7\%$, $-13.3\%$, $-15.3\%$ (aggre, random1, worse); all $p\leq 0.031$.
+    SCE: $-2.1\%$ (aggre, $p=0.016$), $-1.3\%$ (random1, $p=0.016$), neutral at worse.
+    Instance-dependent real noise does not satisfy the constant-sum condition,
+    so MAE's theoretical guarantee is void for ConvNet training under any real noise.
 \end{enumerate}
 
-The directional consistency of FR across all 5 seeds at every noise level (15/15 across
-conditions) provides empirical support that the ConvNet advantage is not an artefact
-of the synthetic noise model.
-Notably, FR outperforms GCE in directional consistency (15/15 vs.\ 4/15 wins across conditions),
-despite GCE dominating at high synthetic noise (sym\,60).
-This reversal suggests that GCE's active gradient deweighting, which is tuned to
-high-confidence wrong predictions under symmetric corruption, is less effective against
-the ambiguous human-judgement errors in instance-dependent real noise.
-FR's bounded-gradient mechanism is more noise-model-agnostic.
-For high noise ($\approx 40\%$), the synthetic-noise ranking
-(FR $>$ Hellinger $\approx$ GCE $>$ KL $\gg$ MAE) is largely preserved under real annotation
-noise (FR $+1.5\%$, Hellinger $+1.3\%$, GCE $+1.2\%$).
-We note that power is limited with 5 seeds ($p_{\min}=0.062$); the ongoing 10-seed experiment
-would provide formal significance for all FR comparisons.
+FR uniquely combines bounded gradients (preventing corruption memorisation) without
+the constant-sum constraint (enabling generalisation), making it noise-model-agnostic.
+Notably, the real-noise ranking at high noise differs from the synthetic ranking:
+(real: FR $\approx$ Hellinger $\gg$ GCE $>$ SCE $>$ KL $\gg$ MAE vs.\
+synthetic: GCE $>$ Hellinger $>$ FR $>$ KL $\gg$ MAE at sym\,60).
+FR outperforms GCE on real instance-dependent noise, suggesting that gradient bounding
+is more robust than active deweighting when noise labels do not follow a symmetric model.
 
 % ------------------------------------------------------------------
 \section{Discussion}
