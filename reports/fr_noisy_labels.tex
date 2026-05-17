@@ -290,16 +290,18 @@ a second family of gradient-saturating losses distinct from FR.
 
 \begin{corollary}[Quantitative gradient advantage]
 \label{cor:grad_ratio}
-For any $\delta \in (0,1/2)$, if the model assigns $p_k \leq \delta$ to the corrupted label, then
+As $\delta \to 0$, if the model assigns $p_k = \delta$ to the corrupted label, then
 \[
   \frac{|\partial\ell_\mathrm{FR}/\partial z_k|}{|\partial\ell_\mathrm{KL}/\partial z_k|}
-  \;\leq\;
+  \;=\;
   \frac{4\arccos(\sqrt{\delta})\,\sqrt{\delta}\,\sqrt{1-\delta}}{1-\delta}
-  \;=\; O(\sqrt{\delta}).
+  \;\sim\; 2\pi\sqrt{\delta}
+  \;=\; O(\sqrt{\delta}),
 \]
-As $\delta \to 0$ (model increasingly confident in the true class),
-this ratio goes to zero: FR applies arbitrarily less gradient pressure than KL
-on correctly-classified corrupted samples.
+since $\arccos(\sqrt{\delta}) \to \pi/2$ as $\delta \to 0$.
+Therefore, as the model becomes confident in the true class ($p_k \to 0$), FR
+applies $O(\sqrt{p_k})$ times less gradient pressure than KL on the corrupted label:
+the advantage is unbounded (the ratio vanishes) while KL's gradient approaches $1$.
 \end{corollary}
 
 \begin{figure}[h]
