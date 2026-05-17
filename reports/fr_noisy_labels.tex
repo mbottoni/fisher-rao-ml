@@ -125,9 +125,15 @@ Our contributions are:
     to zero as the model becomes confident in the true class, explaining the
     ConvNet recovery: once representations converge under BN, FR stops
     applying pressure toward corrupted labels;
-    (c) a gradient comparison shows Hellinger's gradient is \emph{always} below KL's
-    (max $\approx$0.19 vs KL's $\approx$1), while FR exceeds KL for $p_k \in (0.032,1)$,
-    explaining why Hellinger outperforms FR at high symmetric noise.
+    (c) a gradient comparison introduces the \emph{FR danger zone} $(p^*,1)$
+    with $p^*\approx 0.032$: for $p_k>p^*$, FR applies \emph{more} gradient
+    pressure toward the corrupted label than KL.
+    Hellinger and GCE are \emph{universally soft} (gradient always below KL's),
+    explaining why Hellinger ($+7.6\%$) outperforms FR ($+3.4\%$) at sym\,60.
+    Under asymmetric noise, the same corrupted-class pair keeps $p_k$ persistently
+    in the danger zone throughout training, causing FR to amplify the wrong-label
+    gradient by $2.75\times$ (at $p_k=0.35$, asym\,40), explaining FR's $-2.7\%$
+    loss vs.\ Hellinger's neutral result.
   \item Mechanistic analysis via gradient norm trajectories (3-seed mean, sym\,40):
     KL memorises noisy samples (noisy/clean norm ratio 1.49$\uparrow$), FR saturates
     (ratio 0.98$\approx$1), GCE actively deweights (ratio 0.69$\downarrow$),
