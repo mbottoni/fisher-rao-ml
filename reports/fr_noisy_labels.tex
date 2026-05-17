@@ -111,16 +111,19 @@ Our contributions are:
   \item The empirical observation that FR's behavior \emph{reverses} between
     architectures: harmful for MLP under symmetric noise, beneficial for
     ConvNet; MAE reverses in the opposite direction.
-  \item A formal analysis consisting of two complementary results:
+  \item A formal analysis consisting of two complementary results plus a structural comparison:
     (a) Theorem~\ref{thm:fr_no_ntc} shows FR, Hellinger, and any Bhattacharyya-form
     loss cannot satisfy the Ghosh noise-tolerance condition, explaining the MLP failure;
     (b) Proposition~\ref{prop:grad_saturation} shows FR's logit gradient saturates
     to zero as the model becomes confident in the true class, explaining the
     ConvNet recovery: once representations converge under BN, FR stops
-    applying pressure toward corrupted labels.
+    applying pressure toward corrupted labels;
+    (c) a gradient comparison shows Hellinger's gradient is \emph{always} below KL's
+    (max $\approx$0.19 vs KL's $\approx$1), while FR exceeds KL for $p_k \in (0.032,1)$,
+    explaining why Hellinger outperforms FR at high symmetric noise.
   \item Mechanistic analysis via gradient norm trajectories (3-seed mean, sym\,40):
-    KL memorises noisy samples (noisy/clean norm ratio 1.49$\uparrow$), FR bounds
-    gradients (ratio 0.98$\approx$1), GCE actively deweights (ratio 0.69$\downarrow$),
+    KL memorises noisy samples (noisy/clean norm ratio 1.49$\uparrow$), FR saturates
+    (ratio 0.98$\approx$1), GCE actively deweights (ratio 0.69$\downarrow$),
     SCE deweights erratically (ratio 0.56, oscillating),
     explaining the empirical ordering GCE $>$ Hellinger $>$ FR $>$ SCE $>$ KL $>$ MAE at sym\,60.
     A parallel MLP analysis (Table~\ref{tab:mlp_grad_ratio}) shows that FR's gradient
