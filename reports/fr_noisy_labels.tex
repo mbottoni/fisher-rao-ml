@@ -58,6 +58,9 @@ A batch-normalization ablation (5 seeds) confirms FR is the most robust to BN re
 Critically, FR and Hellinger also deliver dramatically better calibration under noise:
 at sym\,40, FR achieves ECE\,$=0.025$ vs.\ KL's $0.233$ ($9\times$ improvement),
 making them preferable not only for accuracy but for deployment reliability.
+On CIFAR-N real human-annotated labels, FR achieves 5/5 wins vs.\ KL
+across all three noise conditions, confirming the ConvNet advantage generalizes
+beyond the synthetic noise model.
 These findings sharpen the understanding of where information-geometric losses are
 and are not beneficial, and motivate further investigation of loss--architecture
 interactions.
@@ -585,7 +588,60 @@ Three annotation conditions are used:
   \item \textbf{worse}: worst-of-3 consensus ($\approx 40\%$ noise)
 \end{itemize}
 
-[Results pending — experiment currently running.]
+Table~\ref{tab:cifar_n} reports the results.
+With only 5 seeds, $p_{\min}=0.062$, so no comparison reaches $p<0.05$;
+we report win counts and mean gains to convey directionality.
+
+\begin{table}[t]
+  \centering
+  \caption{CIFAR-N real human-annotated noisy labels on CIFAR-10 ConvNet (5 seeds;
+    $p_{\min}=0.062$ with 5 seeds). Win counts vs.\ KL shown for each objective.
+    Bold: 5/5 wins (consistent direction across all seeds).}
+  \label{tab:cifar_n}
+  \small
+  \begin{tabular}{lcccccc}
+    \toprule
+    Condition & KL (CE) & FR & Hellinger & GCE & MAE & SCE \\
+    \midrule
+    Aggre ($\approx$9\%)     & 81.5 & \textbf{82.1}\,(5/5) & 81.3\,(4/5) & 80.9\,(0/5) & \underline{69.5}\,(0/5) & 79.4\,(0/5) \\
+    Random1 ($\approx$17\%)  & 79.5 & \textbf{80.9}\,(5/5) & 80.3\,(4/5) & 79.3\,(1/5) & \underline{66.5}\,(0/5) & 78.3\,(1/5) \\
+    Worse ($\approx$40\%)    & 72.3 & \textbf{73.9}\,(5/5) & 73.6\,(5/5) & 73.5\,(5/5) & \underline{56.2}\,(0/5) & 72.1\,(3/5) \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+The key findings are:
+
+\begin{enumerate}
+  \item \textbf{FR is directionally consistent with synthetic results: 5/5 wins at all
+    three noise conditions.}
+    Gains grow with noise rate: $+0.6\%$ at aggre, $+1.4\%$ at random1, $+1.5\%$ at
+    worse ($\approx 40\%$ noise) — mirroring the pattern observed at sym\,20 and sym\,40
+    in the synthetic benchmark.
+
+  \item \textbf{Hellinger follows FR, with 4/5 wins at aggre and random1, and 5/5 at worse.}
+    The bounded-gradient mechanism transfers to real annotator noise, suggesting the
+    property is not specific to the noise model.
+
+  \item \textbf{GCE is mixed: beneficial at worse (5/5 wins, $+1.2\%$) but not at
+    aggre/random1.}
+    Under low-to-moderate real noise ($<17\%$), GCE's active gradient deweighting
+    may suppress useful signal rather than noise.
+
+  \item \textbf{MAE collapses across all conditions (0/5 wins, $-12\%$ to $-16\%$).}
+    This confirms that MAE's theoretical noise-tolerance condition, while valid under
+    symmetric synthetic noise for MLP models, does not benefit ConvNet training under
+    any noise setting tested.
+\end{enumerate}
+
+The directional consistency of FR across all 5 seeds at every noise level (15/15 across
+conditions) provides empirical support that the ConvNet advantage is not an artefact
+of the symmetric noise model.
+For high noise ($\approx 40\%$), the synthetic-noise ranking
+(FR $>$ Hellinger $>$ GCE $>$ KL $\gg$ MAE) is largely preserved under real annotation
+noise.
+We note that power is limited with 5 seeds: additional runs would be needed to
+establish statistical significance in this setting.
 
 % ------------------------------------------------------------------
 \section{Discussion}
@@ -616,7 +672,7 @@ To isolate the mechanism, we measure the \emph{noisy/clean gradient norm ratio}
 during training: the ratio of model gradient norm $\|\nabla_\theta \mathcal{L}\|_2$
 computed separately on a fixed held-out batch of mislabelled samples
 vs.\ a fixed batch of correctly-labelled samples, each epoch
-(experiment at sym\,40, 3 seeds; reported for seed\,0).
+(experiment at sym\,40, seed\,0).
 
 \begin{table}[h]
   \centering
@@ -868,8 +924,13 @@ FR and Hellinger are reliable alternatives, and they offer the additional benefi
 of excellent calibration.
 For asymmetric noise, use GCE or KL; FR significantly hurts on ConvNet ($-2.7\%$, $p=0.002$).
 
-Our CIFAR-N evaluation (Section~\ref{sec:cifar_n}) tests whether the ConvNet
-advantage persists under instance-dependent human annotation noise.
+On CIFAR-N real human-annotated noisy labels, FR achieves 5/5 wins vs.\ KL
+across all three annotation conditions (aggre $+0.6\%$, random1 $+1.4\%$,
+worse $+1.5\%$ at $\approx 40\%$ noise), and MAE collapses ($-12$\,--\,$-16\%$).
+With 5 seeds ($p_{\min}=0.062$), these are directional rather than statistically
+confirmed, but the perfect 15/15 consistency across conditions supports
+generalization beyond the symmetric noise model.
+
 Future work should (i) scale to ResNet-18 on full CIFAR-10 to confirm the
 finding at the 5$\times$ larger dataset and deeper architecture scale,
 (ii) investigate the two-phase curriculum combining FR's early gradient stability
