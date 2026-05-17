@@ -117,6 +117,8 @@ Our contributions are:
   \item A ConvNet calibration result: FR achieves ECE\,=\,0.025 vs KL's 0.233
     at sym\,40 (a $9\times$ improvement), indicating that bounded-gradient objectives
     are preferable not only for accuracy but also for deployment reliability.
+    The advantage is conditional on noise: at clean training, KL is significantly
+    better calibrated than FR (ECE\,=\,0.044 vs 0.083, $p=0.002$).
   \item A CIFAR-N evaluation on real human-annotated labels showing that FR is
     the only objective that significantly outperforms KL at all three annotation
     conditions ($p=0.016$, 7/7 wins), with gains growing from $+0.7\%$
@@ -126,8 +128,9 @@ Our contributions are:
     ConvNet reversal generalizes beyond the symmetric noise model.
   \item Practical guidance: for MLP/tabular data under symmetric noise use MAE
     or GCE; for ConvNet/image data under symmetric noise, GCE is strongest, FR and
-    Hellinger reliable and well-calibrated; for asymmetric noise, use GCE or KL
-    — FR significantly hurts on ConvNet at asym\,40 ($-2.7\%$, $p=0.002$).
+    Hellinger reliable and well-calibrated; for ConvNet asymmetric noise, use
+    Hellinger (same accuracy as KL, $3\times$ better ECE) or GCE
+    — FR significantly hurts ($-2.7\%$, $p=0.002$).
 \end{enumerate}
 
 % ------------------------------------------------------------------
@@ -903,9 +906,11 @@ symmetric/asymmetric label noise model of \citet{ghosh2017robust}.
 
 \begin{itemize}
   \item The CIFAR-10 experiment uses only 10k training samples. Preliminary 50k
-    results (2 seeds, same 4-layer ConvNet) confirm the pattern: FR beats KL at
-    sym\,20 ($+1.2\%$) and sym\,40 ($+2.6\%$); MAE partially recovers at
-    sym\,40 ($+0.9\%$ vs KL) but remains far below at sym\,60 ($-8.9\%$),
+    results (3 seeds for clean, sym\,20, sym\,40; 2 seeds for sym\,60, asym\,40;
+    all directional only, $p_{\min}=0.250$ for $n=3$) confirm the pattern:
+    FR beats KL at sym\,20 ($+1.1\%$, 3/3) and sym\,40 ($+2.2\%$, 3/3);
+    GCE also dominates at sym\,40 ($+2.2\%$, 3/3); MAE is near-neutral at
+    sym\,40 ($+0.6\%$) but remains far below at sym\,60 ($-8.9\%$),
     consistent with the flat-gradient hypothesis.
     Scaling to ResNet-18 requires additional GPU compute.
   \item The CIFAR-10 experiment uses 10 seeds ($p_{\min}\approx0.002$, all regimes
