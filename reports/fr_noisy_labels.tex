@@ -1192,9 +1192,15 @@ Future work should (i) scale to ResNet-18 on full CIFAR-10 to confirm the
 finding at the 5$\times$ larger dataset and deeper architecture scale,
 (ii) investigate the two-phase curriculum combining FR's early gradient stability
 with GCE's late-phase denoising (Appendix~\ref{sec:dynamic_loss}),
-and (iii) develop a theoretical framework
-accounting for architecture and optimization dynamics beyond the asymptotic
-Ghosh et al.\ analysis.
+(iii) develop a theoretical framework accounting for architecture and optimization
+dynamics beyond the asymptotic Ghosh et al.\ analysis — specifically, a convergence
+rate condition that formally characterises when gradient saturation becomes beneficial,
+(iv) study Vision Transformers (ViTs, which use LayerNorm rather than BN and have
+no convolutional inductive bias) to determine whether they follow the MLP or ConvNet
+pattern, completing the architecture map, and
+(v) formally characterise the class of ``universally soft'' losses (those whose gradient
+is always below KL's) of which Hellinger is an instance, investigating whether this
+property is sufficient for noise robustness without the amplification risk.
 
 \bibliographystyle{plainnat}
 \bibliography{references}
