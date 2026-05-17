@@ -832,11 +832,20 @@ Five qualitatively different gradient dynamics emerge:
     -4\arccos(\sqrt{p_j})\sqrt{p_j}\sqrt{1-p_j} \to 0$ as $p_j \to 0$:
     once the model correctly suppresses the corrupted label, FR stops applying
     pressure toward it.
-    Hellinger's gradient $1 - 1/\sqrt{p_j}$ (via softmax chain rule) analogously saturates.
+    Hellinger's gradient analogously saturates.
     Both ratios stabilise near 1.0: the model does not preferentially overfit to
     mislabelled samples, even late in training.
     Hellinger's slightly lower ratio (0.88 vs 0.98) is consistent with its earlier
     saturation, which may explain Hellinger's stronger result at sym\,60.
+
+    \textit{Caveat: early-training amplification.}
+    At moderate $p_j \approx 0.28$, FR's gradient peaks at $\approx 1.82$ (visible in
+    Figure~\ref{fig:grad_saturation}), exceeding KL's maximum of $1.0$.
+    When the model remains uncertain for extended periods (as on MLPs without
+    convolutional inductive bias), this early-phase amplification can dominate, and the
+    gradient ratio grows above 1 rather than saturating: on MLP, FR reaches ratio $2.61$
+    by epoch 99 (Table~\ref{tab:mlp_grad_ratio}), explaining why gradient saturation
+    requires the rapid early-representation convergence that ConvNets provide.
 
   \item \textbf{GCE (gradient warping, ratio $< 1$, decreasing).}
     GCE's gradient $\partial \mathcal{L}_\mathrm{GCE}/\partial p_j =
