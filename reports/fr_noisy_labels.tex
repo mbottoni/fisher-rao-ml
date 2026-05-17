@@ -609,9 +609,9 @@ we report win counts and mean gains to convey directionality.
     \toprule
     Condition & KL (CE) & FR & Hellinger & GCE & MAE & SCE \\
     \midrule
-    Aggre ($\approx$9\%)     & 81.5 & \textbf{82.1}\,(5/5) & 81.3\,(4/5) & 80.9\,(0/5) & \underline{69.5}\,(0/5) & 79.4\,(0/5) \\
-    Random1 ($\approx$17\%)  & 79.5 & \textbf{80.9}\,(5/5) & 80.3\,(4/5) & 79.3\,(1/5) & \underline{66.5}\,(0/5) & 78.3\,(1/5) \\
-    Worse ($\approx$40\%)    & 72.3 & \textbf{73.9}\,(5/5) & 73.6\,(5/5) & 73.5\,(5/5) & \underline{56.2}\,(0/5) & 72.1\,(3/5) \\
+    Aggre ($\approx$9\%)     & 81.5 & \textbf{82.1}\,(5/5) & 81.4\,(1/5) & 80.9\,(0/5) & \underline{69.5}\,(0/5) & 79.4\,(0/5) \\
+    Random1 ($\approx$17\%)  & 79.5 & \textbf{80.9}\,(5/5) & \textbf{80.3}\,(5/5) & 79.3\,(1/5) & \underline{66.5}\,(0/5) & 78.3\,(0/5) \\
+    Worse ($\approx$40\%)    & 72.3 & \textbf{73.9}\,(5/5) & \textbf{73.7}\,(5/5) & 73.5\,(3/5) & \underline{56.2}\,(0/5) & 72.1\,(3/5) \\
     \bottomrule
   \end{tabular}
 \end{table}
@@ -634,12 +634,15 @@ The key findings are:
     worse ($\approx 40\%$ noise) — mirroring the pattern observed at sym\,20 and sym\,40
     in the synthetic benchmark.
 
-  \item \textbf{Hellinger follows FR, with 4/5 wins at aggre and random1, and 5/5 at worse.}
+  \item \textbf{Hellinger follows FR closely: 5/5 wins at random1 and worse, 1/5 at aggre.}
     The bounded-gradient mechanism transfers to real annotator noise, suggesting the
     property is not specific to the noise model.
+    At the lowest noise level (aggre $\approx 9\%$), Hellinger's mean ($81.4\%$) is
+    marginally below KL ($81.5\%$), suggesting bounded gradients provide little benefit
+    when noise is sparse.
 
-  \item \textbf{GCE is mixed: beneficial at worse (5/5 wins, $+1.2\%$) but not at
-    aggre/random1.}
+  \item \textbf{GCE is mixed: directionally positive at worse (3/5 wins, $+1.2\%$) but
+    below KL at aggre/random1 (0/5 and 1/5 wins).}
     Under low-to-moderate real noise ($<17\%$), GCE's active gradient deweighting
     may suppress useful signal rather than noise.
 
@@ -653,8 +656,8 @@ The directional consistency of FR across all 5 seeds at every noise level (15/15
 conditions) provides empirical support that the ConvNet advantage is not an artefact
 of the symmetric noise model.
 For high noise ($\approx 40\%$), the synthetic-noise ranking
-(FR $>$ Hellinger $>$ GCE $>$ KL $\gg$ MAE) is largely preserved under real annotation
-noise.
+(FR $>$ Hellinger $\approx$ GCE $>$ KL $\gg$ MAE) is largely preserved under real annotation
+noise (FR $+1.5\%$, Hellinger $+1.3\%$, GCE $+1.2\%$).
 We note that power is limited with 5 seeds: additional runs would be needed to
 establish statistical significance in this setting.
 
