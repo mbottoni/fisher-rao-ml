@@ -1219,21 +1219,40 @@ symmetric/asymmetric label noise model of \citet{ghosh2017robust}.
 
 \begin{itemize}
   \item The CIFAR-10 experiment uses only 10k training samples.
-    A 50k benchmark (3 seeds, directional only, $p_{\min}=0.250$) confirms the pattern:
-    FR beats KL at sym\,20 ($+1.1\%$, 3/3) and sym\,40 ($+2.2\%$, 3/3);
-    GCE dominates at sym\,60 ($+3.6\%$, 3/3) and sym\,40 ($+2.2\%$, 3/3),
-    consistent with the 10k hierarchy.
-    MAE is near-neutral at sym\,40 ($+0.6\%$) but collapses at sym\,60 ($-9.8\%$, 3/3).
-    At asym\,40 (3 seeds, directional only): all non-KL objectives hurt accuracy
-    (FR $-2.4\%$, Hellinger $-3.3\%$, GCE $-5.3\%$, MAE $-21.5\%$),
-    suggesting the KL advantage under asymmetric noise is amplified at 50k scale.
-    Notably, the 50k calibration picture diverges from accuracy: at sym\,40, FR
-    (ECE\,=\,0.040) and Hellinger (ECE\,=\,0.024) maintain strong calibration
-    vs.\ KL (ECE\,=\,0.292), consistent with the 10k finding.
-    At asym\,40, GCE achieves ECE\,=\,0.060 vs.\ KL's 0.291 (4.8$\times$ improvement)
-    despite the $-5.3\%$ accuracy cost, indicating that active deweighting may be
-    preferred at scale when calibration is the primary deployment concern.
+    A 50k benchmark (3 seeds, directional only, $p_{\min}=0.250$) confirms the pattern;
+    Table~\ref{tab:50k} summarises accuracy gain vs KL and ECE.
+    The accuracy hierarchy is consistent with the 10k results: FR and GCE lead at sym\,40;
+    GCE dominates at sym\,60 ($+3.6\%$); at asym\,40, all non-KL objectives hurt.
+    The calibration picture at 50k reveals a richer story:
+    at sym\,40, Hellinger achieves ECE\,=\,0.024 vs.\ KL's 0.292 ($12\times$ improvement);
+    at sym\,60, GCE achieves ECE\,=\,0.026 vs.\ KL's 0.432 ($16\times$ improvement);
+    at asym\,40, GCE achieves ECE\,=\,0.060 vs.\ KL's 0.291 ($4.8\times$ improvement)
+    despite the $-5.3\%$ accuracy cost, confirming that active deweighting provides
+    excellent calibration when prediction accuracy can be sacrificed.
     Scaling to ResNet-18 requires additional GPU compute.
+
+\begin{table}[h]
+  \centering
+  \caption{50k CIFAR-10 ConvNet benchmark (3 seeds, directional only).
+    Accuracy gain vs KL (\%) and ECE (lower is better).
+    Accuracy: bold = direction consistent 3/3; underline = consistently worse.
+    ECE: bold = $>5\times$ better than KL (i.e.\ $<0.2\times$ KL's ECE).}
+  \label{tab:50k}
+  \small
+  \begin{tabular}{lcccccc}
+    \toprule
+    & \multicolumn{6}{c}{Accuracy gain vs KL (\%) / ECE} \\
+    \cmidrule(lr){2-7}
+    Noise & FR & Hellinger & GCE & MAE & SCE & KL ECE \\
+    \midrule
+    Clean    & $-0.1$ / 0.038 & $-0.3$ / 0.026 & $-1.0$ / 0.045 & $-2.5$ / 0.068 & $-2.4$ / 0.075 & 0.017 \\
+    Sym 20\% & $\mathbf{+1.1}$ / \textbf{0.027} & $\mathbf{+1.0}$ / \textbf{0.022} & $\mathbf{+0.8}$ / 0.045 & $\underline{-0.8}$ / 0.072 & $\underline{-0.9}$ / 0.081 & 0.138 \\
+    Sym 40\% & $\mathbf{+2.2}$ / 0.040 & $\mathbf{+1.7}$ / \textbf{0.024} & $\mathbf{+2.2}$ / 0.043 & $+0.6$ / 0.083 & $+1.4$ / 0.073 & 0.292 \\
+    Sym 60\% & $\mathbf{+1.0}$ / 0.196 & $\mathbf{+0.7}$ / 0.153 & $\mathbf{+3.6}$ / \textbf{0.026} & $\underline{-9.8}$ / 0.213 & $\mathbf{+3.1}$ / \textbf{0.077} & 0.432 \\
+    Asym 40\% & $\underline{-2.4}$ / 0.201 & $\underline{-3.3}$ / 0.170 & $\underline{-5.3}$ / \textbf{0.060} & $\underline{-21.5}$ / 0.306 & $\underline{-2.9}$ / \textbf{0.096} & 0.291 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
   \item The CIFAR-10 experiment uses 10 seeds ($p_{\min}\approx0.002$, all regimes
     including asym\,40), and the BN ablation uses 5 seeds. These provide sufficient
     statistical power for all key comparisons.
