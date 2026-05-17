@@ -778,21 +778,23 @@ Figure~\ref{fig:grad_ratio} plots the ratio trajectory for each objective.
 Five qualitatively different gradient dynamics emerge:
 \begin{itemize}
   \item \textbf{KL (memorisation, ratio $> 1$, increasing).}
-    As the model grows confident in the correct class, the wrong-class probability
-    $p_j \to 0$ on noisy samples, and $\partial \mathcal{L}_\mathrm{KL}/\partial p_j =
-    -1/p_j \to -\infty$: the gradient on mislabelled samples explodes.
+    As the model grows confident in the correct class, $p_j \to 0$ on noisy samples
+    and the logit gradient $\partial \mathcal{L}_\mathrm{KL}/\partial z_j = p_j - 1
+    \to -1$ maintains near-maximal pressure toward the wrong label throughout training.
     By epoch 59, noisy samples drive 49\% larger gradient updates than clean ones —
     the hallmark of memorisation.
 
-  \item \textbf{FR and Hellinger (gradient bounding, ratio $\approx 1$, stable).}
-    FR's loss $4\arccos^2(\sqrt{p_j})$ is bounded by $\pi^2 \approx 9.87$, and
-    Hellinger's $(\sqrt{p_j} - 1)^2$ is bounded by 1.
-    As $p_j \to 0$ on noisy samples, both losses saturate and their gradients cannot
-    diverge.
+  \item \textbf{FR and Hellinger (gradient saturation, ratio $\approx 1$, stable).}
+    By Proposition~\ref{prop:grad_saturation}, FR's logit gradient
+    $\partial \mathcal{L}_\mathrm{FR}/\partial z_j =
+    -4\arccos(\sqrt{p_j})\sqrt{p_j}\sqrt{1-p_j} \to 0$ as $p_j \to 0$:
+    once the model correctly suppresses the corrupted label, FR stops applying
+    pressure toward it.
+    Hellinger's gradient $1 - 1/\sqrt{p_j}$ (via softmax chain rule) analogously saturates.
     Both ratios stabilise near 1.0: the model does not preferentially overfit to
     mislabelled samples, even late in training.
-    Hellinger's slightly lower ratio (0.88 vs 0.98) is consistent with its tighter
-    bound, which may explain Hellinger's stronger result at sym\,60.
+    Hellinger's slightly lower ratio (0.88 vs 0.98) is consistent with its earlier
+    saturation, which may explain Hellinger's stronger result at sym\,60.
 
   \item \textbf{GCE (gradient warping, ratio $< 1$, decreasing).}
     GCE's gradient $\partial \mathcal{L}_\mathrm{GCE}/\partial p_j =
