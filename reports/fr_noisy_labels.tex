@@ -850,14 +850,21 @@ However, on ConvNets its ratio of 0.65 ($<1$) produces a flat-gradient failure m
 that prevents feature learning, which is why MAE hurts accuracy on ConvNets.
 
 \paragraph{When does FR help?}
-Two regimes now have empirical support for FR outperforming KL:
+Three regimes now have empirical support for FR outperforming KL:
 (1) the soft-label setting~\citep{bottoni2026fisherrao}, where targets are
-diffuse probability vectors rather than one-hot; and
+diffuse probability vectors rather than one-hot;
 (2) ConvNet training on image data under moderate symmetric noise,
-as shown in this work.
-The common thread may be that FR's bounded gradient prevents overconfident
-responses to unreliable signal, whether that signal is a soft label or a
-corrupted hard label.
+as shown in this work ($p=0.002$, 10/10 wins at sym\,20--60); and
+(3) real human-annotated instance-dependent noise (CIFAR-N), where FR is
+the only objective that significantly outperforms KL at all three annotation
+conditions ($p=0.016$, 7/7 wins).
+The gradient norm analysis (Tables~\ref{tab:grad_ratio}--\ref{tab:mlp_grad_ratio})
+reveals the common thread: FR's bounded gradient maintains a stable
+noisy/clean ratio ($\approx 1$) when the architecture (ConvNet with BN and
+convolutional representations) supports it.
+When this stability is absent (MLP: ratio grows to 2.61) or when asymmetric noise
+requires fine-grained class discrimination, the Ghosh condition violation dominates
+and FR hurts.
 
 \paragraph{Practical recommendation.}
 For MLP/tabular data under symmetric label noise: use MAE or GCE, which
