@@ -1149,6 +1149,9 @@ A gradient norm analysis (3-seed mean, sym\,40) provides direct mechanistic evid
 KL memorises noisy samples (noisy/clean ratio $1.49\uparrow$), FR and Hellinger
 exhibit gradient saturation (ratio $\approx 1$, stable), and GCE actively deweights
 ($0.69\downarrow$) — explaining the empirical ordering at sym\,60.
+A structural gradient comparison reveals why Hellinger ($+7.6\%$) exceeds FR ($+3.4\%$) at sym\,60:
+Hellinger's gradient is universally below KL's (max~$\approx$0.19), while FR's gradient
+exceeds KL's for $p_k > 0.032$, amplifying corrupted labels during early training.
 A parallel MLP analysis reveals that FR's gradient stability is architecture-specific:
 on MLP, FR's ratio grows to 2.61 by epoch 99 (same memorisation direction as KL),
 completing the mechanistic picture of the architecture reversal.
@@ -1164,8 +1167,10 @@ quantification in deployment.
 For MLP/tabular settings: MAE and GCE are the principled choices for symmetric noise;
 for asymmetric noise, only MAE wins consistently across all three MLP datasets.
 For ConvNet/image settings under symmetric noise: GCE is the strongest performer;
-FR and Hellinger are reliable alternatives with the additional benefit of excellent
-calibration.
+at moderate noise (sym\,20--40), FR and Hellinger are reliable alternatives;
+at high noise (sym\,60+), prefer Hellinger — its gradient is universally softer than
+KL's (max $\approx$0.19), avoiding FR's early-training amplification regime that
+degrades as noise increases. Both FR and Hellinger provide excellent calibration.
 For ConvNet asymmetric noise: Hellinger maintains accuracy and provides substantially
 better calibration (ECE\,=\,0.034 vs.\ KL's 0.101; Brier score $p=0.002$, 10/10 wins);
 FR significantly hurts accuracy ($-2.7\%$, $p=0.002$).
