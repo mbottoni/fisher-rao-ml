@@ -84,7 +84,7 @@ def generate_section() -> None:
                 if n_paired >= 3:
                     try:
                         _, p = scipy_stats.wilcoxon(obj_paired, kl_paired)
-                        wins = sum(v > k for v, k in zip(obj_paired, kl_paired))
+                        wins = sum(v > k for v, k in zip(obj_paired, kl_paired, strict=False))
                         is_sig_better = p < 0.05 and np.mean(obj_paired) > np.mean(kl_paired)
                         is_sig_worse = p < 0.05 and np.mean(obj_paired) < np.mean(kl_paired)
                         if is_sig_better:
@@ -108,7 +108,7 @@ def generate_section() -> None:
             if n_paired >= 3:
                 try:
                     _, p = scipy_stats.wilcoxon(obj_paired, kl_paired)
-                    wins = sum(v > k for v, k in zip(obj_paired, kl_paired))
+                    wins = sum(v > k for v, k in zip(obj_paired, kl_paired, strict=False))
                     result_lines.append(
                         f"# {nt}/{obj}: KL={kl_mean:.1f}% {OBJ_LABELS[obj]}={obj_mean:.1f}% "
                         f"({diff:+.1f}%, {wins}/{n_paired} wins, p={p:.3f})"
