@@ -362,10 +362,15 @@ The Hellinger vs.\ FR comparison reveals a key structural difference.
 We call a loss \emph{universally soft} (relative to KL) if $|\partial\ell/\partial z_k| < |\partial\ell_\mathrm{KL}/\partial z_k|$ for all $p_k\in(0,1)$.
 Hellinger is universally soft: $\sqrt{p_k}(1-p_k)/2 < 1-p_k$ iff $\sqrt{p_k}/2 < 1$ (always true).
 GCE ($q>0$) is universally soft: $p_k^q(1-p_k) < 1-p_k$ iff $p_k^q < 1$ (always true for $p_k<1$).
-FR is \emph{not} universally soft: its gradient exceeds KL's for $p_k \in (0.032, 1)$.
+FR is \emph{not} universally soft: its gradient exceeds KL's for $p_k \in (p^*, 1)$
+where $p^* \approx 0.032$ is the unique solution to
+$4\arccos(\sqrt{p})\sqrt{p}\sqrt{1-p} = 1-p$ in $(0,1)$.
+We call $(p^*, 1)$ the \emph{FR danger zone}: when a corrupted label's probability
+$p_k$ lies in this interval, FR applies \emph{more} gradient pressure than KL,
+amplifying rather than suppressing the corrupted signal.
 Universally soft losses never amplify corrupted gradients; their ranking at sym\,60 is
 determined by the severity of their deweighting (GCE: active, ratio $0.69\downarrow$ > Hellinger: passive, ratio $0.88$).
-FR's benefits require ConvNet representations to push $p_k$ below $0.032$ on corrupted labels before the early-amplification phase dominates.
+FR's benefits require ConvNet representations to push $p_k$ below $p^* \approx 0.032$ on corrupted labels before the early-amplification phase dominates.
 \end{remark}
 
 % ------------------------------------------------------------------
