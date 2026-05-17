@@ -61,6 +61,10 @@ as KL --- mechanistically explaining why gradient saturation requires ConvNet
 structure to be beneficial.
 A batch-normalization ablation (5 seeds) confirms FR is the most robust to BN removal
 ($-5.3\%$ mean drop vs.\ KL's $-13.3\%$).
+Under asymmetric noise, the reversal extends further: FR significantly \emph{hurts}
+the ConvNet ($-2.7\%$, 0/10 wins, $p=0.002$) while Hellinger remains neutral ($p=0.625$).
+We trace this to \emph{danger-zone persistence}: asymmetric noise keeps the wrong-class
+probability $p_k\in(0.3,0.4)$ — inside FR's amplification regime — throughout training.
 Critically, FR and Hellinger also deliver dramatically better calibration under noise:
 at sym\,40, FR achieves ECE\,$=0.025$ vs.\ KL's $0.233$ ($9\times$ improvement),
 making them preferable not only for accuracy but for deployment reliability.
