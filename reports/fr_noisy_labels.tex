@@ -59,7 +59,7 @@ Critically, FR and Hellinger also deliver dramatically better calibration under 
 at sym\,40, FR achieves ECE\,$=0.025$ vs.\ KL's $0.233$ ($9\times$ improvement),
 making them preferable not only for accuracy but for deployment reliability.
 On CIFAR-N real human-annotated labels, FR is the only objective significantly
-better than KL across all three noise conditions ($p\leq 0.031$, 6--7/7 wins),
+better than KL across all three noise conditions ($p\leq 0.016$, 7/7 wins),
 confirming the ConvNet advantage generalizes beyond the synthetic noise model.
 These findings sharpen the understanding of where information-geometric losses are
 and are not beneficial, and motivate further investigation of loss--architecture
@@ -120,7 +120,7 @@ Our contributions are:
   \item A CIFAR-N evaluation on real human-annotated labels showing that FR is
     the only objective that significantly outperforms KL at all three annotation
     conditions ($p\leq 0.031$, 6--7/7 wins), with gains growing from $+0.7\%$
-    (aggre) to $+1.4\%$ (worse, $\approx 40\%$ noise).
+    (aggre) to $+1.6\%$ (worse, $\approx 40\%$ noise).
     MAE and SCE collapse at low-to-moderate noise ($p=0.016$); GCE
     significantly hurts at aggre ($p=0.031$), confirming the
     ConvNet reversal generalizes beyond the symmetric noise model.
@@ -615,7 +615,7 @@ KL; underline: $p<0.05$ worse).
     \midrule
     Aggre ($\approx$9\%)     & 81.7 & \textbf{82.4}\,(7/7) & 81.7\,(3/7) & \underline{81.1}\,(1/7) & \underline{69.0}\,(0/7) & \underline{79.6}\,(0/7) \\
     Random1 ($\approx$17\%)  & 79.9 & \textbf{80.9}\,(7/7) & \textbf{80.6}\,(7/7) & 79.7\,(2/7) & \underline{66.6}\,(0/7) & \underline{78.6}\,(0/7) \\
-    Worse ($\approx$40\%)    & 72.6 & \textbf{74.0}\,(6/6) & \textbf{74.0}\,(6/6) & 73.8\,(5/7) & \underline{57.3}\,(0/6) & 72.3\,(4/6) \\
+    Worse ($\approx$40\%)    & 72.6 & \textbf{74.3}\,(7/7) & \textbf{74.3}\,(7/7) & 73.8\,(5/7) & \underline{57.0}\,(0/7) & 72.4\,(4/7) \\
     \bottomrule
   \end{tabular}
 \end{table}
@@ -624,7 +624,7 @@ KL; underline: $p<0.05$ worse).
   \centering
   \includegraphics[width=0.85\linewidth]{figures/cifar_n_accuracy_bars.pdf}
   \caption{Accuracy on CIFAR-N real human-annotated labels (7 seeds, CIFAR-10 ConvNet).
-    FR significantly outperforms KL at all three conditions ($p\leq 0.031$, 6--7/7 wins).
+    FR significantly outperforms KL at all three conditions ($p\leq 0.016$, 7/7 wins).
     MAE and SCE collapse at aggre and random1 ($p=0.016$).
     GCE significantly hurts at aggre ($p=0.031$, 1/7 wins) and is neutral elsewhere.}
   \label{fig:cifar_n}
@@ -634,13 +634,13 @@ The key findings are:
 
 \begin{enumerate}
   \item \textbf{FR is the only objective that significantly outperforms KL at all three
-    noise conditions ($p\leq 0.031$).}
+    noise conditions ($p=0.016$).}
     7/7 wins at aggre ($+0.7\%$, $p=0.016$) and random1 ($+1.0\%$, $p=0.016$);
-    6/6 wins at worse ($+1.4\%$, $p=0.031$).
+    7/7 wins at worse ($+1.6\%$, $p=0.016$).
     Gains grow with noise rate, mirroring the ConvNet advantage under synthetic noise.
 
   \item \textbf{Hellinger is significant at random1 and worse but not aggre.}
-    7/7 wins at random1 ($+0.7\%$, $p=0.016$) and 6/6 wins at worse ($+1.4\%$, $p=0.031$).
+    7/7 wins at random1 ($+0.7\%$, $p=0.016$) and 7/7 wins at worse ($+1.6\%$, $p=0.016$).
     At aggre ($\approx 9\%$), only 3/7 wins ($+0.1\%$, $p=0.547$):
     bounded gradients provide little benefit when noise is sparse.
 
@@ -961,8 +961,8 @@ of excellent calibration.
 For asymmetric noise, use GCE or KL; FR significantly hurts on ConvNet ($-2.7\%$, $p=0.002$).
 
 On CIFAR-N real human-annotated noisy labels, FR is the only objective that
-significantly outperforms KL at all three annotation conditions ($p\leq 0.031$,
-7 seeds): aggre $+0.7\%$, random1 $+1.0\%$, worse $+1.4\%$ ($\approx 40\%$ noise).
+significantly outperforms KL at all three annotation conditions ($p=0.016$,
+7 seeds): aggre $+0.7\%$, random1 $+1.0\%$, worse $+1.6\%$ ($\approx 40\%$ noise).
 MAE and SCE significantly hurt at low-to-moderate noise ($p=0.016$); GCE
 significantly hurts at aggre ($p=0.031$).
 These formally significant results confirm the ConvNet advantage holds under
