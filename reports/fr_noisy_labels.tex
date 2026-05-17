@@ -1325,12 +1325,26 @@ natural test of whether these mechanisms are compositional:
 \end{enumerate}
 
 \paragraph{Experimental setup.}
-Same 4-layer ConvNet, 10k CIFAR-10 subset, 5 seeds, 5 noise regimes as the main
-experiment (Section~\ref{sec:setup}).
+Same 4-layer ConvNet (with BatchNorm) and 10k CIFAR-10 stratified subset.
+5 seeds, 5 noise regimes (clean, sym\,20/40/60, asym\,40), 60 training epochs with
+switch epoch fixed at 30.
 We compare 5 two-phase schedules (\texttt{FR$\to$GCE}, \texttt{FR$\to$KL},
 \texttt{GCE$\to$FR}, \texttt{KL$\to$GCE}, \texttt{FR$\to$MAE}) against
-all 6 static-objective baselines (KL, FR, GCE, MAE, Hellinger, SCE),
-with switch epoch fixed at 30.
+all 6 static-objective baselines (KL, FR, GCE, MAE, Hellinger, SCE).
+Note: this experiment uses plain SGD (momentum 0.9, weight decay $10^{-3}$, cosine
+annealing, no warmup) rather than the main-benchmark SGD (weight decay $5\times10^{-4}$,
+nesterov, linear warmup), so absolute numbers differ; comparisons are valid only
+\emph{within} this benchmark.
+
+\paragraph{Predictions.}
+Based on the gradient norm analysis, \texttt{FR$\to$GCE} should:
+(a) match or exceed GCE at all symmetric noise rates, since FR's early
+gradient stability provides a better initialisation for GCE's later denoising;
+(b) exceed FR at high symmetric noise (sym\,60), where GCE's active deweighting
+is needed but FR's danger zone limits its standalone performance;
+(c) possibly hurt at asym\,40, where FR already amplifies wrong-label gradients
+and switching to GCE suppresses signals late in training.
+These predictions are testable with the current 5-seed setup.
 
 \paragraph{Results.}
 [Results pending — experiment currently running.]
