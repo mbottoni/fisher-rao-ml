@@ -560,12 +560,16 @@ Without BN, the optimizer cannot exploit curvature and training largely fails at
 regime ($-49\%$). Interestingly, MAE's drop shrinks at sym\,60 ($-33\%$): at very high
 noise, prediction magnitudes are already noisy, reducing BN's effective contribution.
 
-\textbf{Mechanistic interpretation.} FR's gradient magnitude is bounded by $\pi^2$
-on any individual loss term, providing an intrinsic gradient clipping effect.
-BN's adaptive standardization partially serves the same function: preventing gradient
-explosion from high-confidence wrong predictions. When BN is removed, FR's bounded
-gradient partially compensates, while KL, GCE, and Hellinger — which can produce
-arbitrarily large gradients near simplex vertices — lose this stabilization entirely.
+\textbf{Mechanistic interpretation.} By Proposition~\ref{prop:grad_saturation},
+FR's logit gradient saturates to zero as the model correctly classifies a sample,
+providing an intrinsic denoising effect: correctly-classified noisy samples receive
+negligible gradient updates.
+BN's adaptive standardization serves a complementary function: normalizing hidden
+activations to prevent internal covariate shift, which in turn stabilizes gradient
+magnitudes in earlier layers.
+When BN is removed, FR's gradient saturation partially compensates, while objectives
+without this property (GCE, Hellinger, MAE) lose BN's stabilization without a substitute,
+leading to collapse.
 
 The 5-seed results confirm and sharpen the 2-seed qualitative pattern: FR and SCE are
 structurally robust to BN removal, while GCE, Hellinger, and MAE collapse.
