@@ -1190,10 +1190,15 @@ symmetric/asymmetric label noise model of \citet{ghosh2017robust}.
     GCE dominates at sym\,60 ($+3.6\%$, 3/3) and sym\,40 ($+2.2\%$, 3/3),
     consistent with the 10k hierarchy.
     MAE is near-neutral at sym\,40 ($+0.6\%$) but collapses at sym\,60 ($-9.8\%$, 3/3).
-    At asym\,40 (3 seeds, directional only): all non-KL objectives hurt KL
+    At asym\,40 (3 seeds, directional only): all non-KL objectives hurt accuracy
     (FR $-2.4\%$, Hellinger $-3.3\%$, GCE $-5.3\%$, MAE $-21.5\%$),
-    suggesting the KL advantage under asymmetric noise is amplified at 50k scale
-    and that GCE's active deweighting becomes counterproductive.
+    suggesting the KL advantage under asymmetric noise is amplified at 50k scale.
+    Notably, the 50k calibration picture diverges from accuracy: at sym\,40, FR
+    (ECE\,=\,0.040) and Hellinger (ECE\,=\,0.024) maintain strong calibration
+    vs.\ KL (ECE\,=\,0.292), consistent with the 10k finding.
+    At asym\,40, GCE achieves ECE\,=\,0.060 vs.\ KL's 0.291 (4.8$\times$ improvement)
+    despite the $-5.3\%$ accuracy cost, indicating that active deweighting may be
+    preferred at scale when calibration is the primary deployment concern.
     Scaling to ResNet-18 requires additional GPU compute.
   \item The CIFAR-10 experiment uses 10 seeds ($p_{\min}\approx0.002$, all regimes
     including asym\,40), and the BN ablation uses 5 seeds. These provide sufficient
