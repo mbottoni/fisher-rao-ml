@@ -802,11 +802,25 @@ The key findings are:
 
 FR uniquely combines gradient saturation (preventing corruption memorisation) without
 the constant-sum constraint (enabling generalisation), making it noise-model-agnostic.
-Notably, the real-noise ranking at worse differs from the synthetic ranking:
-(real: FR [$+1.6\%$] $\approx$ Hellinger [$+1.4\%$, $p=0.002$] $>$ GCE [$+1.0\%$, $p=0.016$] $>$ KL $>$ SCE $\gg$ MAE [$-15\%$] vs.\
-synthetic: GCE $>$ Hellinger $>$ FR $>$ KL $\gg$ MAE at sym\,60).
+Notably, the real-noise ranking at worse differs from the synthetic ranking
+(Figure~\ref{fig:cifar_n_gain}):
+real: FR [$+1.6\%$] $\approx$ Hellinger [$+1.4\%$, $p=0.002$] $>$ GCE [$+1.0\%$, $p=0.016$] $>$ KL $>$ SCE $\gg$ MAE [$-15\%$]
+vs.\ synthetic sym\,60: GCE [$+9.5\%$] $>$ Hellinger [$+7.6\%$] $>$ FR [$+3.4\%$] $>$ KL $\gg$ MAE.
 FR and Hellinger outperform GCE on real instance-dependent noise, suggesting that
 gradient saturation is more robust than active deweighting when noise is not symmetric.
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=\linewidth]{figures/cifar_n_gain_comparison.pdf}
+  \caption{Gain vs KL (percentage points) under real and synthetic noise at comparable
+    rates ($\approx 40\%$). Under CIFAR-N real noise (left), FR $\approx$ Hellinger $>$ GCE.
+    Under synthetic sym\,40 (middle), the three are near-equal. Under synthetic sym\,60
+    (right), GCE dominates. The reversal of the GCE vs FR ordering between real and synthetic
+    noise confirms that active gradient-deweighting (GCE) benefits from the uniform structure
+    of synthetic noise, while gradient saturation (FR, Hellinger) is more robust to the
+    instance-dependent structure of real human annotations.}
+  \label{fig:cifar_n_gain}
+\end{figure}
 
 \begin{remark}[GCE and the low-noise suppression effect]
 At aggre ($\approx 9\%$ real noise), GCE \emph{significantly hurts} ($p=0.008$, 1/10 wins, $-0.6\%$)
