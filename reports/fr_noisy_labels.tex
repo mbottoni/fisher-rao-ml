@@ -59,7 +59,7 @@ Critically, FR and Hellinger also deliver dramatically better calibration under 
 at sym\,40, FR achieves ECE\,$=0.025$ vs.\ KL's $0.233$ ($9\times$ improvement),
 making them preferable not only for accuracy but for deployment reliability.
 On CIFAR-N real human-annotated labels, FR is the only objective significantly
-better than KL across all three noise conditions ($p\leq 0.016$, 7/7 wins),
+better than KL across all three noise conditions ($p=0.016$, 7/7 wins),
 confirming the ConvNet advantage generalizes beyond the synthetic noise model.
 These findings sharpen the understanding of where information-geometric losses are
 and are not beneficial, and motivate further investigation of loss--architecture
@@ -119,7 +119,7 @@ Our contributions are:
     are preferable not only for accuracy but also for deployment reliability.
   \item A CIFAR-N evaluation on real human-annotated labels showing that FR is
     the only objective that significantly outperforms KL at all three annotation
-    conditions ($p\leq 0.031$, 6--7/7 wins), with gains growing from $+0.7\%$
+    conditions ($p=0.016$, 7/7 wins), with gains growing from $+0.7\%$
     (aggre) to $+1.6\%$ (worse, $\approx 40\%$ noise).
     MAE and SCE collapse at low-to-moderate noise ($p=0.016$); GCE
     significantly hurts at aggre ($p=0.031$), confirming the
