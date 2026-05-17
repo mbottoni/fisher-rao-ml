@@ -1012,10 +1012,23 @@ Table~\ref{tab:mlp_grad_ratio} reports the noisy/clean ratio trajectory.
   \end{tabular}
 \end{table}
 
-The contrast with Table~\ref{tab:grad_ratio} (ConvNet) is striking.
+The contrast with Table~\ref{tab:grad_ratio} (ConvNet) is striking;
+Figure~\ref{fig:arch_comparison} visualises both trajectories side by side.
 On ConvNets, FR's ratio stays near 1.0 (stable), providing gradient stability.
 On MLPs, FR's ratio grows to 2.61 by epoch 99 — far from the near-1 stability observed
 on ConvNets. Hellinger likewise grows to 2.40.
+
+\begin{figure}[h]
+  \centering
+  \includegraphics[width=0.95\linewidth]{figures/gradient_norm_architecture_comparison.pdf}
+  \caption{Noisy/clean gradient norm ratio on CIFAR-10 ConvNet (left) vs
+    UCI Digits MLP (right) under sym\,40\% noise (3-seed mean).
+    On ConvNets, FR's ratio stabilises near 1 (gradient saturation) while
+    KL memorises (ratio $\uparrow$1.49) and GCE deweights (ratio $\downarrow$0.69).
+    On MLPs, FR's ratio grows to 2.61 --- the same memorisation direction as KL ---
+    mechanistically explaining why the architecture-dependent reversal occurs.}
+  \label{fig:arch_comparison}
+\end{figure}
 The architecture-specific gradient dynamics now complete the mechanistic picture:
 \begin{itemize}
   \item \textbf{ConvNet:} FR achieves ratio $\approx 1$ (BN + convolutional representations
