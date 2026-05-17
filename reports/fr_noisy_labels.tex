@@ -779,10 +779,12 @@ The situation is conceptually similar to the KL vs.\ MAE comparison: KL also
 lacks the constant-sum property and is therefore brittle to symmetric noise.
 But KL at least benefits from numerical stability and well-understood
 optimisation dynamics.
-FR combines the worst of both worlds: it lacks the constant-sum property
-\emph{and} its gradient vanishes near one-hot distributions (where
-$\arccos(\sqrt{p_k}) \approx 0$), leaving the optimiser with weak signal
-precisely when training examples are corrupted.
+FR thus lacks the constant-sum property without the compensating dynamics
+(gradient saturation) arriving early enough to prevent memorisation on MLP:
+at moderate $p_k \approx 0.28$, FR's gradient peaks at $\approx 1.82$ — higher
+than KL's maximum of $1.0$ (Figure~\ref{fig:grad_saturation}) — so MLPs
+undergo stronger early memorisation before the Proposition~\ref{prop:grad_saturation}
+saturation regime is reached.
 
 \paragraph{Why does FR reverse on ConvNets? Gradient norm analysis.}
 The Ghosh et al.\ condition is an asymptotic, distributional statement about
