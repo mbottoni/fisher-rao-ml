@@ -1137,11 +1137,13 @@ wrong-label pressure than KL at every $p_k$; GCE is neutral for the same reason
 ($p_k^q < 1$ ensures $|\partial\ell_\mathrm{GCE}/\partial z_k| < |\partial\ell_\mathrm{KL}/\partial z_k|$
 for all $p_k\in(0,1)$).
 
-This analysis suggests asym\_20 noise should also hurt FR (moderate persistent
-pressure on one class pair) and asym\_60 should hurt more (stronger danger-zone
-gradient amplification due to higher noise rate and resulting higher wrong-class $p_k$).
-Empirical validation of this prediction would confirm the danger-zone mechanism
-as the unifying explanation for both the sym and asym ConvNet results.
+This analysis yields graduated predictions across asymmetric noise rates.
+Under asym\,20, the equilibrium wrong-class probability is lower ($p_k\approx 0.20$),
+giving FR/KL ratio $\approx 2.2\times$ — still amplifying but less severely than asym\,40's $2.75\times$.
+Under asym\,60, stronger corrupted-label pressure raises $p_k$ toward $0.5$--$0.6$,
+pushing the FR/KL ratio to $\approx 3.1$--$3.4\times$, predicting FR hurts more than at asym\,40.
+Empirical validation of this graduated prediction would confirm the danger-zone mechanism
+as the unifying quantitative explanation for all asymmetric ConvNet results.
 \end{remark}
 
 \paragraph{Practical recommendation.}
