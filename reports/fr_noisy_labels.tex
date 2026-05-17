@@ -479,8 +479,13 @@ The results in Table~\ref{tab:accuracy_cifar10} reveal a sharp reversal:
     FR: $+2.4\%$ at sym\,20 (10/10 wins, $p=0.002$), $+2.4\%$ at sym\,40 (10/10 wins, $p=0.002$),
     $+3.4\%$ at sym\,60 (10/10 wins, $p=0.002$).
     Hellinger shows the same direction and is also significant at sym\,20--60 (all $p=0.002$, 10/10 wins).
-    At high noise (sym\,60), Hellinger (+7.6\%) exceeds FR (+3.4\%), suggesting its
-    more aggressive gradient saturation becomes more valuable as noise increases.
+    At high noise (sym\,60), Hellinger ($+7.6\%$) exceeds FR ($+3.4\%$).
+    The Remark after Proposition~\ref{prop:grad_saturation} explains why:
+    Hellinger's gradient ($\max \approx 0.19$) is \emph{always} below KL's,
+    while FR's gradient exceeds KL's for $p_k \in (0.032, 1)$ — amplifying
+    corrupted-label gradients during early training before representations converge.
+    At higher noise, more corrupted samples fall in this danger zone, so FR's
+    early amplification is more harmful relative to Hellinger's uniformly soft pressure.
     SCE also significantly outperforms KL at sym\,60 (9/10 wins, $p=0.004$), but
     \emph{underperforms} KL at sym\,20 and sym\,40 (both $p=0.002$, 0/10 wins).
   \item \textbf{MAE severely underperforms on ConvNet.}
