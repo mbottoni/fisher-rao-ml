@@ -53,6 +53,9 @@ A gradient norm analysis (3-seed mean, sym\,40) reveals three distinct mechanism
 KL memorises noisy samples (noisy/clean ratio $1.49\uparrow$), FR bounds gradients
 (ratio $0.98\approx 1$), and GCE actively deweights (ratio $0.69\downarrow$),
 explaining the observed performance hierarchy.
+On MLP, FR's ratio grows to 2.61 by epoch 99 --- the same memorisation direction
+as KL --- mechanistically explaining why gradient bounding requires ConvNet
+structure to be beneficial.
 A batch-normalization ablation (5 seeds) confirms FR is the most robust to BN removal
 ($-5.3\%$ mean drop vs.\ KL's $-13.3\%$).
 Critically, FR and Hellinger also deliver dramatically better calibration under noise:
@@ -1014,6 +1017,9 @@ A gradient norm analysis (3-seed mean, sym\,40) provides direct mechanistic evid
 KL memorises noisy samples (noisy/clean ratio $1.49\uparrow$), FR and Hellinger
 bound gradients (ratio $\approx 1$, stable), and GCE actively deweights
 ($0.69\downarrow$) — explaining the empirical ordering at sym\,60.
+A parallel MLP analysis reveals that FR's gradient stability is architecture-specific:
+on MLP, FR's ratio grows to 2.61 by epoch 99 (same memorisation direction as KL),
+completing the mechanistic picture of the architecture reversal.
 A 5-seed BN ablation confirms FR is the most BN-robust objective (mean drop
 $-5.3\%$ vs.\ KL's $-13.3\%$), consistent with bounded gradient providing
 implicit gradient clipping.
