@@ -496,7 +496,7 @@ the final training phase.
 \textbf{MAE collapses worst at clean, improves slightly at high noise.}
 MAE's flat gradient provides constant magnitude regardless of prediction correctness.
 Without BN, the optimizer cannot exploit curvature and training largely fails at clean
-regime ($-51\%$). Interestingly, MAE's drop shrinks at sym\,60 ($-33\%$): at very high
+regime ($-49\%$). Interestingly, MAE's drop shrinks at sym\,60 ($-33\%$): at very high
 noise, prediction magnitudes are already noisy, reducing BN's effective contribution.
 
 \textbf{Mechanistic interpretation.} FR's gradient magnitude is bounded by $\pi^2$
