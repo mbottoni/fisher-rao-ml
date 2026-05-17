@@ -288,6 +288,20 @@ Figure~\ref{fig:grad_saturation} illustrates the gradient magnitudes as function
 GCE ($q=0.7$) also saturates at $p_k\to 0$ via $p_k^q(1-p_k)\to 0$, providing
 a second family of gradient-saturating losses distinct from FR.
 
+\begin{corollary}[Quantitative gradient advantage]
+\label{cor:grad_ratio}
+For any $\delta \in (0,1/2)$, if the model assigns $p_k \leq \delta$ to the corrupted label, then
+\[
+  \frac{|\partial\ell_\mathrm{FR}/\partial z_k|}{|\partial\ell_\mathrm{KL}/\partial z_k|}
+  \;\leq\;
+  \frac{4\arccos(\sqrt{\delta})\,\sqrt{\delta}\,\sqrt{1-\delta}}{1-\delta}
+  \;=\; O(\sqrt{\delta}).
+\]
+As $\delta \to 0$ (model increasingly confident in the true class),
+this ratio goes to zero: FR applies arbitrarily less gradient pressure than KL
+on correctly-classified corrupted samples.
+\end{corollary}
+
 \begin{figure}[h]
   \centering
   \includegraphics[width=0.78\linewidth]{figures/gradient_saturation.pdf}
