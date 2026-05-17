@@ -53,6 +53,9 @@ A gradient norm analysis (3-seed mean, sym\,40) reveals three distinct mechanism
 KL memorises noisy samples (noisy/clean ratio $1.49\uparrow$), FR's gradient saturates
 (ratio $0.98\approx 1$), and GCE actively deweights (ratio $0.69\downarrow$),
 explaining the observed performance hierarchy.
+A structural gradient comparison shows that Hellinger's gradient is \emph{always}
+below KL's (max~$\approx$0.19 vs KL's~$\approx$1), while FR exceeds KL for
+$p_k > 0.032$, formally explaining why Hellinger ($+7.6\%$) outperforms FR ($+3.4\%$) at sym\,60.
 On MLP, FR's ratio grows to 2.61 by epoch 99 --- the same memorisation direction
 as KL --- mechanistically explaining why gradient saturation requires ConvNet
 structure to be beneficial.
