@@ -38,16 +38,19 @@ def generate_section() -> None:
     with path.open() as f:
         rows = list(csv.DictReader(f))
 
-    data: dict[str, dict[str, list[float]]] = defaultdict(lambda: defaultdict(list))
+    # Store by seed for proper paired comparison
+    seed_data: dict[str, dict[str, dict[int, float]]] = defaultdict(
+        lambda: defaultdict(dict)
+    )
     for r in rows:
-        data[r["noise_type"]][r["objective"]].append(float(r["eval_accuracy"]))
+        seed_data[r["noise_type"]][r["objective"]][int(r["seed"])] = float(r["eval_accuracy"])
 
     # Only show noise types with complete data (all 6 objectives, at least 3 seeds)
     noise_types = []
     for nt in NOISE_TYPES:
-        if nt not in data:
+        if nt not in seed_data:
             continue
-        min_seeds = min(len(data[nt].get(o, [])) for o in OBJ_ORDER)
+        min_seeds = min(len(seed_data[nt].get(o, {})) for o in OBJ_ORDER)
         if min_seeds < 3:
             print(f"# {nt}: only {min_seeds} seeds — excluding from table")
             continue
@@ -63,47 +66,58 @@ def generate_section() -> None:
     result_lines = []
 
     for nt in noise_types:
-        kl_vals = sorted(data[nt]["kl"])
+        kl_by_seed = seed_data[nt]["kl"]
+        kl_seeds = sorted(kl_by_seed.keys())
+        kl_vals_all = [kl_by_seed[s] for s in kl_seeds]
+        kl_mean = np.mean(kl_vals_all) * 100
         row_cells = [NOISE_LABELS[nt]]
         for obj in OBJ_ORDER:
-            vals = sorted(data[nt][obj])
-            mean = np.mean(vals) * 100
-            # Bold if best; underline if significantly below KL
+            obj_by_seed = seed_data[nt][obj]
+            all_vals = [obj_by_seed[s] for s in kl_seeds if s in obj_by_seed]
+            mean = np.mean(all_vals) * 100
             cell = f"{mean:.1f}"
-            if obj != "kl" and len(kl_vals) >= 3 and len(vals) >= 3:
-                try:
-                    _, p = scipy_stats.wilcoxon(vals[:len(kl_vals)], kl_vals[:len(vals)])
-                    wins = sum(v > k for v, k in zip(vals, kl_vals, strict=False))
-                    is_sig_better = p < 0.05 and np.mean(vals) > np.mean(kl_vals)
-                    is_sig_worse = p < 0.05 and np.mean(vals) < np.mean(kl_vals)
-                    if is_sig_better:
-                        cell = f"\\textbf{{{cell}}}"
-                    elif is_sig_worse:
-                        cell = f"\\underline{{{cell}}}"
-                except Exception:
-                    pass
+            if obj != "kl":
+                paired_seeds = [s for s in kl_seeds if s in obj_by_seed]
+                kl_paired = [kl_by_seed[s] for s in paired_seeds]
+                obj_paired = [obj_by_seed[s] for s in paired_seeds]
+                n_paired = len(paired_seeds)
+                if n_paired >= 3:
+                    try:
+                        _, p = scipy_stats.wilcoxon(obj_paired, kl_paired)
+                        wins = sum(v > k for v, k in zip(obj_paired, kl_paired))
+                        is_sig_better = p < 0.05 and np.mean(obj_paired) > np.mean(kl_paired)
+                        is_sig_worse = p < 0.05 and np.mean(obj_paired) < np.mean(kl_paired)
+                        if is_sig_better:
+                            cell = f"\\textbf{{{cell}}}"
+                        elif is_sig_worse:
+                            cell = f"\\underline{{{cell}}}"
+                    except Exception:
+                        pass
             row_cells.append(cell)
         table_rows.append(" & ".join(row_cells) + " \\\\")
 
         # Text description line
         for obj in ["fisher_rao", "gce", "mae"]:
-            vals = sorted(data[nt][obj])
-            kl_mean = np.mean(kl_vals) * 100
-            obj_mean = np.mean(vals) * 100
+            obj_by_seed = seed_data[nt][obj]
+            paired_seeds = [s for s in kl_seeds if s in obj_by_seed]
+            kl_paired = [kl_by_seed[s] for s in paired_seeds]
+            obj_paired = [obj_by_seed[s] for s in paired_seeds]
+            obj_mean = np.mean(obj_paired) * 100
             diff = obj_mean - kl_mean
-            if len(vals) >= 3 and len(kl_vals) >= 3:
+            n_paired = len(paired_seeds)
+            if n_paired >= 3:
                 try:
-                    _, p = scipy_stats.wilcoxon(vals[:len(kl_vals)], kl_vals[:len(vals)])
-                    wins = sum(v > k for v, k in zip(vals, kl_vals, strict=False))
+                    _, p = scipy_stats.wilcoxon(obj_paired, kl_paired)
+                    wins = sum(v > k for v, k in zip(obj_paired, kl_paired))
                     result_lines.append(
                         f"# {nt}/{obj}: KL={kl_mean:.1f}% {OBJ_LABELS[obj]}={obj_mean:.1f}% "
-                        f"({diff:+.1f}%, {wins}/{len(vals)} wins, p={p:.3f})"
+                        f"({diff:+.1f}%, {wins}/{n_paired} wins, p={p:.3f})"
                     )
                 except Exception:
                     pass
 
     # Print the complete section
-    n_seeds = min(len(data[nt][o]) for nt in noise_types for o in OBJ_ORDER if data[nt].get(o))
+    n_seeds = min(len(seed_data[nt].get(o, {})) for nt in noise_types for o in OBJ_ORDER)
     print(f"% === CIFAR-N §3.3 SECTION (n={n_seeds} seeds) ===")
     print()
     print("% Summary stats for text:")
