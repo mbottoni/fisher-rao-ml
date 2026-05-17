@@ -295,8 +295,10 @@ also saturating; but Hellinger's peak gradient ($\approx 0.19$ at $p_k=1/3$) is 
 so Hellinger provides \emph{uniform} gradient reduction without FR's early-training amplification regime.
 Figure~\ref{fig:grad_saturation} illustrates the gradient magnitudes as functions of~$p_k$; the shaded region
 shows where FR exceeds KL ($p_k > 0.032$).
-GCE ($q=0.7$) also saturates at $p_k\to 0$ via $p_k^q(1-p_k)\to 0$, providing
-a third mechanism distinct from FR and Hellinger.
+GCE ($q=0.7$) also saturates at $p_k\to 0$ via $p_k^q(1-p_k)\to 0$.
+Moreover, GCE's gradient $p_k^q(1-p_k) < 1-p_k = |\partial\ell_\mathrm{KL}/\partial z_k|$
+for all $p_k\in(0,1)$ (since $p_k^q < 1$), making GCE \emph{universally soft} in the
+same sense as Hellinger — unlike FR, which exceeds KL for $p_k>0.032$.
 
 \begin{corollary}[Quantitative gradient advantage]
 \label{cor:grad_ratio}
@@ -341,13 +343,14 @@ for gradient saturation to operate; in MLPs without such inductive structure,
 corrupted gradients accumulate before saturation, and the Ghosh-condition
 violation dominates.
 
-The Hellinger vs.\ FR comparison reveals a key structural difference:
-Hellinger's gradient is \emph{always} below KL (universally softer),
-while FR's gradient exceeds KL for $p_k \in (0.032, 1)$.
-This explains why Hellinger is more consistently beneficial than FR at high
-symmetric noise (sym\,60: Hellinger $+7.6\%$ vs.\ FR $+3.4\%$): Hellinger
-never amplifies corrupted gradients, while FR does during early training before
-representations converge past the peak at $p_k \approx 0.28$.
+The Hellinger vs.\ FR comparison reveals a key structural difference.
+We call a loss \emph{universally soft} (relative to KL) if $|\partial\ell/\partial z_k| < |\partial\ell_\mathrm{KL}/\partial z_k|$ for all $p_k\in(0,1)$.
+Hellinger is universally soft: $\sqrt{p_k}(1-p_k)/2 < 1-p_k$ iff $\sqrt{p_k}/2 < 1$ (always true).
+GCE ($q>0$) is universally soft: $p_k^q(1-p_k) < 1-p_k$ iff $p_k^q < 1$ (always true for $p_k<1$).
+FR is \emph{not} universally soft: its gradient exceeds KL's for $p_k \in (0.032, 1)$.
+Universally soft losses never amplify corrupted gradients; their ranking at sym\,60 is
+determined by the severity of their deweighting (GCE: active, ratio $0.69\downarrow$ > Hellinger: passive, ratio $0.88$).
+FR's benefits require ConvNet representations to push $p_k$ below $0.032$ on corrupted labels before the early-amplification phase dominates.
 \end{remark}
 
 % ------------------------------------------------------------------
