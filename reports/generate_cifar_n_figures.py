@@ -169,6 +169,73 @@ def save_cifar_n_vs_synthetic() -> None:
     print(f"saved {out.name}")
 
 
+def save_gain_vs_kl_comparison() -> None:
+    """Bar chart of gain vs KL for CIFAR-N worse vs synthetic sym_40 and sym_60.
+
+    Visualises the ranking reversal between real and synthetic noise:
+    under CIFAR-N, FR ≈ Hellinger > GCE; under synthetic sym_60, GCE > Hellinger > FR.
+    """
+    cifar_n_path = RESULTS / "cifar_n_full.csv"
+    synth_path = RESULTS / "cifar10_noisy_label_full.csv"
+    if not cifar_n_path.exists() or not synth_path.exists():
+        print("missing data — skipping gain_vs_kl_comparison")
+        return
+
+    cn_rows = read_rows(cifar_n_path)
+    cn_data: dict[str, dict[str, list[float]]] = defaultdict(lambda: defaultdict(list))
+    for r in cn_rows:
+        cn_data[r["noise_type"]][r["objective"]].append(float(r["eval_accuracy"]))
+
+    sy_rows = read_rows(synth_path)
+    sy_data: dict[str, dict[str, list[float]]] = defaultdict(lambda: defaultdict(list))
+    for r in sy_rows:
+        sy_data[r["noise_regime"]][r["objective"]].append(float(r["eval_accuracy"]))
+
+    non_kl = [o for o in OBJ_ORDER if o != "kl"]
+    conditions = [
+        ("CIFAR-N worse\n(~40% real noise)", cn_data["worse"]),
+        ("Synthetic sym 40%", sy_data["sym_40"]),
+        ("Synthetic sym 60%", sy_data["sym_60"]),
+    ]
+
+    fig, axes = plt.subplots(1, 3, figsize=(13, 5), sharey=False)
+    for ax, (title, cond_data) in zip(axes, conditions, strict=True):
+        kl_vals = cond_data.get("kl", [])
+        if not kl_vals:
+            ax.set_title(f"{title}\n(no data)")
+            continue
+        kl_mean = np.mean(kl_vals) * 100
+        gains, colors = [], []
+        for obj in non_kl:
+            vals = cond_data.get(obj, [])
+            gains.append(np.mean(vals) * 100 - kl_mean if vals else np.nan)
+            colors.append("tab:green" if (gains[-1] is not np.nan and gains[-1] > 0) else "tab:red")
+
+        x = np.arange(len(non_kl))
+        ax.bar(x, gains, color=colors, alpha=0.75, edgecolor="black", linewidth=0.7)
+        ax.axhline(0, color="black", linewidth=1)
+        ax.set_xticks(x)
+        ax.set_xticklabels([OBJ_LABELS[o] for o in non_kl], rotation=20, ha="right", fontsize=9)
+        ax.set_ylabel("Gain vs KL (pp)" if ax is axes[0] else "")
+        ax.set_title(title, fontsize=10)
+        ax.grid(axis="y", alpha=0.3)
+        for xi, g in zip(x, gains, strict=True):
+            if not np.isnan(g):
+                ax.text(xi, g + (0.15 if g >= 0 else -0.4), f"{g:+.1f}",
+                        ha="center", va="bottom" if g >= 0 else "top", fontsize=8)
+
+    fig.suptitle(
+        "Gain vs KL: CIFAR-N real noise vs synthetic noise\n"
+        "(ranking reversal: FR≈Hellinger>GCE under real noise; GCE>Hellinger>FR at syn\,60)",
+        fontsize=10,
+    )
+    fig.tight_layout()
+    out = FIGURES / "cifar_n_gain_comparison.pdf"
+    fig.savefig(out, bbox_inches="tight")
+    plt.close(fig)
+    print(f"saved {out.name}")
+
+
 def print_cifar_n_table() -> None:
     """Print a LaTeX table of CIFAR-N results for copy-paste into the paper."""
     path = RESULTS / "cifar_n_full.csv"
@@ -202,5 +269,6 @@ def print_cifar_n_table() -> None:
 if __name__ == "__main__":
     save_cifar_n_accuracy_bars()
     save_cifar_n_vs_synthetic()
+    save_gain_vs_kl_comparison()
     print_cifar_n_table()
     print("Done.")
