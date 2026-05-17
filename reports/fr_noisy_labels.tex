@@ -110,7 +110,8 @@ Our contributions are:
   \item Mechanistic analysis via gradient norm trajectories (seed\,0, sym\,40):
     KL memorises noisy samples (noisy/clean norm ratio 1.43$\uparrow$), FR bounds
     gradients (ratio 0.99$\approx$1), GCE actively deweights (ratio 0.71$\downarrow$),
-    explaining the empirical ordering GCE $>$ Hellinger $>$ FR $>$ KL at sym\,60.
+    SCE deweights erratically (ratio 0.53, oscillating),
+    explaining the empirical ordering GCE $>$ Hellinger $>$ FR $>$ SCE $>$ KL at sym\,60.
     A batch-normalization ablation (5 seeds, all regimes) further shows FR is the
     most BN-robust objective ($-5.3\%$ mean drop vs.\ KL's $-13.3\%$).
   \item A ConvNet calibration result: FR achieves ECE\,=\,0.025 vs KL's 0.233
@@ -704,12 +705,13 @@ vs.\ a fixed batch of correctly-labelled samples, each epoch
     Hellinger   & 0.83 & 0.63 & 0.62 & 0.70 & 0.76 & 0.88 & \textbf{0.85} $\approx 1$ \\
     GCE         & 0.78 & 0.56 & 0.53 & 0.54 & 0.63 & 0.69 & \textbf{0.71} $\downarrow$ \\
     MAE         & 0.77 & 0.48 & 0.77 & 0.69 & 0.67 & 0.63 & \textbf{0.77} erratic \\
+    SCE         & 0.76 & 0.59 & 0.49 & 0.53 & 0.58 & 0.44 & \textbf{0.53} erratic \\
     \bottomrule
   \end{tabular}
 \end{table}
 
 Figure~\ref{fig:grad_ratio} plots the ratio trajectory for each objective.
-Four qualitatively different gradient dynamics emerge:
+Five qualitatively different gradient dynamics emerge:
 \begin{itemize}
   \item \textbf{KL (memorisation, ratio $> 1$, increasing).}
     As the model grows confident in the correct class, the wrong-class probability
@@ -744,11 +746,22 @@ Four qualitatively different gradient dynamics emerge:
     This flat signal satisfies the Ghosh condition for MLP models but starves
     ConvNets of discriminative gradient needed to learn convolutional filters at
     moderate dataset scales.
+
+  \item \textbf{SCE (hybrid deweighting, ratio $\approx 0.53$, erratic).}
+    SCE combines $0.1 \cdot \mathcal{L}_\mathrm{KL}$ with
+    $1.0 \cdot \mathcal{L}_\mathrm{RCE}$ (reverse cross entropy, treating
+    $\hat{p}$ as distribution and $y$ as target).
+    The RCE term is bounded and deweights confident wrong predictions, yielding a
+    final ratio of 0.53 --- more aggressive than GCE --- but the superimposed KL
+    component introduces instability: ratios oscillate between 0.44 and 0.76.
+    This erratic trajectory explains SCE's mixed performance: beneficial on
+    CIFAR-10 ConvNet (Table~\ref{tab:cifar10}) but harmful on MNIST MLP
+    ($-3.7\%$, $p=0.004$), where the instability is amplified.
 \end{itemize}
 
 This mechanistic picture explains the performance ordering at sym\,60:
 GCE ($+9.5\%$, active deweighting) $>$ Hellinger ($+7.6\%$, tight bounding) $>$
-FR ($+3.4\%$, bounding) $>$ KL (memorisation) $>$ MAE (flat gradient failure).
+FR ($+3.4\%$, bounding) $>$ SCE ($+1.8\%$, erratic hybrid) $>$ KL (memorisation) $>$ MAE (flat gradient failure).
 It also explains the BN ablation ordering in Table~\ref{tab:no_bn}: FR's
 intrinsic gradient bound partially substitutes for BN's implicit normalisation,
 so FR is the most robust to BN removal (mean drop $-5.3\%$ vs KL $-13.3\%$).
@@ -762,7 +775,7 @@ scores, which BN provides.
   \caption{Noisy/clean gradient norm ratio over training epochs on CIFAR-10
     ConvNet (sym\,40, seed\,0). KL memorises (ratio $>1$, increasing); FR and Hellinger
     bound gradients (ratio $\approx$1, stable); GCE actively deweights noisy samples
-    (ratio $<$1, decreasing). MAE is erratic.}
+    (ratio $<$1, decreasing); MAE and SCE are erratic.}
   \label{fig:grad_ratio}
 \end{figure}
 
