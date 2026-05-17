@@ -954,11 +954,14 @@ noisy training: at sym\,40, FR achieves ECE\,$=0.025$ vs.\ KL's $0.233$ ($9\time
 improvement), making them preferable not only for accuracy but for reliable uncertainty
 quantification in deployment.
 
-For MLP/tabular settings, MAE and GCE remain the principled choices for symmetric noise.
-For ConvNet/image settings under symmetric noise, GCE is the strongest performer;
-FR and Hellinger are reliable alternatives, and they offer the additional benefit
-of excellent calibration.
-For asymmetric noise, use GCE or KL; FR significantly hurts on ConvNet ($-2.7\%$, $p=0.002$).
+For MLP/tabular settings: MAE and GCE are the principled choices for symmetric noise;
+for asymmetric noise, only MAE wins consistently across all three MLP datasets.
+For ConvNet/image settings under symmetric noise: GCE is the strongest performer;
+FR and Hellinger are reliable alternatives with the additional benefit of excellent
+calibration.
+For ConvNet asymmetric noise: use GCE or KL; FR significantly hurts ($-2.7\%$, $p=0.002$).
+Under real instance-dependent noise (CIFAR-N): FR and Hellinger are the best choices;
+GCE can hurt at low noise levels and MAE collapses entirely.
 
 On CIFAR-N real human-annotated noisy labels, FR is the only objective that
 significantly outperforms KL at all three annotation conditions ($p=0.016$,
