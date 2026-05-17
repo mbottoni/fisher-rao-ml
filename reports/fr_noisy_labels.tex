@@ -50,7 +50,7 @@ normalization and learned representations partially compensate for the missing
 theoretical guarantee, and that MAE's flat gradients become detrimental in
 this regime.
 A gradient norm analysis (3-seed mean, sym\,40) reveals three distinct mechanisms:
-KL memorises noisy samples (noisy/clean ratio $1.49\uparrow$), FR bounds gradients
+KL memorises noisy samples (noisy/clean ratio $1.49\uparrow$), FR's gradient saturates
 (ratio $0.98\approx 1$), and GCE actively deweights (ratio $0.69\downarrow$),
 explaining the observed performance hierarchy.
 On MLP, FR's ratio grows to 2.61 by epoch 99 --- the same memorisation direction
@@ -877,13 +877,13 @@ Five qualitatively different gradient dynamics emerge:
 \end{itemize}
 
 This mechanistic picture explains the performance ordering at sym\,60:
-GCE ($+9.5\%$, active deweighting) $>$ Hellinger ($+7.6\%$, tight bounding) $>$
-FR ($+3.4\%$, bounding) $>$ SCE ($+1.8\%$, erratic hybrid) $>$ KL (memorisation) $>$ MAE (flat gradient failure).
+GCE ($+9.5\%$, active deweighting) $>$ Hellinger ($+7.6\%$, gradient saturation) $>$
+FR ($+3.4\%$, gradient saturation) $>$ SCE ($+1.8\%$, erratic hybrid) $>$ KL (memorisation) $>$ MAE (flat gradient failure).
 It also explains the BN ablation ordering in Table~\ref{tab:no_bn}: FR's
-intrinsic gradient bound partially substitutes for BN's implicit normalisation,
+gradient saturation partially substitutes for BN's implicit normalisation,
 so FR is the most robust to BN removal (mean drop $-5.3\%$ vs KL $-13.3\%$).
 GCE and Hellinger collapse without BN ($-32.9\%$ and $-37.5\%$) because their
-gradient-warping and bounding properties depend on well-calibrated confidence
+gradient-warping and saturation properties depend on well-calibrated confidence
 scores, which BN provides.
 
 \begin{figure}[h]
@@ -891,12 +891,12 @@ scores, which BN provides.
   \includegraphics[width=0.85\linewidth]{figures/gradient_norm_ratio.pdf}
   \caption{Noisy/clean gradient norm ratio over training epochs on CIFAR-10
     ConvNet (sym\,40, 3-seed mean). KL memorises (ratio $>1$, increasing); FR and Hellinger
-    bound gradients (ratio $\approx$1, stable); GCE actively deweights noisy samples
+    exhibit gradient saturation (ratio $\approx$1, stable); GCE actively deweights noisy samples
     (ratio $<$1, decreasing); MAE and SCE are erratic.}
   \label{fig:grad_ratio}
 \end{figure}
 
-The bounding and warping mechanisms are complementary:
+The saturation and warping mechanisms are complementary:
 we test whether combining FR (early-phase gradient saturation) with GCE
 (late-phase active deweighting) as a two-phase curriculum outperforms either
 alone in Appendix~\ref{sec:dynamic_loss}.
@@ -1114,7 +1114,7 @@ discrimination for class-conditional noise.
 
 A gradient norm analysis (3-seed mean, sym\,40) provides direct mechanistic evidence:
 KL memorises noisy samples (noisy/clean ratio $1.49\uparrow$), FR and Hellinger
-bound gradients (ratio $\approx 1$, stable), and GCE actively deweights
+exhibit gradient saturation (ratio $\approx 1$, stable), and GCE actively deweights
 ($0.69\downarrow$) — explaining the empirical ordering at sym\,60.
 A parallel MLP analysis reveals that FR's gradient stability is architecture-specific:
 on MLP, FR's ratio grows to 2.61 by epoch 99 (same memorisation direction as KL),
@@ -1202,7 +1202,7 @@ $p=0.002$, 0/10 wins) and SCE ($-1.3\%$, $p=0.012$, 1/10 wins) significantly hur
 
 \paragraph{Motivation.}
 The gradient norm analysis (Table~\ref{tab:grad_ratio}) reveals three complementary
-mechanisms: KL memorises, FR bounds, GCE actively deweights.
+mechanisms: KL memorises, FR saturates, GCE actively deweights.
 Since FR stabilises the noisy/clean gradient ratio early in training
 (preventing premature memorisation) while GCE increasingly downweights noisy
 samples late in training (actively denoising), a two-phase curriculum is a
