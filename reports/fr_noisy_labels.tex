@@ -1120,12 +1120,22 @@ squarely inside FR's \emph{danger zone} ($p_k > 0.032$, where FR gradient $>$ KL
 FR then amplifies the gradient toward the wrong label \emph{more aggressively} than KL
 throughout training.
 
+A concrete calculation illustrates the severity.
+At $p_k = 0.35$ (a representative wrong-class probability under asym\,40):
+\begin{align*}
+  |\partial\ell_\mathrm{FR}/\partial z_k| &= 1.789 \quad (2.75\times \text{ KL}), \\
+  |\partial\ell_\mathrm{KL}/\partial z_k| &= 0.650, \\
+  |\partial\ell_\mathrm{H}/\partial z_k|  &= 0.192 \quad (0.30\times \text{ KL}), \\
+  |\partial\ell_\mathrm{GCE}/\partial z_k|&= 0.312 \quad (0.48\times \text{ KL}).
+\end{align*}
+FR applies $2.75\times$ the wrong-label gradient pressure of KL, while Hellinger
+applies only $0.30\times$ and GCE $0.48\times$.
 This explains the asymmetric results: FR significantly hurts at asym\,40 ($-2.7\%$,
-$p=0.002$, 0/10 wins) because the danger zone dominates, while Hellinger
-is neutral ($p=0.625$) because its gradient is \emph{always} below KL's
-(universally soft), providing less wrong-label pressure regardless of $p_k$.
-GCE's $p_k^q$ deweighting similarly reduces wrong-label pressure at
-intermediate $p_k$, making it neutral to mildly beneficial.
+$p=0.002$, 0/10 wins) because of this 2.75$\times$ amplification; Hellinger
+is neutral ($p=0.625$) because it is \emph{universally soft} and applies less
+wrong-label pressure than KL at every $p_k$; GCE is neutral for the same reason
+($p_k^q < 1$ ensures $|\partial\ell_\mathrm{GCE}/\partial z_k| < |\partial\ell_\mathrm{KL}/\partial z_k|$
+for all $p_k\in(0,1)$).
 
 This analysis suggests asym\_20 noise should also hurt FR (moderate persistent
 pressure on one class pair) and asym\_60 should hurt more (stronger danger-zone
