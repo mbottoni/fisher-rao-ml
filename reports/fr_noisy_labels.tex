@@ -284,6 +284,20 @@ while FR's gradient saturates to zero, preventing further memorisation.
 The proof follows from direct differentiation: $\ell_\mathrm{FR} = 4\arccos^2(\sqrt{p_k})$,
 so $\partial\ell_\mathrm{FR}/\partial p_k = -4\arccos(\sqrt{p_k})/(\sqrt{p_k}\sqrt{1-p_k})$,
 and $\partial p_k/\partial z_k = p_k(1-p_k)$, giving the expression above.
+Figure~\ref{fig:grad_saturation} illustrates the gradient magnitudes as functions of~$p_k$.
+GCE ($q=0.7$) also saturates at $p_k\to 0$ via $p_k^q(1-p_k)\to 0$, providing
+a second family of gradient-saturating losses distinct from FR.
+
+\begin{figure}[h]
+  \centering
+  \includegraphics[width=0.78\linewidth]{figures/gradient_saturation.pdf}
+  \caption{Gradient magnitude $|\partial\ell/\partial z_k|$ as a function of the
+    probability $p_k$ assigned to the corrupted label $k$.
+    At small $p_k$ (model correctly assigns low probability to the wrong label),
+    FR and GCE saturate to zero, while KL maintains near-maximal pressure~$\approx 1$.
+    This is the gradient saturation property of Proposition~\ref{prop:grad_saturation}.}
+  \label{fig:grad_saturation}
+\end{figure}
 
 \begin{remark}
 Proposition~\ref{prop:grad_saturation} provides a mechanistic complement to
