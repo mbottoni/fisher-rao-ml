@@ -96,8 +96,13 @@ robustness~\citep{bottoni2026fisherrao}.
 However, no systematic empirical study has compared FR/Hellinger against
 established noise-tolerant baselines across a range of noise conditions.
 
-We fill this gap with a controlled experiment whose design is simple enough to
-be fully reproducible on a single laptop.
+We fill this gap and find a striking result that challenges the prevailing
+assumption: FR's bounded gradient does \emph{not} universally improve noise
+robustness.
+Instead, it produces an \emph{architecture-dependent reversal}: harmful for
+MLP models under symmetric noise (where the Ghosh noise-tolerance condition
+predicts failure), yet beneficial for ConvNet models (where gradient saturation
+interacts with batch normalisation and learned representations to prevent memorisation).
 Our contributions are:
 \begin{enumerate}
   \item A six-way comparison of objectives (KL, Fisher--Rao, Hellinger, GCE,
