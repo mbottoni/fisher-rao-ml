@@ -931,11 +931,12 @@ as shown in this work ($p=0.002$, 10/10 wins at sym\,20--60); and
 (3) real human-annotated instance-dependent noise (CIFAR-N), where FR is
 the only objective that significantly outperforms KL at all three annotation
 conditions ($p=0.016$, 7/7 wins).
-The gradient norm analysis (Tables~\ref{tab:grad_ratio}--\ref{tab:mlp_grad_ratio})
-reveals the common thread: FR's bounded gradient maintains a stable
-noisy/clean ratio ($\approx 1$) when the architecture (ConvNet with BN and
-convolutional representations) supports it.
-When this stability is absent (MLP: ratio grows to 2.61) or when asymmetric noise
+The gradient norm analysis (Figure~\ref{fig:grad_saturation},
+Tables~\ref{tab:grad_ratio}--\ref{tab:mlp_grad_ratio})
+reveals the common thread: FR's gradient saturation (Proposition~\ref{prop:grad_saturation})
+maintains a stable noisy/clean ratio ($\approx 1$) when the architecture
+(ConvNet with BN and convolutional representations) enables early correct classification.
+When this condition is absent (MLP: ratio grows to 2.61) or when asymmetric noise
 requires fine-grained class discrimination, the Ghosh condition violation dominates
 and FR hurts.
 
