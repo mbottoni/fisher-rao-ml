@@ -145,7 +145,7 @@ Our contributions are:
     conditions ($p=0.002$, 10/10 wins), with gains growing from $+0.7\%$
     (aggre) to $+1.6\%$ (worse, $\approx 40\%$ noise).
     MAE and SCE collapse at all noise conditions ($p=0.002$); GCE
-    significantly hurts at aggre ($p=0.031$), confirming the
+    significantly hurts at aggre ($p=0.008$), confirming the
     ConvNet reversal generalizes beyond the symmetric noise model.
   \item Practical guidance: for MLP/tabular data under symmetric noise use MAE
     or GCE; for ConvNet/image data under symmetric noise, GCE is strongest, FR and
@@ -795,6 +795,23 @@ synthetic: GCE $>$ Hellinger $>$ FR $>$ KL $\gg$ MAE at sym\,60).
 FR and Hellinger outperform GCE on real instance-dependent noise, suggesting that
 gradient saturation is more robust than active deweighting when noise is not symmetric.
 
+\begin{remark}[GCE and the low-noise suppression effect]
+At aggre ($\approx 9\%$ real noise), GCE \emph{significantly hurts} ($p=0.008$, 1/10 wins, $-0.6\%$)
+despite being competitive at synthetic sym\,20--40.
+The mechanism differs from the universally-soft comparison: at very low noise rates,
+the majority of training gradients come from correctly-labelled examples.
+GCE's active deweighting ($q=0.7$, gradient $\propto -p_k^q(1-p_k)$)
+suppresses high-confidence predictions indiscriminately, reducing the useful signal
+from the dominant clean majority.
+FR and Hellinger avoid this suppression: their gradients decay toward zero only as
+$p_k\to 0$ (FR) or as $p_k\to 1$ (Hellinger's universal softness), so they
+reduce corrupted-label pressure without penalising already-correct high-confidence predictions.
+This suggests a \emph{noise-rate sensitivity} principle: active deweighting (GCE)
+is optimal at high noise where the noisy fraction is large enough to justify
+signal suppression; gradient saturation (FR, Hellinger) is preferable at low or
+instance-dependent noise where clean examples should remain fully weighted.
+\end{remark}
+
 % ------------------------------------------------------------------
 \section{Discussion}
 % ------------------------------------------------------------------
@@ -1007,6 +1024,36 @@ When this condition is absent (MLP: ratio grows to 2.61), when asymmetric noise
 requires fine-grained class discrimination, or when noise is severe enough that
 the early-amplification danger zone ($p_k>0.032$) dominates before saturation
 sets in, the Ghosh condition violation or amplification mechanism causes FR to hurt.
+
+\begin{remark}[Why FR hurts under asymmetric noise: danger zone persistence]
+\label{rem:asym_failure}
+Under symmetric noise, the corrupted label for each sample is drawn from a
+\emph{different} class each time, so the model's predicted probability $p_k$
+for any specific wrong class remains low throughout training.
+This keeps the model in FR's saturation regime ($p_k < 0.032$, where FR gradient $<$ KL
+gradient), and gradient saturation prevents memorisation.
+
+Under asymmetric (class-conditional) noise, the same class pair is always confused
+(e.g., cat $\to$ dog at rate 40\%).
+The consistent pressure from the corrupted cat-as-dog examples pushes the model's
+prediction $p(\text{dog}|\,x_\text{cat})$ toward intermediate values ($0.3$--$0.4$),
+squarely inside FR's \emph{danger zone} ($p_k > 0.032$, where FR gradient $>$ KL gradient).
+FR then amplifies the gradient toward the wrong label \emph{more aggressively} than KL
+throughout training.
+
+This explains the asymmetric results: FR significantly hurts at asym\,40 ($-2.7\%$,
+$p=0.002$, 0/10 wins) because the danger zone dominates, while Hellinger
+is neutral ($p=0.625$) because its gradient is \emph{always} below KL's
+(universally soft), providing less wrong-label pressure regardless of $p_k$.
+GCE's $p_k^q$ deweighting similarly reduces wrong-label pressure at
+intermediate $p_k$, making it neutral to mildly beneficial.
+
+This analysis suggests asym\_20 noise should also hurt FR (moderate persistent
+pressure on one class pair) and asym\_60 should hurt more (stronger danger-zone
+gradient amplification due to higher noise rate and resulting higher wrong-class $p_k$).
+Empirical validation of this prediction would confirm the danger-zone mechanism
+as the unifying explanation for both the sym and asym ConvNet results.
+\end{remark}
 
 \paragraph{Practical recommendation.}
 For MLP/tabular data under symmetric label noise: use MAE or GCE, which
