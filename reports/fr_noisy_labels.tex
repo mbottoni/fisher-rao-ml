@@ -640,7 +640,7 @@ The key findings are:
     Gains grow with noise rate, mirroring the ConvNet advantage under synthetic noise.
 
   \item \textbf{Hellinger is significant at random1 and worse but not aggre.}
-    7/7 wins at random1 ($+0.7\%$, $p=0.016$) and 7/7 wins at worse ($+1.6\%$, $p=0.016$).
+    7/7 wins at random1 ($+0.7\%$, $p=0.016$) and 7/7 wins at worse ($+1.7\%$, $p=0.016$).
     At aggre ($\approx 9\%$), only 3/7 wins ($+0.1\%$, $p=0.547$):
     bounded gradients provide little benefit when noise is sparse.
 
@@ -662,7 +662,7 @@ The key findings are:
 FR uniquely combines bounded gradients (preventing corruption memorisation) without
 the constant-sum constraint (enabling generalisation), making it noise-model-agnostic.
 Notably, the real-noise ranking at high noise differs from the synthetic ranking:
-(real: FR $\approx$ Hellinger $\gg$ GCE $>$ SCE $>$ KL $\gg$ MAE vs.\
+(real: FR $\approx$ Hellinger [$+1.6$--$1.7\%$, $p=0.016$] $>$ GCE [$+1.2\%$, n.s.] $>$ KL $\approx$ SCE $\gg$ MAE [$-16\%$] vs.\
 synthetic: GCE $>$ Hellinger $>$ FR $>$ KL $\gg$ MAE at sym\,60).
 FR outperforms GCE on real instance-dependent noise, suggesting that gradient bounding
 is more robust than active deweighting when noise labels do not follow a symmetric model.
