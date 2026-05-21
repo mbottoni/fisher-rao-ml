@@ -69,11 +69,16 @@ Critically, FR and Hellinger also deliver dramatically better calibration under 
 at sym\,40, FR achieves ECE\,$=0.025$ vs.\ KL's $0.233$ ($9\times$ improvement),
 making them preferable not only for accuracy but for deployment reliability.
 On CIFAR-N real human-annotated labels, FR is the only objective significantly
-better than KL across all three noise conditions ($p=0.002$, 10/10 wins),
-confirming the ConvNet advantage generalizes beyond the synthetic noise model.
+better than KL across all three annotation conditions ($p=0.002$, 10/10 wins),
+confirming the ConvNet advantage holds under instance-dependent noise.
+A two-phase dynamic curriculum (FR Phase~1, GCE Phase~2) does not outperform
+static GCE at symmetric noise ($-4.2$\,pp at sym\,60, suggestive $p=0.062$),
+despite substantially outperforming FR alone ($+11.7$\,pp), indicating that
+the gradient-saturation and active-deweighting mechanisms do not compose through
+a fixed switch epoch.
 These findings sharpen the understanding of where information-geometric losses are
 and are not beneficial, and motivate further investigation of loss--architecture
-interactions.
+interactions and adaptive curriculum design.
 \end{abstract}
 
 % ------------------------------------------------------------------
@@ -166,6 +171,13 @@ Our contributions are:
     as GCE's active deweighting suppresses gradients from the clean majority
     and is counterproductive when noise is sparse or instance-dependent
     (CIFAR-N aggre $\approx$9\%: GCE hurts $p=0.008$, FR helps $p=0.002$).
+  \item A dynamic loss-switching experiment (5 schedules, 5 regimes, 5 seeds)
+    testing whether an FR-then-GCE two-phase curriculum realizes the gradient-norm-predicted
+    complementarity (Appendix~\ref{sec:dynamic_loss}).
+    The null result --- \texttt{FR$\to$GCE} does not beat static GCE (sym\,60: $-4.2$\,pp,
+    suggestive $p=0.062$) despite substantially outperforming FR alone ($+11.7$\,pp) ---
+    reveals that the saturation and deweighting mechanisms do not compose
+    through a fixed switch epoch, motivating adaptive curriculum strategies.
 \end{enumerate}
 
 % ------------------------------------------------------------------
@@ -1385,13 +1397,22 @@ at low noise (aggre: $+0.1\%$, $p=0.475$).
 These results confirm the ConvNet advantage holds under instance-dependent noise,
 independent of the synthetic noise model.
 
+A two-phase dynamic curriculum (FR in Phase~1, GCE in Phase~2) does not outperform
+static GCE (sym\,60: $-4.2$\,pp, suggestive $p=0.062$), despite substantially
+outperforming FR alone ($+11.7$\,pp at sym\,60).
+The mechanisms are not compositional under a fixed switch epoch; GCE's large
+early advantage (15.8\,pp at sym\,60) cannot be recovered by a late-phase switch
+from a suboptimally-initialised representation.
+
 Future work should (i) validate the danger-zone persistence prediction at additional
 asymmetric noise rates (asym\,20\% and asym\,60\%) to confirm the mechanism extends
 uniformly across noise intensities,
 (ii) scale to ResNet-18 on full CIFAR-10 to confirm the finding at the 5$\times$ larger
 dataset and deeper architecture scale,
-(iii) investigate the two-phase curriculum combining FR's early gradient stability
-with GCE's late-phase denoising (Appendix~\ref{sec:dynamic_loss}),
+(iii) design adaptive curriculum strategies that switch objectives based on
+gradient-ratio signals rather than a fixed epoch, since the fixed-epoch
+\texttt{FR$\to$GCE} schedule does not outperform static GCE
+(Appendix~\ref{sec:dynamic_loss}),
 (iv) develop a theoretical framework accounting for architecture and optimization
 dynamics beyond the asymptotic Ghosh et al.\ analysis — specifically, a convergence
 rate condition that formally characterises when gradient saturation becomes beneficial,
@@ -1486,6 +1507,63 @@ and switching to GCE suppresses signals late in training.
 These predictions are testable with the current 5-seed setup.
 
 \paragraph{Results.}
-[Results pending — experiment currently running.]
+Table~\ref{tab:dynamic_loss} and Figure~\ref{fig:dynamic_loss} summarise the results.
+The three predictions receive mixed support.
+
+\emph{Prediction (b) confirmed (suggestive):}
+\texttt{FR$\to$GCE} substantially outperforms static FR at symmetric noise
+(sym\,40: $+6.5$\,pp, 5/5 wins; sym\,60: $+11.7$\,pp, 5/5 wins; $p=0.062$ for both,
+suggestive with 5 seeds), confirming that Phase~2 GCE deweighting recovers accuracy
+that FR's gradient saturation alone cannot achieve at high noise.
+
+\emph{Prediction (a) not confirmed:}
+\texttt{FR$\to$GCE} does not match static GCE at any symmetric noise regime
+(sym\,40: $-1.2$\,pp, 0/5 wins; sym\,60: $-4.2$\,pp, 0/5 wins; $p=0.062$ for both).
+The disadvantage is consistent in direction but not significant at 5 seeds
+($p_{\min}\approx0.063$).
+
+\emph{Prediction (c) not confirmed:}
+At asym\,40, \texttt{FR$\to$GCE} does not hurt; it is the best schedule overall
+($56.4\%$, $+0.8$\,pp over static GCE, 4/5 wins, $p=0.125$).
+
+\paragraph{Interpretation.}
+GCE's advantage at sym\,60 is large (GCE $62.8\%$ vs.\ FR $47.0\%$, a $15.8$\,pp gap),
+and a Phase~1 warm-start from FR does not close it: by epoch~30 the FR-initialised
+model has adapted to a saturating gradient signal that is suboptimal for GCE's
+Box-Cox down-weighting in Phase~2.
+The mechanisms are not simply compositional under a fixed switch epoch.
+An adaptive switching rule --- for example, switching when the noisy/clean gradient
+norm ratio crosses a threshold --- may be required to realize the theoretical
+benefit identified in the gradient norm analysis.
+
+\begin{table}[h]
+  \centering
+  \caption{Dynamic loss-switching curriculum vs.\ static baselines on CIFAR-10 ConvNet
+    (5 seeds; $p_{\min}\approx 0.063$). SGD hyperparameters differ from the main benchmark
+    (see text); comparisons valid only within this table. Bold: best per regime.}
+  \label{tab:dynamic_loss}
+  \small
+  \begin{tabular}{lccccccc}
+    \toprule
+    Regime & KL & FR & GCE & MAE & FR$\to$GCE & FR$\to$KL & KL$\to$GCE \\
+    \midrule
+    Clean    & \textbf{83.1} & 83.0 & 82.7 & 76.6 & 82.2 & 82.6 & 82.9 \\
+    Sym 20\% & 72.9 & 78.3 & \textbf{79.6} & 73.7 & 78.9 & 75.0 & 77.6 \\
+    Sym 40\% & 62.5 & 67.1 & \textbf{74.8} & 68.0 & 73.6 & 65.7 & 71.5 \\
+    Sym 60\% & 46.7 & 47.0 & \textbf{62.8} & 58.0 & 58.7 & 48.3 & 58.4 \\
+    Asym 40\% & 54.5 & 53.3 & 55.6 & 53.6 & \textbf{56.4} & 54.5 & 54.1 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\begin{figure}[h]
+  \centering
+  \includegraphics[width=\linewidth]{figures/dynamic_loss_vs_static.pdf}
+  \caption{Dynamic loss-switching schedules vs.\ static baselines on CIFAR-10 ConvNet
+    (5 seeds; error bars are standard deviation). GCE dominates at symmetric noise;
+    \texttt{FR$\to$GCE} does not outperform static GCE despite substantially
+    outperforming FR alone ($+11.7$\,pp at sym\,60).}
+  \label{fig:dynamic_loss}
+\end{figure}
 
 \end{document}
