@@ -1170,10 +1170,11 @@ as the unifying quantitative explanation for all asymmetric ConvNet results.
 \paragraph{Practical recommendation.}
 For MLP/tabular data under symmetric label noise: use MAE or GCE, which
 satisfy the noise-tolerance condition or approximate it.
-For ConvNet/image data under symmetric noise: at moderate noise (sym\,20--40), FR and GCE are
-competitive; at high noise (sym\,60+), prefer Hellinger, which is universally softer
-than KL (max gradient $\approx$0.19) and avoids FR's early-training amplification danger
-zone. Avoid MAE, whose flat gradients impair convolutional feature learning.
+For ConvNet/image data under symmetric noise: at moderate noise (sym\,20--40), FR,
+Hellinger, and GCE are all competitive (all 10/10 wins, $p=0.002$ at sym\,40; FR and
+Hellinger are strongest at sym\,20); at high noise (sym\,60+), prefer Hellinger or GCE —
+Hellinger avoids FR's early-training amplification danger zone and GCE additionally
+provides active deweighting. Avoid MAE, whose flat gradients impair convolutional feature learning.
 For MLP/tabular data under asymmetric noise: MAE is the clear winner
 (consistent $+3$--$8\%$ gains across all three MLP datasets).
 For ConvNet/image data under asymmetric noise: use Hellinger — it maintains
