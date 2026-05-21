@@ -423,9 +423,7 @@ families to isolate loss--architecture interactions.
   \item \textbf{CIFAR-10}: 10,000 training and 2,000 test samples (stratified
     subsets).
     32$\times$32 RGB images; random crop and horizontal flip augmentation.
-    10 seeds; noise regimes: clean, sym\,20/40/60\%, asym\,40\%.
-    Asym\,20\% and asym\,60\% experiments are in progress to test
-    the danger zone prediction (Remark~\ref{rem:asym_failure}).
+    10 seeds; noise regimes: clean, sym\,20/40/60\%, asym\,20/40/60\%.
 \end{itemize}
 
 \paragraph{MLP model.}
@@ -553,10 +551,19 @@ The results in Table~\ref{tab:accuracy_cifar10} reveal a sharp reversal:
     Both GCE and Hellinger are \emph{universally soft} (gradient always below KL's; see Remark after Proposition~\ref{prop:grad_saturation}),
     but GCE achieves a noisy/clean gradient ratio of $0.69\downarrow$ (active deweighting),
     while Hellinger achieves $0.88$ (passive reduction), explaining GCE's greater margin at high noise.
-  \item \textbf{Asymmetric noise: FR hurts significantly; others neutral.}
-    At asym\,40 (10 seeds), FR falls $-2.7\%$ (0/10 wins, $p=0.002$);
-    Hellinger is neutral ($+0.1\%$, 7/10 wins, $p=0.625$); GCE is neutral ($-0.0\%$, $p=0.826$).
-    MAE severely underperforms ($-12.7\%$, $p=0.002$).
+  \item \textbf{Asymmetric noise: non-monotone behavior across rates.}
+    At asym\,20, all objectives except MAE ($-11.6\%$, $p=0.002$) and SCE ($-5.4\%$, $p=0.002$)
+    are neutral vs KL: FR ($-0.4\%$, $p=0.070$), Hellinger ($-0.1\%$, $p=0.508$),
+    GCE ($-0.3\%$, $p=0.051$).
+    At asym\,40, FR falls $-2.7\%$ (0/10 wins, $p=0.002$); Hellinger is neutral
+    ($+0.1\%$, $p=0.625$); GCE is neutral; MAE severely underperforms ($-12.7\%$, $p=0.002$).
+    This confirms the danger-zone prediction (Remark~\ref{rem:asym_failure}).
+    At asym\,60, the pattern \emph{reverses}: FR uniquely \emph{helps} ($+1.6\%$,
+    10/10 wins, $p=0.002$), while Hellinger ($-2.5\%$, $p=0.002$), GCE ($-4.7\%$,
+    $p=0.002$), and SCE ($-10.3\%$, $p=0.002$) all significantly hurt; KL collapses
+    to $19.3\%$ (near-random).
+    This reversal contradicts the graduated danger-zone prediction; see
+    Remark~\ref{rem:asym_failure} for analysis.
 \end{enumerate}
 
 \begin{table}[t]
@@ -586,11 +593,13 @@ The results in Table~\ref{tab:accuracy_cifar10} reveal a sharp reversal:
   \centering
   \caption{Mean test accuracy (\%) on CIFAR-10 ConvNet (10 seeds, all regimes;
     two-sided Wilcoxon $p$-values vs KL for $p<0.05$).
-    Note the reversal from Table~\ref{tab:accuracy}: FR, Hellinger, and GCE
-    all outperform KL under symmetric noise (all $p=0.002$), while MAE severely
-    underperforms. At asym\,40, FR significantly \emph{hurts} ($p=0.002$), while
-    Hellinger and GCE are neutral.
-    Bold: best non-KL objective per noise regime.
+    Under symmetric noise, FR, Hellinger, and GCE all outperform KL (all $p=0.002$),
+    while MAE severely underperforms.
+    Under asymmetric noise, the picture is non-monotone: at asym\,20 all objectives
+    except MAE/SCE are neutral; at asym\,40, FR significantly \emph{hurts} ($p=0.002$)
+    while Hellinger and GCE are neutral; at asym\,60, FR \emph{uniquely helps}
+    ($+1.6\%$, $p=0.002$) while Hellinger and GCE both hurt.
+    Bold: best non-KL objective per regime.
     Underline: statistically below KL ($p < 0.05$).}
   \label{tab:accuracy_cifar10}
   \footnotesize
@@ -602,7 +611,9 @@ The results in Table~\ref{tab:accuracy_cifar10} reveal a sharp reversal:
     Sym 20\% & 79.0 & \textbf{81.4} ($p{=}0.002$) & 80.4 ($p{=}0.002$) & 79.5 ($p{=}0.047$) & \underline{68.2} ($p{=}0.002$) & \underline{75.4} ($p{=}0.002$) \\
     Sym 40\% & 72.6 & 75.0 ($p{=}0.002$) & \textbf{76.1} ($p{=}0.002$) & 76.0 ($p{=}0.002$) & \underline{63.0} ($p{=}0.002$) & \underline{70.5} ($p{=}0.002$) \\
     Sym 60\% & 58.2 & 61.6 ($p{=}0.002$) & 65.8 ($p{=}0.002$) & \textbf{67.7} ($p{=}0.002$) & \underline{53.0} ($p{=}0.002$) & 60.0 ($p{=}0.004$) \\
+    Asym 20\% & 79.7 & 79.3 & \textbf{79.6} & 79.5 & \underline{68.1} ($p{=}0.002$) & \underline{74.4} ($p{=}0.002$) \\
     Asym 40\% & 64.7 & \underline{62.0} ($p{=}0.002$) & \textbf{64.8} & 64.7 & \underline{52.0} ($p{=}0.002$) & 63.4 \\
+    Asym 60\% & 19.3 & \textbf{20.9} ($p{=}0.002$) & \underline{16.9} ($p{=}0.002$) & \underline{14.6} ($p{=}0.002$) & 17.2 & \underline{9.0} ($p{=}0.002$) \\
     \bottomrule
   \end{tabular}
 \end{table}
@@ -1158,13 +1169,26 @@ wrong-label pressure than KL at every $p_k$; GCE is neutral for the same reason
 ($p_k^q < 1$ ensures $|\partial\ell_\mathrm{GCE}/\partial z_k| < |\partial\ell_\mathrm{KL}/\partial z_k|$
 for all $p_k\in(0,1)$).
 
-This analysis yields graduated predictions across asymmetric noise rates.
-Under asym\,20, the equilibrium wrong-class probability is lower ($p_k\approx 0.20$),
-giving FR/KL ratio $\approx 2.2\times$ — still amplifying but less severely than asym\,40's $2.75\times$.
-Under asym\,60, stronger corrupted-label pressure raises $p_k$ toward $0.5$--$0.6$,
-pushing the FR/KL ratio to $\approx 3.1$--$3.4\times$, predicting FR hurts more than at asym\,40.
-Empirical validation of this graduated prediction would confirm the danger-zone mechanism
-as the unifying quantitative explanation for all asymmetric ConvNet results.
+The empirical results confirm the danger zone prediction at asym\,40 and reveal
+a non-monotone pattern across all three rates.
+At asym\,20, the equilibrium wrong-class probability is lower ($p_k\approx 0.20$),
+giving FR/KL ratio $\approx 2.2\times$ — amplifying but not severely enough to
+cause statistically significant harm ($p=0.070$, $-0.4\%$).
+At asym\,40, the prediction is confirmed: FR significantly hurts ($-2.7\%$, $p=0.002$).
+At asym\,60, the prediction fails: FR \emph{uniquely helps} ($+1.6\%$, $p=0.002$, 10/10 wins)
+while Hellinger ($-2.5\%$, $p=0.002$) and GCE ($-4.7\%$, $p=0.002$) both hurt.
+
+The proposed explanation for the asym\,60 reversal is a second threshold effect.
+At asym\,60, extreme corruption pressure drives wrong-class confidence to
+$p_k \approx 0.6$--$0.7$ (the model strongly predicts the wrong class).
+At $p_k = 0.7$, FR provides $\approx 3.5\times$ KL's gradient toward correcting the
+wrong prediction, while Hellinger provides only $0.4\times$ and GCE $0.8\times$.
+When the model has \emph{collapsed} into confident wrong-class predictions,
+KL and universally-soft losses (Hellinger, GCE) cannot provide sufficient gradient
+to recover: their universal softness, which protects against moderate amplification
+at asym\,40, becomes a liability at extreme noise where strong recovery gradient
+is needed. FR's amplification --- harmful when $p_k$ is moderate ($\approx 0.35$,
+asym\,40) --- provides the corrective signal that soft losses cannot.
 \end{remark}
 
 \paragraph{Practical recommendation.}
@@ -1325,12 +1349,6 @@ symmetric/asymmetric label noise model of \citet{ghosh2017robust}.
     architecture depth) are needed to isolate causal factors.
   \item We do not evaluate co-learning, teacher--student, or semi-supervised
     approaches; the comparison is restricted to the loss function alone.
-  \item The main CIFAR-10 asym results use only one rate (asym\,40\%).
-    The danger zone analysis (Remark~\ref{rem:asym_failure}) predicts FR also hurts
-    at asym\,20\% (moderate persistent wrong-class pressure) and asym\,60\%
-    (stronger pressure $\to$ deeper in the danger zone); experiments at both rates
-    are in progress and, if confirmed, will complete the asym coverage of
-    Table~\ref{tab:accuracy_cifar10}.
 \end{itemize}
 
 % ------------------------------------------------------------------
@@ -1407,9 +1425,11 @@ The mechanisms are not compositional under a fixed switch epoch; GCE's large
 early advantage (15.8\,pp at sym\,60) cannot be recovered by a late-phase switch
 from a suboptimally-initialised representation.
 
-Future work should (i) validate the danger-zone persistence prediction at additional
-asymmetric noise rates (asym\,20\% and asym\,60\%) to confirm the mechanism extends
-uniformly across noise intensities,
+Future work should (i) develop theory for the asym\,60 reversal (FR uniquely helps
+at $+1.6\%$, $p=0.002$, while universally-soft losses Hellinger/GCE both hurt), which
+suggests a second threshold: FR's gradient amplification harms at moderate wrong-class
+confidence (asym\,40) but helps at high wrong-class confidence (asym\,60) where
+soft gradients are too weak to correct systematic mislabelling,
 (ii) scale to ResNet-18 on full CIFAR-10 to confirm the finding at the 5$\times$ larger
 dataset and deeper architecture scale,
 (iii) design adaptive curriculum strategies that switch objectives based on
