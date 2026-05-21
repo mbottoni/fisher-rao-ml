@@ -141,8 +141,8 @@ Our contributions are:
     loss vs.\ Hellinger's neutral result.
   \item Mechanistic analysis via gradient norm trajectories (3-seed mean, sym\,40):
     KL memorises noisy samples (noisy/clean norm ratio 1.49$\uparrow$), FR saturates
-    (ratio 0.98$\approx$1), GCE actively deweights (ratio 0.69$\downarrow$),
-    SCE deweights erratically (ratio 0.56, oscillating),
+    (ratio 0.98$\approx$1), Hellinger softly reduces (ratio 0.88), GCE actively
+    deweights (ratio 0.69$\downarrow$), SCE deweights erratically (ratio 0.56, oscillating),
     explaining the empirical ordering GCE $>$ Hellinger $>$ FR $>$ SCE $>$ KL $>$ MAE at sym\,60.
     A parallel MLP analysis (Table~\ref{tab:mlp_grad_ratio}) shows that FR's gradient
     stability is architecture-specific: on MLP, FR's ratio grows to 2.61 (same
