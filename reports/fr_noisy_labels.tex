@@ -961,14 +961,14 @@ Five qualitatively different gradient dynamics emerge:
     By epoch 59, noisy samples drive 49\% larger gradient updates than clean ones —
     the hallmark of memorisation.
 
-  \item \textbf{FR and Hellinger (gradient saturation, ratio $\approx 1$, stable).}
+  \item \textbf{FR (gradient saturation, ratio $0.98\approx 1$) and Hellinger (soft reduction, ratio 0.88).}
     By Proposition~\ref{prop:grad_saturation}, FR's logit gradient
     $\partial \mathcal{L}_\mathrm{FR}/\partial z_j =
     -4\arccos(\sqrt{p_j})\sqrt{p_j}\sqrt{1-p_j} \to 0$ as $p_j \to 0$:
     once the model correctly suppresses the corrupted label, FR stops applying
     pressure toward it.
-    Hellinger's gradient analogously saturates.
-    Both ratios stabilise near 1.0: the model does not preferentially overfit to
+    Hellinger's gradient also saturates, ending at a final ratio of 0.88 (soft reduction, not $\approx$1).
+    Neither ratio exceeds 1.0: the model does not preferentially overfit to
     mislabelled samples, even late in training.
     Hellinger's slightly lower ratio (0.88 vs 0.98) reflects a fundamental structural
     difference: Hellinger's peak gradient ($\approx 0.19$ at $p_j=1/3$) is \emph{always}
@@ -1018,7 +1018,7 @@ Five qualitatively different gradient dynamics emerge:
 \end{itemize}
 
 This mechanistic picture explains the performance ordering at sym\,60:
-GCE ($+9.5\%$, active deweighting) $>$ Hellinger ($+7.6\%$, gradient saturation) $>$
+GCE ($+9.5\%$, active deweighting) $>$ Hellinger ($+7.6\%$, soft saturation) $>$
 FR ($+3.4\%$, gradient saturation) $>$ SCE ($+1.8\%$, erratic hybrid) $>$ KL (memorisation) $>$ MAE (flat gradient failure).
 It also explains the BN ablation ordering in Table~\ref{tab:no_bn}: FR's
 gradient saturation partially substitutes for BN's implicit normalisation,
@@ -1031,9 +1031,9 @@ scores, which BN provides.
   \centering
   \includegraphics[width=0.85\linewidth]{figures/gradient_norm_ratio.pdf}
   \caption{Noisy/clean gradient norm ratio over training epochs on CIFAR-10
-    ConvNet (sym\,40, 3-seed mean). KL memorises (ratio $>1$, increasing); FR and Hellinger
-    exhibit gradient saturation (ratio $\approx$1, stable); GCE actively deweights noisy samples
-    (ratio $<$1, decreasing); MAE and SCE are erratic.}
+    ConvNet (sym\,40, 3-seed mean). KL memorises (ratio $>1$, increasing); FR saturates
+    (ratio $0.98\approx$1); Hellinger softly reduces (ratio 0.88); GCE actively deweights
+    (ratio $0.69<1$, decreasing); MAE and SCE are erratic.}
   \label{fig:grad_ratio}
 \end{figure}
 
