@@ -200,6 +200,8 @@ These issues have already been corrected. Skip them during prose passes.
 - **Conclusion prose** (commit `5f5d6a7`): "FR and Hellinger exhibit gradient saturation (ratio ≈ 1, stable)" → "FR's gradient saturates (ratio 0.98≈1), Hellinger passively reduces (ratio 0.88), and GCE actively deweights (0.69↓)".
 - **Table `tab:grad_ratio`** (commit `539d027`): Hellinger Ep59 annotation changed from `$\approx 1$` to `$\downarrow$ soft`; caption updated to reflect three distinct mechanisms.
 - **Discussion body + figure caption** (commit `7a1455f`): Bullet header changed from "FR and Hellinger (gradient saturation, ratio ≈ 1, stable)" to "FR (gradient saturation, ratio 0.98≈1) and Hellinger (soft reduction, ratio 0.88)"; line "Both ratios stabilise near 1.0" corrected; figure caption updated; summary ordering line changed from "gradient saturation" to "soft saturation" for Hellinger.
+- **asym_20/40/60 results** (commit `9943e74`): Added asym_20 and asym_60 rows to Table 3, expanded §3 ConvNet item 4, rewrote Remark rem:asym_failure with actual results + second-threshold explanation, removed Limitations "in progress" bullet, updated Conclusion future work (i).
+- **Abstract + Introduction asym coverage** (commit `74c6bc8`): Abstract and Introduction now describe non-monotone asym behavior: neutral at asym_20 (p=0.070), hurts at asym_40 (-2.7%, p=0.002), uniquely helps at asym_60 (+1.6%, 10/10, p=0.002).
 
 ---
 
@@ -208,9 +210,12 @@ These issues have already been corrected. Skip them during prose passes.
 **Core finding:** FR hurts MLP under symmetric noise (fails Ghosh condition), helps ConvNet
 (+2.4% sym_40, 10/10 wins p=0.002). The key property is bounded codomain + symmetry, not
 FR geometry. Hellinger behaves nearly identically; GCE dominates at high symmetric noise.
+Under asymmetric noise, FR is non-monotone: neutral at asym_20 (p=0.070), hurts at asym_40
+(-2.7%, p=0.002), and uniquely helps at asym_60 (+1.6%, 10/10, p=0.002) where all other
+objectives either fail or significantly hurt.
 
 **Completed experiments:**
-- `cifar10_noisy_label_full.csv` — 300 rows (6 obj × 5 regimes × 10 seeds, CIFAR-10 ConvNet)
+- `cifar10_noisy_label_full.csv` — 420 rows (6 obj × 7 regimes × 10 seeds, CIFAR-10 ConvNet; regimes: clean, sym_20/40/60, asym_20/40/60)
 - `cifar10_no_bn_full.csv` — 150 rows (BN ablation, 5 seeds)
 - `cifar_n_full.csv` — 180 rows (3 noise types × 6 obj × 10 seeds, real human labels)
 - `gradient_norm_full.csv` — 2160 rows (6 obj × 3 seeds × 60 epochs)
@@ -226,5 +231,5 @@ FR geometry. Hellinger behaves nearly identically; GCE dominates at high symmetr
 - 10 seeds → p_min=0.002. Can claim p<0.05 and use "significant".
 - 5 seeds → p_min=0.063. Say "suggestive (p=X)" — never claim significance.
 
-**Paper:** `reports/fr_noisy_labels.tex`, 26 pages, compiles clean with no errors or overfull warnings.
+**Paper:** `reports/fr_noisy_labels.tex`, 27 pages, compiles clean with no errors or overfull warnings.
 Target venue: NeurIPS 2026. Submission deadline not yet set.
