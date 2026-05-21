@@ -1357,12 +1357,13 @@ asymmetric noise keeps the wrong-class probability $p_k\in(0.3,0.4)$ throughout
 training, squarely inside the regime where FR amplifies corrupted gradients above KL.
 
 A gradient norm analysis (3-seed mean, sym\,40) provides direct mechanistic evidence:
-KL memorises noisy samples (noisy/clean ratio $1.49\uparrow$), FR and Hellinger
-exhibit gradient saturation (ratio $\approx 1$, stable), and GCE actively deweights
-($0.69\downarrow$) — explaining the empirical ordering at sym\,60.
-A structural gradient comparison reveals why Hellinger ($+7.6\%$) exceeds FR ($+3.4\%$) at sym\,60:
-Hellinger's gradient is universally below KL's (max~$\approx$0.19), while FR's gradient
-exceeds KL's for $p_k > 0.032$, amplifying corrupted labels during early training.
+KL memorises noisy samples (noisy/clean ratio $1.49\uparrow$), FR's gradient saturates
+(ratio $0.98\approx 1$), Hellinger passively reduces (ratio $0.88$), and GCE actively
+deweights ($0.69\downarrow$) — explaining the empirical ordering at sym\,60.
+The distinction between FR and Hellinger explains why Hellinger ($+7.6\%$) exceeds
+FR ($+3.4\%$) at sym\,60: Hellinger's gradient is universally below KL's
+(max~$\approx$0.19), while FR's gradient exceeds KL's for $p_k > 0.032$,
+amplifying corrupted labels during early training.
 A parallel MLP analysis reveals that FR's gradient stability is architecture-specific:
 on MLP, FR's ratio grows to 2.61 by epoch 99 (same memorisation direction as KL),
 completing the mechanistic picture of the architecture reversal.
