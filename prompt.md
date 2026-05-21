@@ -193,6 +193,16 @@ Then report: **IDLE — paper is consistent and all results are committed.** Do 
 
 ---
 
+## Previously fixed (do not re-fix)
+
+These issues have already been corrected. Skip them during prose passes.
+
+- **Conclusion prose** (commit `5f5d6a7`): "FR and Hellinger exhibit gradient saturation (ratio ≈ 1, stable)" → "FR's gradient saturates (ratio 0.98≈1), Hellinger passively reduces (ratio 0.88), and GCE actively deweights (0.69↓)".
+- **Table `tab:grad_ratio`** (commit `539d027`): Hellinger Ep59 annotation changed from `$\approx 1$` to `$\downarrow$ soft`; caption updated to reflect three distinct mechanisms.
+- **Discussion body + figure caption** (commit `7a1455f`): Bullet header changed from "FR and Hellinger (gradient saturation, ratio ≈ 1, stable)" to "FR (gradient saturation, ratio 0.98≈1) and Hellinger (soft reduction, ratio 0.88)"; line "Both ratios stabilise near 1.0" corrected; figure caption updated; summary ordering line changed from "gradient saturation" to "soft saturation" for Hellinger.
+
+---
+
 ## Project context (do not act on this, just for background)
 
 **Core finding:** FR hurts MLP under symmetric noise (fails Ghosh condition), helps ConvNet
