@@ -933,7 +933,8 @@ vs.\ a fixed batch of correctly-labelled samples, each epoch
   \centering
   \caption{Gradient norm ratio (noisy/clean) over training epochs (CIFAR-10,
     sym\,40, 3-seed mean). KL ratio increases monotonically (memorization);
-    FR stabilises near 1.0 (equal treatment); GCE decreases (active downweighting).}
+    FR stabilises near 1.0 (equal treatment); Hellinger passively reduces (0.88);
+    GCE decreases actively (downweighting).}
   \label{tab:grad_ratio}
   \small
   \begin{tabular}{lccccccc}
@@ -942,7 +943,7 @@ vs.\ a fixed batch of correctly-labelled samples, each epoch
     \midrule
     KL (CE)     & 1.04 & 1.24 & 1.24 & 1.35 & 1.41 & 1.53 & \textbf{1.49} $\uparrow$ \\
     Fisher--Rao & 0.85 & 0.71 & 0.74 & 0.80 & 0.91 & 0.98 & \textbf{0.98} $\approx 1$ \\
-    Hellinger   & 0.81 & 0.65 & 0.60 & 0.66 & 0.79 & 0.84 & \textbf{0.88} $\approx 1$ \\
+    Hellinger   & 0.81 & 0.65 & 0.60 & 0.66 & 0.79 & 0.84 & \textbf{0.88} $\downarrow$ soft \\
     GCE         & 0.74 & 0.50 & 0.51 & 0.55 & 0.57 & 0.68 & \textbf{0.69} $\downarrow$ \\
     MAE         & 0.68 & 0.55 & 0.66 & 0.55 & 0.65 & 0.49 & \textbf{0.65} erratic \\
     SCE         & 0.67 & 0.53 & 0.45 & 0.50 & 0.54 & 0.57 & \textbf{0.56} erratic \\
