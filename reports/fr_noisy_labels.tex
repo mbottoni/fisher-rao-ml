@@ -61,10 +61,14 @@ as KL --- mechanistically explaining why gradient saturation requires ConvNet
 structure to be beneficial.
 A batch-normalization ablation (5 seeds) confirms FR is the most robust to BN removal
 ($-5.3\%$ mean drop vs.\ KL's $-13.3\%$).
-Under asymmetric noise, the reversal extends further: FR significantly \emph{hurts}
-the ConvNet ($-2.7\%$, 0/10 wins, $p=0.002$) while Hellinger remains neutral ($p=0.625$).
-We trace this to \emph{danger-zone persistence}: asymmetric noise keeps the wrong-class
-probability $p_k\in(0.3,0.4)$ — inside FR's amplification regime — throughout training.
+Under asymmetric noise, FR's behavior is non-monotone across noise rates: neutral at
+asym\,20 ($p=0.070$), significantly hurts at asym\,40 ($-2.7\%$, 0/10 wins, $p=0.002$,
+while Hellinger remains neutral $p=0.625$), and uniquely helps at asym\,60 ($+1.6\%$,
+10/10 wins, $p=0.002$) --- where Hellinger and GCE both significantly hurt ($p=0.002$).
+At asym\,40, \emph{danger-zone persistence} keeps $p_k\in(0.3,0.4)$ inside FR's
+amplification regime throughout training; at asym\,60, extreme noise drives $p_k$ low
+enough that FR's bounded gradient becomes net beneficial while universally-soft objectives
+lose against near-random gradients.
 Critically, FR and Hellinger also deliver dramatically better calibration under noise:
 at sym\,40, FR achieves ECE\,$=0.025$ vs.\ KL's $0.233$ ($9\times$ improvement),
 making them preferable not only for accuracy but for deployment reliability.
@@ -135,10 +139,15 @@ Our contributions are:
     pressure toward the corrupted label than KL.
     Hellinger and GCE are \emph{universally soft} (gradient always below KL's),
     explaining why Hellinger ($+7.6\%$) outperforms FR ($+3.4\%$) at sym\,60.
-    Under asymmetric noise, the same corrupted-class pair keeps $p_k$ persistently
-    in the danger zone throughout training, causing FR to amplify the wrong-label
-    gradient by $2.75\times$ (at $p_k=0.35$, asym\,40), explaining FR's $-2.7\%$
-    loss vs.\ Hellinger's neutral result.
+    Under asymmetric noise, behavior is non-monotone across rates: neutral at asym\,20,
+    significant harm at asym\,40 ($-2.7\%$, 0/10, $p=0.002$; Hellinger neutral $p=0.625$),
+    and a \emph{second reversal} at asym\,60 where FR is the only objective that helps
+    ($+1.6\%$, 10/10, $p=0.002$) while universally-soft Hellinger and GCE both hurt.
+    At asym\,40, danger-zone persistence keeps $p_k\in(0.3,0.4)$, causing FR to amplify
+    the wrong-label gradient by $2.75\times$.
+    At asym\,60, extreme noise drives $p_k$ below the danger-zone threshold, so FR's
+    bounded gradient becomes net beneficial while Hellinger and GCE lose against
+    near-random baseline gradients.
   \item Mechanistic analysis via gradient norm trajectories (3-seed mean, sym\,40):
     KL memorises noisy samples (noisy/clean norm ratio 1.49$\uparrow$), FR saturates
     (ratio 0.98$\approx$1), Hellinger softly reduces (ratio 0.88), GCE actively
@@ -164,9 +173,11 @@ Our contributions are:
     ConvNet reversal generalizes beyond the symmetric noise model.
   \item Practical guidance: for MLP/tabular data under symmetric noise use MAE
     or GCE; for ConvNet/image data under symmetric noise, GCE is strongest, FR and
-    Hellinger reliable and well-calibrated; for ConvNet asymmetric noise, use
-    Hellinger (same accuracy as KL, $3\times$ better ECE) or GCE
-    — FR significantly hurts ($-2.7\%$, $p=0.002$);
+    Hellinger reliable and well-calibrated; for ConvNet moderate asymmetric noise (asym\,40),
+    use Hellinger (neutral, $3\times$ better ECE) or GCE (neutral)
+    --- FR significantly hurts ($-2.7\%$, $p=0.002$);
+    at extreme asymmetric noise (asym\,60), use FR --- it is the \emph{only} objective
+    that helps ($+1.6\%$, $p=0.002$) while Hellinger and GCE both hurt significantly;
     for real/instance-dependent noise, prefer FR or Hellinger over GCE,
     as GCE's active deweighting suppresses gradients from the clean majority
     and is counterproductive when noise is sparse or instance-dependent
