@@ -786,14 +786,17 @@ Hellinger achieves the best calibration at sym\,60 (ECE\,=\,0.085), ahead of
 GCE (ECE\,=\,0.093), consistent with Hellinger's universally softer gradient (always below KL's).
 MAE is severely miscalibrated throughout (ECE\,$>$\,0.23 at all regimes).
 
-Under \emph{asymmetric} noise (asym\,40), the calibration advantage of Hellinger persists
-even as its accuracy advantage is lost: Hellinger achieves ECE\,=\,0.034 vs KL's 0.101
-($3\times$ improvement, $p=0.002$, 10/10 wins) while maintaining the same accuracy as KL
-(Table~\ref{tab:accuracy_cifar10}).
-FR achieves ECE\,=\,0.043 at asym\,40 despite the $-2.7\%$ accuracy penalty,
-still $2.4\times$ better than KL's calibration.
-This confirms that gradient-saturating objectives provide better uncertainty quantification
-than KL across both symmetric and asymmetric noise, even when accuracy suffers.
+Under \emph{moderate asymmetric} noise, the calibration advantage persists even as
+accuracy advantages are lost.
+At asym\,20, FR achieves the best ECE of any objective (0.034 vs KL's 0.096, $p=0.002$)
+despite a neutral accuracy result ($p=0.070$) — calibration separates before accuracy does.
+At asym\,40, Hellinger achieves ECE\,=\,0.034 vs KL's 0.101 ($3\times$ improvement,
+$p=0.002$, 10/10 wins) while maintaining the same accuracy as KL
+(Table~\ref{tab:accuracy_cifar10}); FR achieves ECE\,=\,0.043 despite the $-2.7\%$ accuracy
+penalty, still $2.4\times$ better than KL's calibration.
+These results confirm that gradient-saturating objectives provide better uncertainty
+quantification than KL under symmetric and moderate asymmetric noise (asym\,20--40),
+even when accuracy suffers.
 These calibration results strengthen the practical recommendation for noisy settings:
 under symmetric and moderate asymmetric noise (asym\,20--40), FR and Hellinger are
 preferable not only for accuracy but also for deployment reliability, with Hellinger
