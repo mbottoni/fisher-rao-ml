@@ -526,8 +526,10 @@ Key observations:
   \item \textbf{GCE consistently outperforms KL; SCE is unreliable.}
     On Digits, GCE/SCE achieve $+6.1$--$6.3\%$ at sym\,40.
     On MNIST, GCE achieves $+1.8\%$ ($p=0.004$) while SCE falls $-3.7\%$ ($p=0.004$).
-  \item \textbf{At sym\,80, differences vanish.}
-    All objectives converge near random ($\approx 19$--$29\%$) as SNR collapses.
+  \item \textbf{At sym\,80, FR and Hellinger collapse to KL; MAE retains its advantage.}
+    FR, Hellinger, KL, and SCE all fall to $\approx 18$--$24\%$ as SNR collapses.
+    MAE retains a large, significant lead across all three datasets
+    (Digits $+7.8\%$, MNIST $+3.6\%$, FashionMNIST $+9.7\%$; all $p=0.002$, 10/10 wins).
   \item \textbf{Asymmetric noise: only MAE wins consistently.}
     Digits: $+6.2\%$ ($p=0.002$, 10/10 wins). MNIST: $+3.4\%$.
     FashionMNIST: $+7.6\%$ ($p=0.002$, 10/10 wins).
