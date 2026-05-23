@@ -1212,17 +1212,21 @@ Hellinger avoids FR's early-training amplification danger zone and GCE additiona
 provides active deweighting. Avoid MAE, whose flat gradients impair convolutional feature learning.
 For MLP/tabular data under asymmetric noise: MAE is the clear winner
 (consistent $+3$--$8\%$ gains across all three MLP datasets).
-For ConvNet/image data under asymmetric noise: use Hellinger — it maintains
-accuracy and achieves $3\times$ better ECE than KL ($0.034$ vs $0.101$)
+For ConvNet/image data under moderate asymmetric noise (asym\,40): use Hellinger
+--- it maintains accuracy and achieves $3\times$ better ECE than KL ($0.034$ vs $0.101$)
 while FR significantly hurts ($-2.7\%$, $p=0.002$).
+At extreme asymmetric noise (asym\,60), this reverses: FR is the \emph{only} objective
+that helps ($+1.6\%$, $p=0.002$, 10/10 wins); Hellinger ($-2.5\%$) and GCE ($-4.7\%$)
+both significantly hurt ($p=0.002$).
 For ConvNet/image data under \emph{real or instance-dependent} noise: prefer
 FR or Hellinger — GCE's active deweighting can hurt at low noise levels
 ($p=0.008$ at CIFAR-N aggre $\approx 9\%$) and is less effective than FR or Hellinger
 even at $\approx 40\%$ real noise (FR $+1.6\%$, Hellinger $+1.4\%$, GCE $+1.0\%$
 vs synthetic sym\,60 where GCE $+9.5\%$ dominates).
-When in doubt: Hellinger is the safest ConvNet default — it never amplifies
-corrupted gradients, is robust across all noise types, and provides better
-calibration than KL under both symmetric and asymmetric noise.
+When in doubt at moderate noise rates: Hellinger is the safest ConvNet default ---
+it never amplifies corrupted gradients, provides better calibration than KL under
+symmetric and moderate asymmetric noise, and avoids FR's danger zone.
+At extreme asymmetric noise (asym\,60), FR becomes the only effective choice.
 
 % ------------------------------------------------------------------
 \section{Related Work}
@@ -1414,9 +1418,11 @@ at moderate noise (sym\,20--40), FR and Hellinger are reliable alternatives;
 at high noise (sym\,60+), prefer Hellinger — its gradient is universally softer than
 KL's (max $\approx$0.19), avoiding FR's early-training amplification regime that
 degrades as noise increases. Both FR and Hellinger provide excellent calibration.
-For ConvNet asymmetric noise: Hellinger maintains accuracy and provides substantially
-better calibration (ECE\,=\,0.034 vs.\ KL's 0.101; Brier score $p=0.002$, 10/10 wins);
-FR significantly hurts accuracy ($-2.7\%$, $p=0.002$).
+For ConvNet moderate asymmetric noise (asym\,40): Hellinger maintains accuracy and
+provides substantially better calibration (ECE\,=\,0.034 vs.\ KL's 0.101);
+FR significantly hurts ($-2.7\%$, $p=0.002$).
+At extreme asymmetric noise (asym\,60), this reverses: FR is the only objective
+that helps ($+1.6\%$, $p=0.002$, 10/10 wins); Hellinger and GCE both significantly hurt.
 Under real instance-dependent noise (CIFAR-N): FR and Hellinger are the best choices;
 GCE can hurt at low noise levels and MAE collapses entirely.
 
