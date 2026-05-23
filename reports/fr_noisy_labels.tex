@@ -750,7 +750,9 @@ lower ECE indicates better-calibrated confidence.
 \begin{table}[h]
   \centering
   \caption{Mean ECE on CIFAR-10 ConvNet (10 seeds; lower = better calibrated).
-    FR and Hellinger achieve dramatically lower ECE under noisy conditions than KL.}
+    FR and Hellinger achieve dramatically lower ECE under symmetric and moderate
+    asymmetric noise; at extreme asymmetric noise (asym\,60) all objectives degrade
+    and KL achieves the best ECE.}
   \label{tab:ece_cifar10}
   \small
   \begin{tabular}{lcccccc}
@@ -761,7 +763,9 @@ lower ECE indicates better-calibrated confidence.
     Sym 20\% & 0.098 & \textbf{0.067} & 0.069 & 0.112 & 0.251 & 0.177 \\
     Sym 40\% & 0.233 & \textbf{0.025} & 0.029 & 0.112 & 0.294 & 0.192 \\
     Sym 60\% & 0.293 & 0.123 & \textbf{0.085} & 0.093 & 0.371 & 0.222 \\
+    Asym 20\% & 0.096 & \textbf{0.034} & 0.050 & 0.110 & 0.252 & 0.183 \\
     Asym 40\% & 0.101 & 0.043 & \textbf{0.034} & 0.106 & 0.400 & 0.228 \\
+    Asym 60\% & \textbf{0.360} & 0.449 & 0.483 & 0.605 & 0.740 & 0.772 \\
     \bottomrule
   \end{tabular}
 \end{table}
@@ -790,10 +794,13 @@ FR achieves ECE\,=\,0.043 at asym\,40 despite the $-2.7\%$ accuracy penalty,
 still $2.4\times$ better than KL's calibration.
 This confirms that gradient-saturating objectives provide better uncertainty quantification
 than KL across both symmetric and asymmetric noise, even when accuracy suffers.
-These calibration results strengthen the practical recommendation: for ConvNets
-under any noise type, FR and Hellinger are preferable not only for accuracy
-but also for deployment reliability; Hellinger is particularly attractive at asymmetric
-noise where it maintains accuracy and substantially improves calibration.
+These calibration results strengthen the practical recommendation for noisy settings:
+under symmetric and moderate asymmetric noise (asym\,20--40), FR and Hellinger are
+preferable not only for accuracy but also for deployment reliability, with Hellinger
+achieving the best ECE at asym\,40 (0.034 vs KL's 0.101).
+The advantage does \emph{not} extend to extreme asymmetric noise (asym\,60), where all
+objectives degrade and FR/Hellinger are worse calibrated than KL
+(FR: 0.449, Hellinger: 0.483 vs KL: 0.360).
 Figure~\ref{fig:ece} visualises these ECE comparisons across noise regimes.
 
 \begin{figure}[h]
