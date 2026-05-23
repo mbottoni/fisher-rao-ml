@@ -63,7 +63,7 @@ A batch-normalization ablation (5 seeds) confirms FR is the most robust to BN re
 ($-5.3\%$ mean drop vs.\ KL's $-13.3\%$).
 Under asymmetric noise, FR's behavior is non-monotone across noise rates: neutral at
 asym\,20 ($p=0.070$), significantly hurts at asym\,40 ($-2.7\%$, 0/10 wins, $p=0.002$,
-while Hellinger remains neutral $p=0.625$), and uniquely helps at asym\,60 ($+1.6\%$,
+while Hellinger remains neutral $p=0.625$), and uniquely helps at asym\,60 ($+1.7\%$,
 10/10 wins, $p=0.002$) --- where Hellinger and GCE both significantly hurt ($p=0.002$).
 At asym\,40, \emph{danger-zone persistence} keeps $p_k\in(0.3,0.4)$ inside FR's
 amplification regime throughout training; at asym\,60, extreme noise drives $p_k$ low
@@ -142,7 +142,7 @@ Our contributions are:
     Under asymmetric noise, behavior is non-monotone across rates: neutral at asym\,20,
     significant harm at asym\,40 ($-2.7\%$, 0/10, $p=0.002$; Hellinger neutral $p=0.625$),
     and a \emph{second reversal} at asym\,60 where FR is the only objective that helps
-    ($+1.6\%$, 10/10, $p=0.002$) while universally-soft Hellinger and GCE both hurt.
+    ($+1.7\%$, 10/10, $p=0.002$) while universally-soft Hellinger and GCE both hurt.
     At asym\,40, danger-zone persistence keeps $p_k\in(0.3,0.4)$, causing FR to amplify
     the wrong-label gradient by $2.75\times$.
     At asym\,60, extreme noise drives $p_k$ below the danger-zone threshold, so FR's
@@ -177,7 +177,7 @@ Our contributions are:
     use Hellinger (neutral, $3\times$ better ECE) or GCE (neutral)
     --- FR significantly hurts ($-2.7\%$, $p=0.002$);
     at extreme asymmetric noise (asym\,60), use FR --- it is the \emph{only} objective
-    that helps ($+1.6\%$, $p=0.002$) while Hellinger and GCE both hurt significantly;
+    that helps ($+1.7\%$, $p=0.002$) while Hellinger and GCE both hurt significantly;
     for real/instance-dependent noise, prefer FR or Hellinger over GCE,
     as GCE's active deweighting suppresses gradients from the clean majority
     and is counterproductive when noise is sparse or instance-dependent
@@ -571,7 +571,7 @@ The results in Table~\ref{tab:accuracy_cifar10} reveal a sharp reversal:
     At asym\,40, FR falls $-2.7\%$ (0/10 wins, $p=0.002$); Hellinger is neutral
     ($+0.1\%$, $p=0.625$); GCE is neutral; MAE severely underperforms ($-12.7\%$, $p=0.002$).
     This confirms the danger-zone prediction (Remark~\ref{rem:asym_failure}).
-    At asym\,60, the pattern \emph{reverses}: FR uniquely \emph{helps} ($+1.6\%$,
+    At asym\,60, the pattern \emph{reverses}: FR uniquely \emph{helps} ($+1.7\%$,
     10/10 wins, $p=0.002$), while Hellinger ($-2.5\%$, $p=0.002$), GCE ($-4.7\%$,
     $p=0.002$), and SCE ($-10.3\%$, $p=0.002$) all significantly hurt; KL collapses
     to $19.3\%$ (near-random).
@@ -611,7 +611,7 @@ The results in Table~\ref{tab:accuracy_cifar10} reveal a sharp reversal:
     Under asymmetric noise, the picture is non-monotone: at asym\,20 all objectives
     except MAE/SCE are neutral; at asym\,40, FR significantly \emph{hurts} ($p=0.002$)
     while Hellinger and GCE are neutral; at asym\,60, FR \emph{uniquely helps}
-    ($+1.6\%$, $p=0.002$) while Hellinger and GCE both hurt.
+    ($+1.7\%$, $p=0.002$) while Hellinger and GCE both hurt.
     Bold: best non-KL objective per regime.
     Underline: statistically below KL ($p < 0.05$).}
   \label{tab:accuracy_cifar10}
@@ -626,7 +626,7 @@ The results in Table~\ref{tab:accuracy_cifar10} reveal a sharp reversal:
     Sym 60\% & 58.2 & 61.6 ($p{=}0.002$) & 65.8 ($p{=}0.002$) & \textbf{67.7} ($p{=}0.002$) & \underline{53.0} ($p{=}0.002$) & 60.0 ($p{=}0.004$) \\
     Asym 20\% & 79.7 & 79.3 & \textbf{79.6} & 79.5 & \underline{68.1} ($p{=}0.002$) & \underline{74.4} ($p{=}0.002$) \\
     Asym 40\% & 64.7 & \underline{62.0} ($p{=}0.002$) & \textbf{64.8} & 64.7 & \underline{52.0} ($p{=}0.002$) & 63.4 \\
-    Asym 60\% & 19.3 & \textbf{20.9} ($p{=}0.002$) & \underline{16.9} ($p{=}0.002$) & \underline{14.6} ($p{=}0.002$) & 17.2 & \underline{9.0} ($p{=}0.002$) \\
+    Asym 60\% & 19.3 & \textbf{21.0} ($p{=}0.002$) & \underline{16.9} ($p{=}0.002$) & \underline{14.6} ($p{=}0.002$) & 17.2 & \underline{9.0} ($p{=}0.002$) \\
     \bottomrule
   \end{tabular}
 \end{table}
@@ -1198,7 +1198,7 @@ At asym\,20, the equilibrium wrong-class probability is lower ($p_k\approx 0.20$
 giving FR/KL ratio $\approx 2.2\times$ — amplifying but not severely enough to
 cause statistically significant harm ($p=0.070$, $-0.4\%$).
 At asym\,40, the prediction is confirmed: FR significantly hurts ($-2.7\%$, $p=0.002$).
-At asym\,60, the prediction fails: FR \emph{uniquely helps} ($+1.6\%$, $p=0.002$, 10/10 wins)
+At asym\,60, the prediction fails: FR \emph{uniquely helps} ($+1.7\%$, $p=0.002$, 10/10 wins)
 while Hellinger ($-2.5\%$, $p=0.002$) and GCE ($-4.7\%$, $p=0.002$) both hurt.
 
 The proposed explanation for the asym\,60 reversal is a second threshold effect.
@@ -1228,7 +1228,7 @@ For ConvNet/image data under moderate asymmetric noise (asym\,40): use Hellinger
 --- it maintains accuracy and achieves $3\times$ better ECE than KL ($0.034$ vs $0.101$)
 while FR significantly hurts ($-2.7\%$, $p=0.002$).
 At extreme asymmetric noise (asym\,60), this reverses: FR is the \emph{only} objective
-that helps ($+1.6\%$, $p=0.002$, 10/10 wins); Hellinger ($-2.5\%$) and GCE ($-4.7\%$)
+that helps ($+1.7\%$, $p=0.002$, 10/10 wins); Hellinger ($-2.5\%$) and GCE ($-4.7\%$)
 both significantly hurt ($p=0.002$).
 For ConvNet/image data under \emph{real or instance-dependent} noise: prefer
 FR or Hellinger — GCE's active deweighting can hurt at low noise levels
@@ -1434,7 +1434,7 @@ For ConvNet moderate asymmetric noise (asym\,40): Hellinger maintains accuracy a
 provides substantially better calibration (ECE\,=\,0.034 vs.\ KL's 0.101);
 FR significantly hurts ($-2.7\%$, $p=0.002$).
 At extreme asymmetric noise (asym\,60), this reverses: FR is the only objective
-that helps ($+1.6\%$, $p=0.002$, 10/10 wins); Hellinger and GCE both significantly hurt.
+that helps ($+1.7\%$, $p=0.002$, 10/10 wins); Hellinger and GCE both significantly hurt.
 Under real instance-dependent noise (CIFAR-N): FR and Hellinger are the best choices;
 GCE can hurt at low noise levels and MAE collapses entirely.
 
@@ -1455,7 +1455,7 @@ early advantage (15.8\,pp at sym\,60) cannot be recovered by a late-phase switch
 from a suboptimally-initialised representation.
 
 Future work should (i) develop theory for the asym\,60 reversal (FR uniquely helps
-at $+1.6\%$, $p=0.002$, while universally-soft losses Hellinger/GCE both hurt), which
+at $+1.7\%$, $p=0.002$, while universally-soft losses Hellinger/GCE both hurt), which
 suggests a second threshold: FR's gradient amplification harms at moderate wrong-class
 confidence (asym\,40) but helps at high wrong-class confidence (asym\,60) where
 soft gradients are too weak to correct systematic mislabelling,
