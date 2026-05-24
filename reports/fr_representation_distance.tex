@@ -100,7 +100,7 @@ Fisher--Rao geodesic distance on the $C$-class simplex, bounded by $\pi$.
         FR-RD measures behavioral divergence at the output distribution; CKA measures
         representational geometry in hidden layers. They are complementary: FR-RD
         captures objective-induced behavioral differences invisible to CKA
-        ($d_\mathrm{FR\text{-}RD}(\mathrm{CE},\mathrm{FR\text{-}loss}) = 0.064$--$0.121$
+        ($d_\mathrm{FR\text{-}RD}(\mathrm{CE},\mathrm{FR\text{-}loss}) = 0.070$--$0.125$
         on clean data, confirmed non-zero despite identical accuracy).
 \end{enumerate}
 
@@ -214,11 +214,11 @@ FR-RD cleanly separates conditions on both datasets:
   \centering
   \includegraphics[width=\linewidth]{figures/fr_rd_pairwise_heatmap.pdf}
   \caption{Mean pairwise FR-RD (left columns) and linear CKA (right columns) across all
-  300 model pairs on UCI Digits (top) and MNIST (bottom). FR-RD increases monotonically with
-  noise level on both datasets; clean CE and FR-loss models are nearly indistinguishable
-  ($0.064$/$0.121$ on Digits/MNIST). CKA shows a complementary view of hidden-feature
-  similarity. The near-identical structure on both datasets confirms dataset-agnostic
-  properties of FR-RD.}
+  1,225 model pairs on UCI Digits (top) and MNIST (bottom, 10 seeds each). FR-RD increases
+  monotonically with noise level on both datasets; clean CE and FR-loss models are nearly
+  indistinguishable ($0.070$/$0.125$ on Digits/MNIST). CKA shows a complementary view of
+  hidden-feature similarity. The near-identical structure on both datasets confirms
+  dataset-agnostic properties of FR-RD.}
   \label{fig:heatmap}
 \end{figure}
 
@@ -244,7 +244,7 @@ objectives).
 \subsection{FR-RD correlates with accuracy differences}
 
 Figure~\ref{fig:scatter} plots FR-RD and $1 - \mathrm{CKA}$ against the absolute accuracy
-difference $|\mathrm{acc}(\theta) - \mathrm{acc}(\phi)|$ for all $300$ pairs. Pearson
+difference $|\mathrm{acc}(\theta) - \mathrm{acc}(\phi)|$ for all 1,225 pairs. Pearson
 correlations: FR-RD $r = 0.74$, $1 - \mathrm{CKA}$ $r = 0.85$. Both metrics correlate with
 accuracy differences, but measure different aspects: FR-RD captures behavioral divergence at
 the output, while $1 - \mathrm{CKA}$ captures hidden-representation divergence.
@@ -252,12 +252,12 @@ the output, while $1 - \mathrm{CKA}$ captures hidden-representation divergence.
 \begin{figure}[t]
   \centering
   \includegraphics[width=0.9\linewidth]{figures/fr_rd_acc_scatter.pdf}
-  \caption{FR-RD and $1-\mathrm{CKA}$ versus absolute accuracy difference for all 300
-  model pairs, on UCI Digits (top) and MNIST (bottom). Blue: same-condition pairs; red:
-  cross-condition pairs. Both metrics correlate with accuracy differences; $r=0.74$ for
-  FR-RD on both datasets, $r=0.85$--$0.87$ for $1{-}\mathrm{CKA}$.
-  FR-RD and $1-\mathrm{CKA}$ are complementary: FR-RD measures output-distribution
-  divergence while CKA measures hidden-layer alignment.}
+  \caption{FR-RD and $1-\mathrm{CKA}$ versus absolute accuracy difference for all 1,225
+  model pairs per dataset (10 seeds × 5 conditions = 50 models), on UCI Digits (top) and
+  MNIST (bottom). Blue: same-condition pairs; red: cross-condition pairs. Both metrics
+  correlate with accuracy differences; $r=0.74$ for FR-RD on both datasets,
+  $r=0.85$--$0.87$ for $1{-}\mathrm{CKA}$. FR-RD measures output-distribution divergence;
+  CKA measures hidden-layer alignment.}
   \label{fig:scatter}
 \end{figure}
 
