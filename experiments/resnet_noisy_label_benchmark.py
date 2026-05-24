@@ -53,34 +53,38 @@ def load_cifar10(
     seed: int,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     try:
-        import torchvision.transforms as T
         from torchvision.datasets import CIFAR10
     except ImportError as e:
         raise RuntimeError("torchvision required") from e
 
-    transform = T.Compose([T.ToTensor()])
-    train_ds = CIFAR10(root="data", train=True, download=True, transform=transform)
-    test_ds = CIFAR10(root="data", train=False, download=True, transform=transform)
+    # Load raw arrays directly — avoids per-image Python overhead of ds[i]
+    train_ds = CIFAR10(root="data", train=True, download=True)
+    test_ds = CIFAR10(root="data", train=False, download=True)
+
+    # .data is (N, H, W, C) uint8; transpose to (N, C, H, W) float32 in [0,1]
+    x_train_all = np.array(train_ds.data, dtype=np.float32).transpose(0, 3, 1, 2) / 255.0
+    y_train_all = np.array(train_ds.targets, dtype=np.int64)
+    x_test_all = np.array(test_ds.data, dtype=np.float32).transpose(0, 3, 1, 2) / 255.0
+    y_test_all = np.array(test_ds.targets, dtype=np.int64)
 
     rng = np.random.default_rng(seed)
 
-    def _stratified_sample(ds, n: int) -> tuple[np.ndarray, np.ndarray]:
-        labels = np.array([ds[i][1] for i in range(len(ds))])
-        classes = np.unique(labels)
+    def _stratified_sample(
+        x_all: np.ndarray, y_all: np.ndarray, n: int
+    ) -> tuple[np.ndarray, np.ndarray]:
+        classes = np.unique(y_all)
         n_per_class = max(1, n // len(classes))
         idxs = []
         for c in classes:
-            c_idxs = np.where(labels == c)[0]
+            c_idxs = np.where(y_all == c)[0]
             chosen = rng.choice(c_idxs, size=min(n_per_class, len(c_idxs)), replace=False)
             idxs.extend(chosen.tolist())
         idxs = np.array(idxs[:n])
         rng.shuffle(idxs)
-        x = np.stack([ds[int(i)][0].numpy() for i in idxs])
-        y = labels[idxs]
-        return x.astype(np.float32), y.astype(np.int64)
+        return x_all[idxs], y_all[idxs]
 
-    x_tr, y_tr = _stratified_sample(train_ds, n_train)
-    x_te, y_te = _stratified_sample(test_ds, n_test)
+    x_tr, y_tr = _stratified_sample(x_train_all, y_train_all, n_train)
+    x_te, y_te = _stratified_sample(x_test_all, y_test_all, n_test)
 
     mean = np.array([0.4914, 0.4822, 0.4465], dtype=np.float32).reshape(1, 3, 1, 1)
     std = np.array([0.2470, 0.2435, 0.2616], dtype=np.float32).reshape(1, 3, 1, 1)
