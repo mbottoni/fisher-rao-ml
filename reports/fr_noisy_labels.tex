@@ -560,16 +560,13 @@ The results in Table~\ref{tab:accuracy_cifar10} reveal a sharp reversal:
 
 \begin{table}[t]
   \centering
-  \caption{Mean test accuracy (\%) on CIFAR-10 ConvNet (10 seeds, all regimes;
-    two-sided Wilcoxon $p$-values vs KL for $p<0.05$).
-    Under symmetric noise, FR, Hellinger, and GCE all outperform KL (all $p=0.002$),
-    while MAE severely underperforms.
-    Under asymmetric noise, the picture is non-monotone: at asym\,20 all objectives
-    except MAE/SCE are neutral; at asym\,40, FR significantly \emph{hurts} ($p=0.002$)
-    while Hellinger and GCE are neutral; at asym\,60, FR \emph{uniquely helps}
-    ($+1.7\%$, $p=0.002$) while Hellinger and GCE both hurt.
+  \caption{Mean test accuracy (\%) on CIFAR-10 ConvNet (10 seeds;
+    two-sided Wilcoxon $p$-values vs.\ KL shown for significant comparisons).
+    FR, Hellinger, and GCE all significantly outperform KL under symmetric noise
+    (all $p=0.002$); MAE severely underperforms. Asymmetric noise reveals a
+    non-monotone pattern; see \S\ref{sec:convnet_results} for details.
     Bold: best non-KL objective per regime.
-    Underline: statistically below KL ($p < 0.05$).}
+    Underline: significantly below KL ($p<0.05$).}
   \label{tab:accuracy_cifar10}
   \footnotesize
   \begin{tabular}{lcccccc}

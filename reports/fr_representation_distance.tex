@@ -432,39 +432,48 @@ CKA measures geometry in hidden layers; FR-RD measures behavioral agreement at t
 The two are complementary: CKA answers ``do these models build similar internal
 representations?'' while FR-RD answers ``do these models behave similarly on inputs?'' For
 most downstream tasks (transfer learning, distillation, model selection), the behavioral
-question is more directly relevant.
+question is more directly relevant. The non-zero FR-RD between CE and FR-loss models despite
+identical accuracy ($d_\mathrm{FR\text{-}RD} = 0.064$--$0.121$) shows that FR-RD captures
+objective-induced behavioral differences invisible to CKA and accuracy metrics: the two
+models have learned different probability geometries that happen to agree on the top-1 class.
 
-\paragraph{FR-RD for fine-tuning and model merging.}
-The data-fraction experiment (\S\ref{sec:finetuning}) confirms that FR-RD to a reference
-model is a practical proxy for generalization gap: $r = 0.963$ between FR-RD and the
-accuracy gap across 25 (fraction, seed) pairs.
-This is more informative than weight-space $L_2$ distance, which is confounded by
-reparameterization; FR-RD is invariant to any smooth reparameterization of the network.
+\paragraph{Why fine-tuning divergence works without labels.}
+The $r = 0.963$ correlation between FR-RD and accuracy gap (Table~\ref{tab:finetuning})
+arises because both measure the same underlying quantity from different directions: the
+amount of information from the training data that has been incorporated into the model.
+Weight-space $L_2$ distance fails because it is confounded by reparameterization (two models
+may be close in weight space but far in behavior after applying a nonlinear transformation).
+FR-RD is invariant to any smooth reparameterization of the network since it depends only on
+output distributions. Practically, this means FR-RD to a fully-trained reference model can
+serve as a \emph{convergence monitor} during fine-tuning: when FR-RD stops decreasing, the
+model has absorbed the information the training data can provide, independent of the
+accuracy on a held-out set.
 
-\paragraph{OOD detection: class-conditional centroids outperform standard baselines.}
-Among five methods (Table~\ref{tab:ood}), FR-RD CC (45/50 total wins) is the only approach
-that works reliably for both clean and noisy model regimes. Energy score (36/50) and MSP
-(33/50) both fail for noisy models (0/10 and 2/10 wins at 60\% noise), while Mahalanobis
-distance (38/50) fails for clean models (4/10). The global centroid FR-RD (16/50) fails for
-all high-confidence models. The class-conditional centroid fixes the global centroid failure by
-using per-class mean outputs: ID inputs of class $c$ score low (close to $\bar{p}_c$) while
-OOD inputs score high (diffuse, far from all $\bar{p}_c$). This advantage persists even for
-noisy models where $\bar{p}_c$ is less sharp, because the class-specific structure is
-preserved even under moderate label corruption.
-
-\paragraph{Scale-up.}
-The main limitation is that FR-RD requires access to the full output distribution, not just
-class predictions. This is standard for soft-label distillation and most research settings
-but may not be available for black-box models. Scaling to large datasets ($n \gg 500$) is
-straightforward since FR-RD is an average; mini-batch estimation works without bias.
+\paragraph{Why class-conditional centroids handle both clean and noisy models.}
+The OOD experiment reveals why MSP, Mahalanobis, and the global centroid each fail on one
+regime: they depend on a single model property (confidence level, feature-space geometry, or
+average output) that deteriorates under label noise.
+FR-RD CC uses the model's \emph{class-specific} expected output $\bar{p}_c$, which remains
+meaningful even when the global confidence degrades: noisy models still learn to distinguish
+classes, just with less certainty.
+This is the key insight: OOD detection should exploit what the model \emph{has} learned
+(class-conditional structure), not what it lacks (overall confidence).
+Mahalanobis distance has the analogous advantage for feature geometry but fails for clean
+models with tight within-class clusters, where the shared Gaussian assumption
+underestimates the distance from OOD inputs that land in low-density regions.
 
 \paragraph{Future directions.}
 \begin{itemize}
-  \item FR-RD for tracking continual learning forgetting: track FR-RD between the original
-        task model and the updated model after each new task.
-  \item Layer-wise FR-RD by applying it to intermediate softmax-normalized attention maps.
-  \item Theoretical bounds: does FR-RD between teacher and student correlate with knowledge
-        distillation performance?
+  \item \textbf{Scale to ResNet/CIFAR.} Validating FR-RD on larger models (ResNet-18 on
+        CIFAR-10/100) is the most important next step. The between/within ratio and
+        accuracy correlation ($r \approx 0.74$) should be confirmed at scale before
+        recommending FR-RD for practical use.
+  \item \textbf{Fine-tuning divergence on MNIST.} The data-fraction experiment uses UCI
+        Digits only; repeating on MNIST with the same protocol would confirm dataset-agnostic
+        stability of the $r = 0.963$ result.
+  \item \textbf{Continual learning forgetting.} FR-RD between the original-task model and
+        the model after each new task provides a label-free catastrophic forgetting monitor,
+        a natural application of the fine-tuning-divergence result.
 \end{itemize}
 
 \section{Related Work}
