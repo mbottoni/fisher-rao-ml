@@ -556,17 +556,25 @@ The present paper proposes its first use as a \emph{model comparison metric}.
 
 \section{Conclusion}
 
-FR-RD is a proper metric on model behaviors, bounded by $\pi$, and compute-cheap. On
-MLP classifiers (UCI Digits and MNIST), it separates training conditions with
-$1.47$--$1.50\times$ between-to-within ratio, tracks training dynamics, and correlates
-with accuracy differences at $r = 0.74$ on both datasets, confirming dataset-agnostic
-stability. It is complementary to CKA: where CKA measures hidden-representation alignment,
-FR-RD measures behavioral divergence at the output. An OOD detection experiment demonstrates
-that the class-conditional centroid achieves positive separation across all five training
-conditions (Table~\ref{tab:ood}), while the global centroid fails for confident classifiers
-due to the centroid-collapse phenomenon. FR-RD's metric properties and bounded scale make
-it a principled tool for model comparison, fine-tuning divergence tracking, and OOD scoring
-when paired with a semantically appropriate reference distribution.
+We proposed FR-RD, the expected Fisher--Rao geodesic distance between two models' softmax
+outputs over a reference dataset. Its most compelling property is \emph{practical}: FR-RD
+to a fully-trained reference model correlates with the accuracy gap across data fractions
+at $r = 0.963$ ($p < 10^{-4}$, 25 pairs), providing a held-out-label-free proxy for
+generalization gap during fine-tuning and a label-free convergence monitor.
+
+For OOD detection, the class-conditional FR-RD centroid achieves 45/50 wins across five
+training conditions vs.\ MSP (33/50), Mahalanobis (38/50), and Energy (36/50) — and is
+the \emph{only} method that works for both confident clean models and noise-trained models
+where MSP and Energy fail on one regime each.
+
+Formally, FR-RD is a proper pseudometric (triangle inequality, bounded by $\pi$, zero iff
+identical behavior), complementary to CKA: where CKA measures hidden-representation
+alignment, FR-RD measures behavioral divergence at the output. Between-to-within separation
+ratios of $1.47$--$1.50\times$ and accuracy correlations $r = 0.74$ are stable across UCI
+Digits and MNIST (10 seeds each), confirming dataset-agnostic properties.
+
+The key open question is scale: validating FR-RD on ResNet models and CIFAR-scale datasets
+is needed before recommending it as a general-purpose tool.
 
 \bibliographystyle{plainnat}
 \bibliography{references}
