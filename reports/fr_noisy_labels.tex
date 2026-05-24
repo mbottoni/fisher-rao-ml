@@ -1082,8 +1082,9 @@ on ConvNets. Hellinger likewise grows to 2.40.
 \end{figure}
 The architecture-specific gradient dynamics now complete the mechanistic picture:
 \begin{itemize}
-  \item \textbf{ConvNet:} FR achieves ratio $\approx 1$ (BN + convolutional representations
-    allow gradient saturation to provide true stability) $\to$ gradient benefit dominates $\to$ FR helps.
+  \item \textbf{ConvNet:} FR achieves ratio $\approx 1$ (convolutional representations
+    allow gradient saturation to provide true stability; BN is not the mediator) $\to$
+    gradient benefit dominates $\to$ FR helps.
   \item \textbf{MLP:} FR's ratio grows to 2.61 (gradient stability lost) $\to$ the Ghosh
     condition violation dominates $\to$ FR hurts.
 \end{itemize}
