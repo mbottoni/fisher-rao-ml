@@ -1157,17 +1157,17 @@ At asym\,40, the prediction is confirmed: FR significantly hurts ($-2.7\%$, $p=0
 At asym\,60, the prediction fails: FR \emph{uniquely helps} ($+1.7\%$, $p=0.002$, 10/10 wins)
 while Hellinger ($-2.5\%$, $p=0.002$) and GCE ($-4.7\%$, $p=0.002$) both hurt.
 
-The proposed explanation for the asym\,60 reversal is a second threshold effect.
-At asym\,60, extreme corruption pressure drives wrong-class confidence to
-$p_k \approx 0.6$--$0.7$ (the model strongly predicts the wrong class).
-At $p_k = 0.7$, FR provides $\approx 3.5\times$ KL's gradient toward correcting the
-wrong prediction, while Hellinger provides only $0.4\times$ and GCE $0.8\times$.
-When the model has \emph{collapsed} into confident wrong-class predictions,
-KL and universally-soft losses (Hellinger, GCE) cannot provide sufficient gradient
-to recover: their universal softness, which protects against moderate amplification
-at asym\,40, becomes a liability at extreme noise where strong recovery gradient
-is needed. FR's amplification --- harmful when $p_k$ is moderate ($\approx 0.35$,
-asym\,40) --- provides the corrective signal that soft losses cannot.
+The asym\,60 reversal remains an open theoretical question.
+A plausible conjecture is that extreme noise ($60\%$) drives the model into confident
+wrong-class predictions ($p_k \approx 0.6$--$0.7$), at which point FR's amplification
+($3.5\times$ KL at $p_k=0.7$) provides enough corrective gradient to escape the wrong
+attractor, while universally-soft losses (Hellinger, GCE) lack the gradient magnitude
+to recover.
+At $p_k = 0.7$, FR applies $3.5\times$ KL's gradient, Hellinger only $0.4\times$,
+GCE $0.8\times$.
+However, this conjecture assumes the model reaches a collapsed state, which we have not
+measured directly; the mechanism may differ.
+We leave a formal characterisation of this second reversal to future work (see Conclusion).
 \end{remark}
 
 \paragraph{Practical recommendation.}
