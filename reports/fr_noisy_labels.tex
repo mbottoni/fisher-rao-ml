@@ -93,7 +93,8 @@ robustness.
 Instead, it produces an \emph{architecture-dependent reversal}: harmful for
 MLP models under symmetric noise (where the Ghosh noise-tolerance condition
 predicts failure), yet beneficial for ConvNet models (where gradient saturation
-interacts with batch normalisation and learned representations to prevent memorisation).
+interacts with convolutional feature learning to prevent memorisation;
+notably, FR's advantage persists and grows without batch normalisation).
 Our contributions are:
 \begin{enumerate}
   \item \textbf{An architecture-dependent reversal, reproducible across datasets and
