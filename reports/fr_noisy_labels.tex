@@ -1411,10 +1411,10 @@ early advantage (15.8\,pp at sym\,60) cannot be recovered by a late-phase switch
 from a suboptimally-initialised representation.
 
 Future work should (i) develop theory for the asym\,60 reversal (FR uniquely helps
-at $+1.7\%$, $p=0.002$, while universally-soft losses Hellinger/GCE both hurt), which
-suggests a second threshold: FR's gradient amplification harms at moderate wrong-class
-confidence (asym\,40) but helps at high wrong-class confidence (asym\,60) where
-soft gradients are too weak to correct systematic mislabelling,
+at $+1.7\%$, $p=0.002$, while universally-soft losses Hellinger/GCE both hurt);
+one conjecture posits a second threshold where FR's amplification harms at moderate
+wrong-class confidence (asym\,40) but helps at high wrong-class confidence (asym\,60),
+though this requires direct measurement of model collapse states to validate,
 (ii) scale to ResNet-18 on full CIFAR-10 to confirm the finding at the 5$\times$ larger
 dataset and deeper architecture scale,
 (iii) design adaptive curriculum strategies that switch objectives based on
