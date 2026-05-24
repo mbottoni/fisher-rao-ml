@@ -1496,6 +1496,11 @@ switch epoch fixed at 30.
 We compare 5 two-phase schedules (\texttt{FR$\to$GCE}, \texttt{FR$\to$KL},
 \texttt{GCE$\to$FR}, \texttt{KL$\to$GCE}, \texttt{FR$\to$MAE}) against
 all 6 static-objective baselines (KL, FR, GCE, MAE, Hellinger, SCE).
+Table~\ref{tab:dynamic_loss} shows key static baselines (KL, FR, GCE, MAE) and
+three dynamic schedules; SCE and Hellinger (static) and GCE$\to$FR and
+FR$\to$MAE (dynamic) are included in the figure but omitted from the table for
+brevity. Notable omitted result: SCE achieves $60.7\%$ at asym\,40
+(4\,pp above FR$\to$GCE), the best result in this benchmark for that regime.
 Note: this experiment uses plain SGD (momentum 0.9, weight decay $10^{-3}$, cosine
 annealing, no warmup) rather than the main-benchmark SGD (weight decay $5\times10^{-4}$,
 nesterov, linear warmup), so absolute numbers differ; comparisons are valid only
@@ -1528,8 +1533,11 @@ The disadvantage is consistent in direction but not significant at 5 seeds
 ($p_{\min}\approx0.063$).
 
 \emph{Prediction (c) not confirmed:}
-At asym\,40, \texttt{FR$\to$GCE} does not hurt; it is the best schedule overall
-($56.4\%$, $+0.8$\,pp over static GCE, 4/5 wins, $p=0.125$).
+At asym\,40, \texttt{FR$\to$GCE} does not hurt; it is the best \emph{dynamic}
+schedule ($56.4\%$, $+0.8$\,pp over static GCE, 4/5 wins, $p=0.125$).
+However, static SCE achieves $60.7\%$ at asym\,40, outperforming all dynamic
+schedules by $\geq 4$\,pp — suggesting that for asymmetric noise,
+bounded symmetric losses may be more effective than dynamic switching strategies.
 
 \paragraph{Interpretation.}
 GCE's advantage at sym\,60 is large (GCE $62.8\%$ vs.\ FR $47.0\%$, a $15.8$\,pp gap),
@@ -1543,9 +1551,9 @@ benefit identified in the gradient norm analysis.
 
 \begin{table}[h]
   \centering
-  \caption{Dynamic loss-switching curriculum vs.\ static baselines on CIFAR-10 ConvNet
+  \caption{Dynamic loss-switching curriculum vs.\ selected static baselines on CIFAR-10 ConvNet
     (5 seeds; $p_{\min}\approx 0.063$). SGD hyperparameters differ from the main benchmark
-    (see text); comparisons valid only within this table. Bold: best per regime.}
+    (see text); comparisons valid only within this table. Bold: best among configurations shown.}
   \label{tab:dynamic_loss}
   \small
   \begin{tabular}{lccccccc}
