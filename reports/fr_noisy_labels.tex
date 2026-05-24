@@ -26,63 +26,38 @@
 \maketitle
 
 \begin{abstract}
-Learning under noisy labels is a central challenge in modern machine learning.
-While noise-tolerant losses such as Mean Absolute Error (MAE) and Generalized
-Cross Entropy (GCE) are well-understood theoretically, the behavior of
-information-geometric divergences such as the Fisher--Rao (FR) distance has
-not been systematically evaluated in this setting.
-We conduct a controlled benchmark comparing six objectives across four datasets
-spanning two architecture families: a two-layer MLP on UCI Digits, MNIST,
-and FashionMNIST (flattened pixel inputs), and a four-layer ConvNet on
-CIFAR-10 (10k-sample subset).
-Our results reveal a striking \emph{architecture-dependent reversal}:
-on MLP models, FR under-performs standard cross-entropy at moderate symmetric
-noise rates (Digits sym\,40: $\Delta\mathrm{acc} = -3.2\%$, $p=0.002$,
-0/10 wins); on the ConvNet, FR \emph{outperforms} KL at the same regime
-(CIFAR-10 sym\,40: $+2.4\%$, 10/10 wins, $p=0.002$; sym\,60: $+3.4\%$, 10/10 wins, $p=0.002$).
-By contrast, MAE---the theoretically optimal noise-tolerant loss---reverses
-direction on ConvNets, falling $-9.6\%$ below KL at sym\,40 on CIFAR-10.
-We trace the MLP failure to the Ghosh et al.\ noise-tolerance condition and
-provide a formal analysis showing FR and Hellinger belong to the same family
-that cannot satisfy it.
-The ConvNet reversal suggests that optimization dynamics with batch
-normalization and learned representations partially compensate for the missing
-theoretical guarantee, and that MAE's flat gradients become detrimental in
-this regime.
-A gradient norm analysis (3-seed mean, sym\,40) reveals three distinct mechanisms:
-KL memorises noisy samples (noisy/clean ratio $1.49\uparrow$), FR's gradient saturates
-(ratio $0.98\approx 1$), and GCE actively deweights (ratio $0.69\downarrow$),
-explaining the observed performance hierarchy.
-A structural gradient comparison shows that Hellinger's gradient is \emph{always}
-below KL's (max~$\approx$0.19 vs KL's~$\approx$1), while FR exceeds KL for
-$p_k > 0.032$, formally explaining why Hellinger ($+7.6\%$) outperforms FR ($+3.4\%$) at sym\,60.
-On MLP, FR's ratio grows to 2.61 by epoch 99 --- the same memorisation direction
-as KL --- mechanistically explaining why gradient saturation requires ConvNet
-structure to be beneficial.
-A batch-normalization ablation (5 seeds) confirms FR is the most robust to BN removal
-($-5.3\%$ mean drop vs.\ KL's $-13.3\%$).
-Under asymmetric noise, FR's behavior is non-monotone across noise rates: neutral at
-asym\,20 ($p=0.070$), significantly hurts at asym\,40 ($-2.7\%$, 0/10 wins, $p=0.002$,
-while Hellinger remains neutral $p=0.625$), and uniquely helps at asym\,60 ($+1.7\%$,
-10/10 wins, $p=0.002$) --- where Hellinger and GCE both significantly hurt ($p=0.002$).
-At asym\,40, \emph{danger-zone persistence} keeps $p_k\in(0.3,0.4)$ inside FR's
-amplification regime throughout training; at asym\,60, extreme noise drives $p_k$ low
-enough that FR's bounded gradient becomes net beneficial while universally-soft objectives
-lose against near-random gradients.
-Critically, FR and Hellinger also deliver dramatically better calibration under noise:
-at sym\,40, FR achieves ECE\,$=0.025$ vs.\ KL's $0.233$ ($9\times$ improvement),
-making them preferable not only for accuracy but for deployment reliability.
-On CIFAR-N real human-annotated labels, FR is the only objective significantly
-better than KL across all three annotation conditions ($p=0.002$, 10/10 wins),
-confirming the ConvNet advantage holds under instance-dependent noise.
-A two-phase dynamic curriculum (FR Phase~1, GCE Phase~2) does not outperform
-static GCE at symmetric noise ($-4.2$\,pp at sym\,60, suggestive $p=0.062$),
-despite substantially outperforming FR alone ($+11.7$\,pp), indicating that
-the gradient-saturation and active-deweighting mechanisms do not compose through
-a fixed switch epoch.
-These findings sharpen the understanding of where information-geometric losses are
-and are not beneficial, and motivate further investigation of loss--architecture
-interactions and adaptive curriculum design.
+We study the Fisher--Rao (FR) geodesic distance as a training loss under label noise
+and uncover a striking \emph{architecture-dependent reversal}: on MLP models, FR
+\emph{underperforms} standard cross-entropy (KL) under symmetric noise (Digits
+sym\,40: $-3.2\%$, $p{=}0.002$, 0/10 wins); on a ConvNet, FR \emph{outperforms}
+KL at the same regime ($+2.4\%$, 10/10, $p{=}0.002$) and under real human-annotated
+noise (CIFAR-N: $+0.7$--$1.6\%$, 10/10, $p{=}0.002$ across all conditions).
+MAE --- the theoretically optimal noise-tolerant loss --- reverses in the
+\emph{opposite} direction: dominant on MLP ($+19.6\%$) but catastrophic on ConvNet
+($-9.6\%$, $p{=}0.002$).
+
+We explain both behaviors formally.
+Theorem~1 proves FR cannot satisfy the Ghosh noise-tolerance condition, predicting
+the MLP failure.
+Proposition~1 shows FR's gradient saturates to zero as the model correctly classifies
+a sample, preventing memorisation of corrupted labels --- but only when the
+architecture (ConvNet with batch normalisation) enables early representation
+convergence.
+A gradient comparison introduces the \emph{FR danger zone} ($p_k > 0.032$), where FR
+amplifies corrupted gradients above KL's, explaining why Hellinger
+($+7.6\%$ at sym\,60) outperforms FR ($+3.4\%$): Hellinger is \emph{universally soft}
+(gradient always below KL's) while FR amplifies before saturating.
+Gradient norm trajectories confirm three qualitatively different training dynamics:
+KL memorises (noisy/clean ratio $1.49\uparrow$), FR saturates ($0.98\approx 1$),
+GCE actively deweights ($0.69\downarrow$).
+On MLP, FR's ratio grows to 2.61 (same memorisation direction as KL), completing
+the mechanistic picture.
+
+Beyond accuracy, FR and Hellinger achieve $9\times$ better calibration than KL
+under symmetric noise (sym\,40: ECE $0.025$ vs.\ $0.233$), and remain better
+calibrated under moderate asymmetric noise even when accuracy advantages disappear.
+A batch-normalisation ablation confirms FR is the most BN-robust objective
+($-5.3\%$ mean drop vs.\ KL's $-13.3\%$; GCE and Hellinger collapse $>30\%$).
 \end{abstract}
 
 % ------------------------------------------------------------------
@@ -121,74 +96,55 @@ predicts failure), yet beneficial for ConvNet models (where gradient saturation
 interacts with batch normalisation and learned representations to prevent memorisation).
 Our contributions are:
 \begin{enumerate}
-  \item A six-way comparison of objectives (KL, Fisher--Rao, Hellinger, GCE,
-    MAE, SCE) across noise regimes on four datasets spanning MLP and ConvNet
-    architectures.
-  \item The empirical observation that FR's behavior \emph{reverses} between
-    architectures: harmful for MLP under symmetric noise, beneficial for
-    ConvNet; MAE reverses in the opposite direction.
-  \item A formal analysis consisting of two complementary results plus a structural comparison:
-    (a) Theorem~\ref{thm:fr_no_ntc} shows FR, Hellinger, and any Bhattacharyya-form
-    loss cannot satisfy the Ghosh noise-tolerance condition, explaining the MLP failure;
-    (b) Proposition~\ref{prop:grad_saturation} shows FR's logit gradient saturates
-    to zero as the model becomes confident in the true class, explaining the
-    ConvNet recovery: once representations converge under BN, FR stops
-    applying pressure toward corrupted labels;
-    (c) a gradient comparison introduces the \emph{FR danger zone} $(p^*,1)$
-    with $p^*\approx 0.032$: for $p_k>p^*$, FR applies \emph{more} gradient
-    pressure toward the corrupted label than KL.
-    Hellinger and GCE are \emph{universally soft} (gradient always below KL's),
-    explaining why Hellinger ($+7.6\%$) outperforms FR ($+3.4\%$) at sym\,60.
-    Under asymmetric noise, behavior is non-monotone across rates: neutral at asym\,20,
-    significant harm at asym\,40 ($-2.7\%$, 0/10, $p=0.002$; Hellinger neutral $p=0.625$),
-    and a \emph{second reversal} at asym\,60 where FR is the only objective that helps
-    ($+1.7\%$, 10/10, $p=0.002$) while universally-soft Hellinger and GCE both hurt.
-    At asym\,40, danger-zone persistence keeps $p_k\in(0.3,0.4)$, causing FR to amplify
-    the wrong-label gradient by $2.75\times$.
-    At asym\,60, extreme noise drives $p_k$ below the danger-zone threshold, so FR's
-    bounded gradient becomes net beneficial while Hellinger and GCE lose against
-    near-random baseline gradients.
-  \item Mechanistic analysis via gradient norm trajectories (3-seed mean, sym\,40):
-    KL memorises noisy samples (noisy/clean norm ratio 1.49$\uparrow$), FR saturates
-    (ratio 0.98$\approx$1), Hellinger softly reduces (ratio 0.88), GCE actively
-    deweights (ratio 0.69$\downarrow$), SCE deweights erratically (ratio 0.56, oscillating),
-    explaining the empirical ordering GCE $>$ Hellinger $>$ FR $>$ SCE $>$ KL $>$ MAE at sym\,60.
-    A parallel MLP analysis (Table~\ref{tab:mlp_grad_ratio}) shows that FR's gradient
-    stability is architecture-specific: on MLP, FR's ratio grows to 2.61 (same
-    direction as KL memorisation), mechanistically explaining why gradient saturation
-    requires the early representation convergence provided by ConvNets.
-    A batch-normalization ablation (5 seeds, all regimes) further shows FR is the
-    most BN-robust objective ($-5.3\%$ mean drop vs.\ KL's $-13.3\%$).
-  \item A ConvNet calibration result: FR achieves ECE\,=\,0.025 vs KL's 0.233
-    at sym\,40 (a $9\times$ improvement), indicating that gradient-saturating objectives
-    are preferable not only for accuracy but also for deployment reliability.
-    The advantage is conditional on noise: at clean training, KL is significantly
-    better calibrated than FR (ECE\,=\,0.044 vs 0.083, $p=0.002$).
-  \item A CIFAR-N evaluation on real human-annotated labels showing that FR is
-    the only objective that significantly outperforms KL at all three annotation
-    conditions ($p=0.002$, 10/10 wins), with gains growing from $+0.7\%$
-    (aggre) to $+1.6\%$ (worse, $\approx 40\%$ noise).
-    MAE and SCE collapse at all noise conditions ($p=0.002$); GCE
-    significantly hurts at aggre ($p=0.008$), confirming the
-    ConvNet reversal generalizes beyond the symmetric noise model.
-  \item Practical guidance: for MLP/tabular data under symmetric noise use MAE
-    or GCE; for ConvNet/image data under symmetric noise, GCE is strongest, FR and
-    Hellinger reliable and well-calibrated; for ConvNet moderate asymmetric noise (asym\,40),
-    use Hellinger (neutral, $3\times$ better ECE) or GCE (neutral)
-    --- FR significantly hurts ($-2.7\%$, $p=0.002$);
-    at extreme asymmetric noise (asym\,60), use FR --- it is the \emph{only} objective
-    that helps ($+1.7\%$, $p=0.002$) while Hellinger and GCE both hurt significantly;
-    for real/instance-dependent noise, prefer FR or Hellinger over GCE,
-    as GCE's active deweighting suppresses gradients from the clean majority
-    and is counterproductive when noise is sparse or instance-dependent
-    (CIFAR-N aggre $\approx$9\%: GCE hurts $p=0.008$, FR helps $p=0.002$).
-  \item A dynamic loss-switching experiment (5 schedules, 5 regimes, 5 seeds)
-    testing whether an FR-then-GCE two-phase curriculum realizes the gradient-norm-predicted
-    complementarity (Appendix~\ref{sec:dynamic_loss}).
-    The null result --- \texttt{FR$\to$GCE} does not beat static GCE (sym\,60: $-4.2$\,pp,
-    suggestive $p=0.062$) despite substantially outperforming FR alone ($+11.7$\,pp) ---
-    reveals that the saturation and deweighting mechanisms do not compose
-    through a fixed switch epoch, motivating adaptive curriculum strategies.
+  \item \textbf{An architecture-dependent reversal, reproducible across datasets and
+    noise regimes.}
+    A controlled six-way comparison (KL, FR, Hellinger, GCE, MAE, SCE) on four
+    10-class datasets with paired seeds shows FR \emph{hurts} MLP under symmetric
+    noise (Digits sym\,40: $-3.2\%$, $p=0.002$, 0/10 wins) while \emph{helping} the
+    same regime on ConvNet ($+2.4\%$, 10/10 wins, $p=0.002$).
+    MAE reverses in the opposite direction: dominant on MLP ($+19.6\%$, 10/10) but
+    catastrophic on ConvNet ($-9.6\%$, 0/10, $p=0.002$).
+    On real human-annotated noise (CIFAR-N), FR is the \emph{only} objective
+    significantly better than KL at all three annotation conditions
+    ($p=0.002$, 10/10 wins, gains $+0.7$--$1.6\%$), confirming the finding
+    generalizes beyond synthetic noise and the symmetric noise model.
+
+  \item \textbf{A theory of the reversal: noise-tolerance failure vs.\ gradient saturation.}
+    Theorem~\ref{thm:fr_no_ntc} proves FR and Hellinger cannot satisfy the Ghosh
+    noise-tolerance condition, predicting MLP failure.
+    Proposition~\ref{prop:grad_saturation} shows FR's gradient saturates to zero as
+    the model correctly classifies a sample — preventing memorisation of corrupted
+    labels when the architecture (ConvNet with BN) enables early feature convergence.
+    A gradient comparison identifies the \emph{FR danger zone} ($p_k > 0.032$) where
+    FR amplifies corrupted gradients above KL's, and establishes that Hellinger and
+    GCE are \emph{universally soft} (gradient always $<$ KL's), explaining why
+    Hellinger ($+7.6\%$) outperforms FR ($+3.4\%$) at sym\,60 and why FR uniquely
+    helps at extreme asymmetric noise (asym\,60: $+1.7\%$, 10/10, $p=0.002$) while
+    universally-soft losses hurt.
+
+  \item \textbf{Gradient norm evidence and calibration advantage.}
+    Measuring noisy/clean gradient norm ratios reveals three distinct training
+    dynamics: KL memorises (ratio $1.49\uparrow$), FR saturates (ratio $0.98
+    \approx 1$), GCE actively deweights (ratio $0.69\downarrow$).
+    On MLP, FR's ratio grows to 2.61 (same memorisation direction as KL),
+    completing the mechanistic picture of the reversal.
+    A BN ablation (5 seeds, all regimes) shows FR is the most BN-robust objective
+    ($-5.3\%$ mean drop vs.\ KL's $-13.3\%$; GCE and Hellinger collapse $>30\%$).
+    Beyond accuracy, FR achieves ECE\,=\,0.025 vs.\ KL's 0.233 at sym\,40
+    ($9\times$ improvement), with the calibration advantage persisting under moderate
+    asymmetric noise (asym\,40: Hellinger ECE\,=\,0.034, $3\times$ better than KL's
+    0.101) even when accuracy advantages are absent.
+
+  \item \textbf{Practical guidance.}
+    For MLP/tabular data under symmetric noise: use MAE or GCE.
+    For ConvNet/image data under symmetric noise: GCE is strongest at high noise
+    (sym\,60: $+9.5\%$); FR and Hellinger are reliable at moderate noise with
+    superior calibration.
+    For ConvNet moderate asymmetric noise (asym\,40): Hellinger (neutral accuracy,
+    $3\times$ better ECE); avoid FR ($-2.7\%$, $p=0.002$).
+    At extreme asymmetric noise (asym\,60): use FR — the only objective that helps.
+    For real/instance-dependent noise: prefer FR or Hellinger; GCE's active
+    deweighting can hurt at low noise rates (CIFAR-N aggre\,$\approx$9\%: $p=0.008$).
 \end{enumerate}
 
 % ------------------------------------------------------------------

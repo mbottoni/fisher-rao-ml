@@ -1,0 +1,2 @@
+noise_regime,objective,seed,eval_accuracy,eval_ece,eval_brier,eval_nll
+clean,kl,0,0.9532,0.029403050747513794,0.07751483339695728,0.19695699214935303

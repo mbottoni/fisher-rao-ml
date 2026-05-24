@@ -27,25 +27,30 @@ A Proper Metric for Comparing Neural Network Models}
 \maketitle
 
 \begin{abstract}
-Comparing the behavior of two neural network models requires a principled distance between
-their output distributions. We propose the \emph{Fisher--Rao Representation Distance}
-(FR-RD), defined as the expected Fisher--Rao geodesic distance between the two models'
-softmax output distributions over a shared reference dataset:
-$\mathrm{FR\text{-}RD}(\theta, \phi; X) = \mathbb{E}_{x \sim X}[d_{\mathrm{FR}}(P_\theta(x), P_\phi(x))]$.
-Unlike the widely used linear CKA \citep{kornblith2019similarity}, FR-RD is a \emph{proper
-metric}: it satisfies the triangle inequality and equals zero if and only if the two models
-agree on every input. It is bounded by $\pi$ (the diameter of the unit sphere under the
-Fisher information metric), making it interpretable without normalization. We validate
-FR-RD on two datasets: UCI Digits (1,797 samples, 5 conditions, 10 seeds) and MNIST
-(3,000 train, 5 conditions, 10 seeds). Both yield a between-to-within separation ratio
-of $1.47$--$1.49\times$ and a correlation with accuracy differences of $r=0.740$--$0.741$,
-remarkably stable across datasets and confirming dataset-agnostic properties. We further show that FR-RD between
-the cross-entropy and Fisher--Rao objectives on clean labels is $0.064$--$0.121$
-(dataset-dependent), confirming their near-identical behavior under non-corrupted targets.
-FR-RD provides a compute-cheap, metric-theoretically grounded tool for model comparison
-and fine-tuning divergence tracking. An OOD detection experiment shows that a
-class-conditional centroid achieves positive separation (OOD $>$ ID) across all five
-training conditions, while the global centroid inverts the ranking for confident classifiers.
+We propose the \emph{Fisher--Rao Representation Distance} (FR-RD), the expected
+Fisher--Rao geodesic distance between two models' softmax outputs over a reference
+dataset: $\mathrm{FR\text{-}RD}(\theta,\phi;X) = \mathbb{E}_{x\sim
+X}[d_\mathrm{FR}(P_\theta(x), P_\phi(x))]$.
+Unlike CKA \citep{kornblith2019similarity}, FR-RD is a \emph{proper metric}
+(triangle inequality holds; zero iff identical behavior), bounded by $\pi$, and
+operates at the output layer rather than in hidden-layer representations.
+
+The most compelling application is \emph{fine-tuning divergence tracking}: FR-RD
+to a fully-trained reference model correlates with the accuracy gap across data
+fractions at $r=0.963$ ($p<0.0001$, 25 pairs), providing a practical proxy for
+generalization gap \emph{without requiring held-out labels}. This makes FR-RD
+useful for monitoring fine-tuning runs, selecting checkpoints, and detecting
+representation drift in production.
+
+For OOD detection, a class-conditional FR-RD centroid achieves 45/50 wins across
+training conditions vs.\ MSP (33/50) and Mahalanobis (38/50) — and, crucially, is
+the \emph{only method that works for both clean and noisy models}: MSP fails when
+models are noise-trained (low confidence everywhere), Mahalanobis fails for clean
+models (feature clusters too tight), while FR-RD CC handles both.
+
+We validate on UCI Digits and MNIST (10 seeds each), finding a between-to-within
+separation ratio of $1.47$--$1.49\times$ and accuracy correlation $r=0.740$--$0.741$,
+stable across datasets and confirming dataset-agnostic properties.
 \end{abstract}
 
 \section{Introduction}
@@ -76,24 +81,27 @@ Fisher--Rao geodesic distance on the $C$-class simplex, bounded by $\pi$.
 
 \paragraph{Contributions.}
 \begin{enumerate}
-  \item A formal definition of FR-RD and proofs that it is a proper metric on the space of
-        classifier behaviors, bounded by $\pi$, and zero iff the two models agree pointwise.
-  \item Empirical demonstrations on sklearn digits classifiers trained under five conditions
-        (clean CE, clean FR-loss, label smoothing, 30\% noise, 60\% noise), showing that
-        FR-RD separates conditions systematically, tracks training dynamics, and correlates
-        with accuracy differences.
-  \item A comparison to linear CKA, highlighting that they are complementary: FR-RD
-        measures behavioral divergence at the output, CKA measures representational geometry
-        in hidden layers.
-  \item An empirical OOD detection experiment (Table~\ref{tab:ood}) comparing global
-        and class-conditional centroid scoring. The global centroid fails for confident
-        classifiers (centroid $\approx$ uniform, inverts ranking); the class-conditional
-        centroid achieves positive separation for all five training conditions, with
-        mean improvement of $+0.59$ to $+1.79$ over the global baseline.
-  \item A data-fraction tracking experiment (Table~\ref{tab:finetuning}, Figure~\ref{fig:finetuning})
-        showing FR-RD to a fully-trained reference model correlates strongly with the accuracy
-        gap across data fractions ($r = 0.963$, 25 pairs), making FR-RD a practical proxy for
-        generalization gap without requiring held-out accuracy.
+  \item \textbf{Fine-tuning divergence tracking.}
+        FR-RD to a fully-trained reference model correlates with accuracy gap across data
+        fractions at $r=0.963$ ($p<0.0001$, 25 pairs, 5 seeds), providing a held-out-label-free
+        proxy for generalization gap during fine-tuning
+        (Table~\ref{tab:finetuning}, Figure~\ref{fig:finetuning}).
+  \item \textbf{OOD detection robust to model quality.}
+        A class-conditional FR-RD centroid achieves 45/50 wins vs.\ MSP (33/50),
+        Mahalanobis (38/50), and Energy (36/50) across five training conditions
+        (Table~\ref{tab:ood}). Unlike all baselines, FR-RD CC works for both confident
+        clean models and noisy models where MSP/Mahalanobis each fail on one regime.
+  \item \textbf{Formal metric properties.}
+        Proofs that FR-RD is a proper pseudometric (triangle inequality, zero iff identical
+        behavior), bounded by $\pi$, invariant to label permutation within a class.
+        Between-to-within separation ratio $1.47$--$1.49\times$, accuracy correlation
+        $r=0.740$--$0.741$, stable across UCI Digits and MNIST (10 seeds each).
+  \item \textbf{Complementarity with CKA.}
+        FR-RD measures behavioral divergence at the output distribution; CKA measures
+        representational geometry in hidden layers. They are complementary: FR-RD
+        captures objective-induced behavioral differences invisible to CKA
+        ($d_\mathrm{FR\text{-}RD}(\mathrm{CE},\mathrm{FR\text{-}loss}) = 0.064$--$0.121$
+        on clean data, confirmed non-zero despite identical accuracy).
 \end{enumerate}
 
 \section{Background}

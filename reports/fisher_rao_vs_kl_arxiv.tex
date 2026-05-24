@@ -104,42 +104,36 @@ explicit significance tests \citep{wilcoxon1945individual,cliff1993dominance}. W
 
 \paragraph{Contributions.}
 \begin{enumerate}
-  \item A differentiable PyTorch implementation of the Fisher--Rao distance for categorical
-        distributions, suitable for use as a drop-in replacement for KL in affinity-matching
-        objectives.
-  \item A statement and verification of three core analytical properties that distinguish
-        Fisher--Rao from KL on the simplex: symmetry, the triangle inequality, and a bounded
-        codomain.
-  \item A targeted structured-affinity stress test showing that Fisher--Rao can help when the
-        target affinity distribution contains sparse false-neighbor probability mass, because
-        its bounded simplex geometry reduces overfitting to corrupted high-confidence edges.
-        The confirmatory run covers two datasets, four corruption mechanisms, six nonzero
-        corruption levels, and ten paired seeds.
-  \item A corrupted kNN-graph extension on digits, MNIST, and pretrained MNIST features with
-        smoothed KL, capped KL, Jensen--Shannon, and Hellinger baselines. This extension is a
-        boundary condition: the affinity-mass result does not automatically transfer to every
-        corrupted adjacency target.
-  \item A noisy probability-target benchmark for soft-label classification and corrupted
-        teacher-student distillation. This tests whether the same boundedness mechanism helps
-        outside t-SNE-style affinity matching.
-  \item A paired benchmark of KL versus Fisher--Rao squared as a t-SNE objective across three
-        datasets, feature-noise levels, ten seeds, and objective-independent embedding metrics,
-        establishing where the positive robustness result does \emph{not} apply.
-  \item A secondary beta-tuned VAE check, reported briefly, showing that the same replacement is
-        not yet compelling for compact diagonal-Gaussian VAEs.
-  \item A full-objective noisy-affinity comparison (Section~\ref{sec:full-objective-results})
-        showing that Jensen--Shannon and Hellinger achieve win rates indistinguishable from
-        Fisher--Rao ($47/48$ and $47/48$ cells on bad-edge preservation), while capped KL is
-        the worst-performing alternative across all five metrics. The robustness mechanism is
-        therefore shared by bounded symmetric divergences generally, not specific to the
-        Fisher--Rao geodesic.
-  \item A $0.5/0.5$ FR+KL hybrid experiment (Section~\ref{sec:hybrid-results}) showing the
-        hybrid does not recover KL's cluster-separation advantage: silhouette wins in $30/48$
-        cells, identical to pure Fisher--Rao. The bounded codomain dominates even at half weight.
-  \item A perplexity-adaptive bandwidth sensitivity check
-        (Section~\ref{sec:perplexity-results}) showing that the silhouette conclusion reverses
-        on Gaussian blobs under per-point perplexity tuning, making the clean-target result
-        preprocessing-dependent.
+  \item \textbf{A structured stress test identifying the operative property.}
+        A noisy-affinity benchmark (2 datasets, 4 corruption types, 6 levels, 10 paired seeds)
+        shows that Fisher--Rao reduces corrupted-edge preservation in 47/48 cells and
+        corrupted-edge $Q$ mass in 48/48 cells vs.\ KL.
+        A full-objective comparison (Section~\ref{sec:full-objective-results}) shows
+        Jensen--Shannon and Hellinger match Fisher--Rao ($47/48$ and $48/48$), while
+        capped KL (bounded but asymmetric) is worst ($0/48$).
+        The operative property is therefore \emph{bounded codomain + symmetry}, not
+        the Fisher--Rao geodesic specifically.
+
+  \item \textbf{A boundary condition on the claim.}
+        A corrupted kNN-graph test (Digits, MNIST, pretrained features) shows the
+        affinity-mass advantage does \emph{not} transfer to every adjacency corruption
+        regime: Fisher--Rao wins only 4/27 cells on bad-edge preservation.
+        This precisely characterizes when bounded symmetric divergences help (affinity-mass
+        corruption) and when they do not (structural graph corruption).
+
+  \item \textbf{A second positive regime: noisy soft-label targets.}
+        Across 16 nonzero corruption cells in soft-label classification and corrupted
+        teacher-student distillation, Fisher--Rao improves accuracy in 11, calibration
+        error in 10, and Brier score in 13 vs.\ KL, confirming the bounded-codomain
+        mechanism transfers outside t-SNE.
+
+  \item \textbf{Negative results that sharpen the scope.}
+        Under clean targets, Fisher--Rao loses silhouette score to KL (better cluster
+        separation), though this reverses on Gaussian blobs under perplexity-adaptive
+        bandwidth.
+        A VAE study shows no reliable advantage from replacing KL with Fisher--Rao in the
+        ELBO.
+        These null results bound the claim and prevent over-generalisation.
 \end{enumerate}
 
 \paragraph{Headline finding.}
