@@ -53,9 +53,11 @@ GCE actively deweights ($0.69\downarrow$).
 On MLP, FR's ratio grows to 2.61 (same memorisation direction as KL), completing
 the mechanistic picture.
 
-Beyond accuracy, FR and Hellinger achieve $9\times$ better calibration than KL
-under symmetric noise (sym\,40: ECE $0.025$ vs.\ $0.233$), and remain better
-calibrated under moderate asymmetric noise even when accuracy advantages disappear.
+Beyond accuracy, FR achieves $9\times$ better calibration than KL under symmetric
+noise (sym\,40: ECE $0.025$ vs.\ $0.233$); Hellinger is nearly as well-calibrated
+(ECE $0.029$, $8\times$ improvement).
+Both remain better calibrated than KL under moderate asymmetric noise even when
+accuracy advantages disappear.
 A batch-normalisation ablation confirms FR is the most BN-robust objective
 ($-5.3\%$ mean drop vs.\ KL's $-13.3\%$; GCE and Hellinger collapse $>30\%$).
 \end{abstract}
