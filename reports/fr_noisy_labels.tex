@@ -1092,14 +1092,15 @@ that prevents feature learning, which is why MAE hurts accuracy on ConvNets.
 Three regimes now have empirical support for FR outperforming KL:
 (1) the soft-label setting~\citep{bottoni2026fisherrao}, where targets are
 diffuse probability vectors rather than one-hot;
-(2) ConvNet training on image data under \emph{moderate} symmetric noise
-(sym\,20--40), as shown in this work ($p=0.002$, 10/10 wins); and
+(2) ConvNet training on image data under symmetric noise at all tested rates
+(sym\,20/40/60, all $p=0.002$, 10/10 wins), though at high noise (sym\,60),
+universally soft losses outperform FR: Hellinger ($+7.6\%$) and GCE ($+9.5\%$)
+exceed FR ($+3.4\%$); and
 (3) real human-annotated instance-dependent noise (CIFAR-N), where FR is
 the only objective that significantly outperforms KL at all three annotation
 conditions ($p=0.002$, 10/10 wins).
-At \emph{high} symmetric noise (sym\,60+), universally soft losses
-(Hellinger, GCE) supersede FR: Hellinger avoids the danger zone
-($p_k\in(0.032,1)$) where FR amplifies corrupted gradients above KL,
+The Hellinger and GCE advantage at sym\,60 arises because Hellinger avoids the
+danger zone ($p_k\in(0.032,1)$) where FR amplifies corrupted gradients above KL,
 while GCE additionally provides active deweighting.
 See the Remark after Proposition~\ref{prop:grad_saturation} for the formal comparison.
 The gradient norm analysis (Figure~\ref{fig:grad_saturation},
