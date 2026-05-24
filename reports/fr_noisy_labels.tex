@@ -41,8 +41,8 @@ Theorem~1 proves FR cannot satisfy the Ghosh noise-tolerance condition, predicti
 the MLP failure.
 Proposition~1 shows FR's gradient saturates to zero as the model correctly classifies
 a sample, preventing memorisation of corrupted labels --- but only when the
-architecture (ConvNet with batch normalisation) enables early representation
-convergence.
+ConvNet architecture enables early representation convergence (FR's advantage
+grows without batch normalisation, ruling it out as the sole mediator).
 A gradient comparison introduces the \emph{FR danger zone} ($p_k > 0.032$), where FR
 amplifies corrupted gradients above KL's, explaining why Hellinger
 ($+7.6\%$ at sym\,60) outperforms FR ($+3.4\%$): Hellinger is \emph{universally soft}
@@ -115,7 +115,8 @@ Our contributions are:
     noise-tolerance condition, predicting MLP failure.
     Proposition~\ref{prop:grad_saturation} shows FR's gradient saturates to zero as
     the model correctly classifies a sample — preventing memorisation of corrupted
-    labels when the architecture (ConvNet with BN) enables early feature convergence.
+    labels when the ConvNet architecture enables early feature convergence
+    (the advantage persists and grows without batch normalisation).
     A gradient comparison identifies the \emph{FR danger zone} ($p_k > 0.032$) where
     FR amplifies corrupted gradients above KL's, and establishes that Hellinger and
     GCE are \emph{universally soft} (gradient always $<$ KL's), explaining why
@@ -345,8 +346,9 @@ Theorem~\ref{thm:fr_no_ntc}: while Theorem~1 shows FR is not
 shows FR is \emph{dynamically} corruption-resistant once the model achieves
 confident correct predictions on most samples.
 This distinction explains the architecture-dependent reversal:
-in ConvNets with batch normalisation, representations converge early enough
-for gradient saturation to operate; in MLPs without such inductive structure,
+in ConvNets, convolutional representations converge early enough
+for gradient saturation to operate (BN ablation confirms BN is not the mediator;
+the advantage grows without it); in MLPs without such inductive structure,
 corrupted gradients accumulate before saturation, and the Ghosh-condition
 violation dominates.
 
@@ -1108,8 +1110,9 @@ See the Remark after Proposition~\ref{prop:grad_saturation} for the formal compa
 The gradient norm analysis (Figure~\ref{fig:grad_saturation},
 Tables~\ref{tab:grad_ratio}--\ref{tab:mlp_grad_ratio})
 reveals the common thread: FR's gradient saturation (Proposition~\ref{prop:grad_saturation})
-maintains a stable noisy/clean ratio ($\approx 1$) when the architecture
-(ConvNet with BN and convolutional representations) enables early correct classification.
+maintains a stable noisy/clean ratio ($\approx 1$) when the ConvNet architecture
+(convolutional representations) enables early correct classification
+(BN is not the mediator: the advantage grows without it, \S\ref{sec:bn_ablation}).
 When this condition is absent (MLP: ratio grows to 2.61), when asymmetric noise
 requires fine-grained class discrimination, or when noise is severe enough that
 the early-amplification danger zone ($p_k>0.032$) dominates before saturation
