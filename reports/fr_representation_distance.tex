@@ -564,13 +564,14 @@ generalization gap during fine-tuning and a label-free convergence monitor.
 
 For OOD detection, the class-conditional FR-RD centroid achieves 45/50 wins across five
 training conditions vs.\ MSP (33/50), Mahalanobis (38/50), and Energy (36/50) — and is
-the \emph{only} method that works for both confident clean models and noise-trained models
-where MSP and Energy fail on one regime each.
+the \emph{only} method that works for both confident clean models and noise-trained models:
+MSP and Energy fail for noisy models (low confidence everywhere), while Mahalanobis
+fails for clean models (tight feature clusters).
 
 Formally, FR-RD is a proper pseudometric (triangle inequality, bounded by $\pi$, zero iff
 identical behavior), complementary to CKA: where CKA measures hidden-representation
 alignment, FR-RD measures behavioral divergence at the output. Between-to-within separation
-ratios of $1.47$--$1.50\times$ and accuracy correlations $r = 0.74$ are stable across UCI
+ratios of $1.47$--$1.49\times$ and accuracy correlations $r = 0.74$ are stable across UCI
 Digits and MNIST (10 seeds each), confirming dataset-agnostic properties.
 
 The key open question is scale: validating FR-RD on ResNet models and CIFAR-scale datasets
