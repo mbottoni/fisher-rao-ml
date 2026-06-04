@@ -10,10 +10,15 @@ artifacts/
 *.pyc
 *.egg-info/
 .DS_Store
+.claude/
 
-reports/*.aux
-reports/*.blg
-reports/*.log
-reports/*.out
+*.aux
+*.blg
+*.log
+*.out
+*.fls
+*.fdb_latexmk
+*.synctex.gz
+texput.log
 
 *.pdf
