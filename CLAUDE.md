@@ -304,25 +304,30 @@ The architecture-dependent reversal is the publishable hook. Current paper statu
   real-world benchmarks CIFAR-N/Clothing-1M, architecture interactions, info geometry)
 - BN ablation section added with preliminary results showing GCE collapses without BN
 
-**Completed as of 2026-05-16, session 3:**
+**Completed as of 2026-06-03:**
 - `cifar10_noisy_label_benchmark.py --seeds 10`: 300/300 rows COMPLETE
 - `cifar10_no_bn_ablation.py --seeds 5`: 150/150 rows COMPLETE
-- `cifar10_noisy_label_benchmark.py --seeds 3 --n-train 50000`: 51/90 rows (seed 2 pending)
+- `cifar10_noisy_label_benchmark.py --seeds 3 --n-train 50000`: COMPLETE (Table tab:50k in paper)
+- `cifar_n_benchmark.py`: 180/180 rows COMPLETE (10 seeds, not 5) — §3.3 table filled,
+  FR beats KL at all 3 conditions (10/10 wins, p=0.002); MAE and SCE collapse
+- `gradient_norm_analysis.py --seeds 3`: 2,160 rows COMPLETE — Discussion Table 6 filled
+- `dynamic_loss_benchmark.py --seeds 5`: 275/275 rows COMPLETE — appendix added;
+  FR→GCE beats static FR at sym noise but never beats static GCE; SCE best at asym_40
 
-**Currently running (2026-05-16, session 4):**
-- `cifar_n_benchmark.py --seeds 5` (PID 37250): 8/90 rows; seed=0 aggre done, random1 in progress
-- `gradient_norm_analysis.py --seeds 3` (PID 40969): 480/720 rows; seed=0 4/6 obj done
-- `dynamic_loss_benchmark.py --seeds 5` (PID 49195): 5 schedules + 6 baselines × 5 regimes × 5 seeds
+**In progress (2026-06-03):**
+- `resnet_noisy_label_benchmark.py` (ResNet-18, 50k, 100 epochs): seed 0 clean→sym_60 done
+  (24 rows). Seed-0 signal: FR>KL at all sym levels (+6 to +9.5pp) BUT hierarchy shifts —
+  SCE/GCE/MAE dominate at ResNet scale (sym_60: SCE 82.8, GCE 75.8, MAE 75.2, FR 49.9, KL 43.9).
+  MAE flips from catastrophic (ConvNet) to strong (ResNet) → second architecture reversal.
 
 Remaining work:
-1. **CIFAR-N results** (running, PID 37250): 8/90 rows. When complete, fill §3.3 table in
-   `fr_noisy_labels.tex`, run `generate_cifar_n_figures.py`.
-2. **Gradient norm figures** (running, PID 40969): 480/720 rows. When complete, update
-   Discussion Table 6 with multi-seed means, run `generate_gradient_norm_figures.py`.
-3. **Dynamic loss results** (running, PID 49195): When complete, add a new §3.4 to
-   `fr_noisy_labels.tex` if FR→GCE curriculum beats both static objectives.
-4. **50k size ablation**: slow on MPS (~8h). Lower priority; deferred.
-5. **ResNet-18 on full CIFAR-10** (needs GPU): critical for NeurIPS reviewer credibility.
+1. **ResNet-18 completion**: asym_40 seed 0 + seeds 1-4 (~10-20h MPS, resumable).
+2. **ResNet@10k 2×2 cell**: `--n-train 10000` run to disentangle architecture vs data size
+   for the MAE flip (ConvNet@10k bad, ConvNet@50k bad, ResNet@50k good → ResNet@10k decides).
+3. **Adaptive loss switching**: gradient-ratio-triggered FR→GCE switch (vs fixed epoch 30).
+4. **ELR baseline**: one non-loss-function baseline for the main comparison.
+5. **FR convergence ablation**: is FR's ResNet sym_60 gap a convergence artifact?
+   Longer training / LR scaling at ResNet@10k sym_60.
 
 ### NeurIPS Research Directions (session 3 additions)
 
